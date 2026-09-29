@@ -1,0 +1,8 @@
+# A sablonok és tesztadatok bájtpontos összehasonlítása miatt mindenhol LF sorvég.
+* text=auto eol=lf
+*.exe binary
+*.syso binary
+*.xlsx binary
+*.png binary
+*.jpg binary
+*.woff2 binary

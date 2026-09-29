@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/fs"
 	"path"
+	"strings"
 )
 
 // LoadTemplates betölti a három sablont a fájlrendszerből (dir/<id>.html).
@@ -15,7 +16,9 @@ func LoadTemplates(fsys fs.FS, dir string) ([]*Template, error) {
 			return nil, fmt.Errorf("%s sablon: %w", info.ID, err)
 		}
 		t := info
-		nodes, keys, err := ParseTemplate(string(src))
+		// Windowsos git-checkout CRLF-re alakíthatja a sablont: egységesen LF.
+		text := strings.ReplaceAll(string(src), "\r\n", "\n")
+		nodes, keys, err := ParseTemplate(text)
 		if err != nil {
 			return nil, fmt.Errorf("%s sablon: %w", info.ID, err)
 		}

@@ -39,7 +39,7 @@ func TestOriginalTemplatesMatchDesignerPreview(t *testing.T) {
 	d := sampleRenderData(t)
 	for _, info := range TemplateInfos {
 		src, _ := os.ReadFile("testdata/eredeti/" + info.ID + ".html")
-		nodes, _, err := ParseTemplate(string(src))
+		nodes, _, err := ParseTemplate(lf(src))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -49,7 +49,7 @@ func TestOriginalTemplatesMatchDesignerPreview(t *testing.T) {
 		if len(missing) > 0 {
 			t.Errorf("%s: hiányzó kulcsok: %v", info.ID, missing)
 		}
-		if got != string(want) {
+		if got != lf(want) {
 			t.Errorf("%s: az eredeti sablon kimenete eltér a tervezői előnézettől", info.ID)
 		}
 	}
@@ -64,11 +64,12 @@ func TestConvertedTemplatesMatchDesignerPreview(t *testing.T) {
 	}
 	for _, tpl := range tpls {
 		got, missing := tpl.Render(d)
-		want, _ := os.ReadFile("testdata/elonezet/" + tpl.ID + ".html")
+		wantB, _ := os.ReadFile("testdata/elonezet/" + tpl.ID + ".html")
+		want := lf(wantB)
 		if len(missing) > 0 {
 			t.Errorf("%s: hiányzó kulcsok: %v", tpl.ID, missing)
 		}
-		if got != string(want) {
+		if got != want {
 			i := 0
 			for i < len(got) && i < len(want) && got[i] == want[i] {
 				i++
@@ -78,7 +79,7 @@ func TestConvertedTemplatesMatchDesignerPreview(t *testing.T) {
 				lo = 0
 			}
 			hiG, hiW := min(i+120, len(got)), min(i+120, len(want))
-			t.Errorf("%s: eltérés a(z) %d. bájtnál\n kapott: %q\n várt:   %q", tpl.ID, i, got[lo:hiG], string(want[lo:hiW]))
+			t.Errorf("%s: eltérés a(z) %d. bájtnál\n kapott: %q\n várt:   %q", tpl.ID, i, got[lo:hiG], want[lo:hiW])
 		}
 	}
 }
