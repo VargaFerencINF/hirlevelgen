@@ -45,14 +45,31 @@ jobs:
           if ($p.ExitCode -ne 0) { throw "batch hiba: $($p.ExitCode)" }
           Get-ChildItem -Recurse "$env:RUNNER_TEMP\kimenet" | Select-Object -First 12 FullName
 
-      - name: Ablak-teszt (WebView2)
+      - name: Ablak-teszt (WebView2) és képernyőkép
         shell: pwsh
-        continue-on-error: true
         run: |
+          $log = "$env:RUNNER_TEMP\cfg3\naplo.txt"
           $p = Start-Process -FilePath dist\EnergofishHirlevel.exe -ArgumentList '-fustteszt','-beallitasok',"$env:RUNNER_TEMP\cfg3" -PassThru
-          if (-not $p.WaitForExit(120000)) { $p.Kill(); throw "időtúllépés" }
-          Get-Content "$env:RUNNER_TEMP\cfg3\naplo.txt" -ErrorAction SilentlyContinue
+          $t = 0
+          while ($t -lt 60 -and -not ((Test-Path $log) -and (Select-String -Path $log -Pattern 'Mozilla' -Quiet))) { Start-Sleep -Milliseconds 500; $t += 0.5 }
+          Start-Sleep -Seconds 4
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
+          $g = [System.Drawing.Graphics]::FromImage($bmp)
+          $g.CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+          New-Item -ItemType Directory -Force kepernyokep | Out-Null
+          $bmp.Save("kepernyokep\ablak.png")
+          if (-not $p.WaitForExit(90000)) { $p.Kill(); throw "időtúllépés" }
+          Get-Content $log -ErrorAction SilentlyContinue
           if ($p.ExitCode -ne 0) { throw "ablak-teszt hiba: $($p.ExitCode)" }
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: kepernyokep
+          path: kepernyokep/
+          if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
         with:

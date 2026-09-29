@@ -389,7 +389,7 @@ func (a *App) apiInit(w http.ResponseWriter, r *http.Request) (any, error) {
 	a.inited = true
 	if a.smoke {
 		log.Printf("füstteszt: a felület betöltődött (%s)", r.UserAgent())
-		time.AfterFunc(3*time.Second, a.Quit)
+		time.AfterFunc(10*time.Second, a.Quit)
 	}
 	tpls := make([]h.Template, 0, len(a.templates))
 	for _, t := range a.templates {
