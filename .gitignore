@@ -1,0 +1,4 @@
+# fordítási és futási melléktermékek
+/kimenet/
+*.log
+/tmp/

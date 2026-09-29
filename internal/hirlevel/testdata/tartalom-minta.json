@@ -1,0 +1,180 @@
+{
+  "assets": {
+    "base": "../assets"
+  },
+  "meta": {
+    "subject": "Hat termék, ami most fogy | Energofish Partnerjelentés, 2026. október",
+    "preheader": "Októberi partnerajánlat: hat keresett őszi termék, kedvezményekkel október 31-ig."
+  },
+  "utility": {
+    "label": "Partnerjelentés · 10. szám",
+    "browserLink": {
+      "text": "Megnyitás böngészőben",
+      "url": "https://energofish.hu/partnerjelentes/2026-10"
+    }
+  },
+  "header": {
+    "title": "Partnerjelentés",
+    "date": "2026. október"
+  },
+  "cover": {
+    "image": "../assets/cover-balaton-1200x660.jpg",
+    "imageAlt": "Horgász a Balaton partján, naplementében",
+    "kicker": "Havi ajánlat · 2026. október",
+    "headline": "Hat termék, ami most fogy.",
+    "standfirst": "Az októberi partnerajánlatban a szezon legkeresettebb feeder- és ragadozós termékei szerepelnek, kedvezményekkel október 31-ig.",
+    "meta": {
+      "issue": "10. szám",
+      "readingTime": "Olvasási idő: 2 perc",
+      "items": "6 termék",
+      "poll": "1 kérdés"
+    }
+  },
+  "note": {
+    "greeting": "Kedves Kovács Péter!",
+    "body": "Idén két héttel korábban hűlt le a víz, és ez már a rendeléseken is látszik: a feeder szeptemberben elindult, a ragadozós szezon csúcsa pedig csak novemberben jön. Az októberi ajánlatba azt a hat terméket válogattam, amelyből partnereinknél most a leggyorsabban fogy a készlet. A kedvezmények október 31-ig érvényesek.",
+    "signer": {
+      "portrait": "../assets/portre-helyettesito.png",
+      "name": "Tóth Gábor",
+      "title": "értékesítési igazgató, Energofish Kft."
+    }
+  },
+  "offer": {
+    "label": "01 / Októberi ajánlat",
+    "badge": "6 tétel · okt. 31-ig",
+    "intro": "A szeptemberi rendelések alapján válogattuk. Az árak ajánlott fogyasztói árak.",
+    "items": {
+      "1": {
+        "url": "https://b2b.energofish.hu/termek/T82753-204",
+        "image": "https://images.energofish.hu/thumbimage/T82753-204.JPG",
+        "imageAlt": "Wizard Vertix Vibrato Rattle Pro wobbler",
+        "code": "T82753-204",
+        "name": "Wizard Vertix Vibrato",
+        "desc": "Csörgős, süllyedő, 6 színben",
+        "price": "3 090 Ft",
+        "deal": "−15% okt. 31-ig",
+        "cta": "Rendelés"
+      },
+      "2": {
+        "url": "https://b2b.energofish.hu/termek/T12049-069",
+        "image": "https://images.energofish.hu/thumbimage/T12049-069.JPG",
+        "imageAlt": "Carp Expert Silver Carp Heavy Feeder 3,60 m szett",
+        "code": "T12049-069",
+        "name": "Carp Expert feeder szett",
+        "desc": "3,60 m bot, orsó, etetőanyag",
+        "price": "40 990 Ft",
+        "deal": "Utolsó 40 db",
+        "cta": "Rendelés"
+      },
+      "3": {
+        "url": "https://b2b.energofish.hu/termek/T98134-092",
+        "image": "https://images.energofish.hu/thumbimage/T98134-092.JPG",
+        "imageAlt": "Benzar Mix Lake Series etetőanyag, 800 g",
+        "code": "T98134-092",
+        "name": "Benzar Lake Series",
+        "desc": "Tavi feeder mix, 800 g",
+        "price": "1 790 Ft",
+        "deal": "Raklapra −8%",
+        "cta": "Rendelés"
+      },
+      "4": {
+        "url": "https://b2b.energofish.hu/termek/TSG6K0-600",
+        "image": "https://images.energofish.hu/thumbimage/TSG6K0-600.JPG",
+        "imageAlt": "Seaguar Dulast PEX8 Flash Green fonott zsinór, 150 m",
+        "code": "TSG6K0-600",
+        "name": "Seaguar Dulast PEX8",
+        "desc": "Nyolcszálas fonott, 150 m",
+        "price": "8 990 Ft",
+        "deal": "3+1 akció",
+        "cta": "Rendelés"
+      },
+      "5": {
+        "url": "https://b2b.energofish.hu/termek/TSNVC0-007",
+        "image": "https://images.energofish.hu/thumbimage/TSNVC0-007.JPG",
+        "imageAlt": "Sonik Lockbox Large Loaded doboz",
+        "code": "TSNVC0-007",
+        "name": "Sonik Lockbox Large",
+        "desc": "Vízálló, töltött szerelékdoboz",
+        "price": "25 790 Ft",
+        "deal": "",
+        "cta": "Rendelés"
+      },
+      "6": {
+        "url": "https://b2b.energofish.hu/termek/TM4340-200",
+        "image": "https://images.energofish.hu/thumbimage/TM4340-200.JPG",
+        "imageAlt": "Mustad Infiltrator Weighted súlyozott offset horog",
+        "code": "TM4340-200",
+        "name": "Mustad Infiltrator",
+        "desc": "Súlyozott offset horog",
+        "price": "1 815 Ft",
+        "deal": "−55%, kifutó",
+        "cta": "Rendelés"
+      }
+    },
+    "more": {
+      "text": "Teljes őszi ajánlat a B2B webshopban →",
+      "url": "https://b2b.energofish.hu/oszi-ajanlat"
+    }
+  },
+  "poll": {
+    "label": "02 / Egy kérdés",
+    "question": "Melyik kategóriából kérne több újdonságot 2027-re?",
+    "answers": {
+      "1": {
+        "text": "A · Feeder és method",
+        "url": "https://energofish.hu/kerdes/2026-10?valasz=feeder"
+      },
+      "2": {
+        "text": "B · Ragadozós műcsali",
+        "url": "https://energofish.hu/kerdes/2026-10?valasz=ragadozo"
+      },
+      "3": {
+        "text": "C · Pontyos szerelék és bojli",
+        "url": "https://energofish.hu/kerdes/2026-10?valasz=ponty"
+      }
+    },
+    "note": "Egy kattintás, és már rögzítettük is. Az eredményt a novemberi számban közöljük."
+  },
+  "rep": {
+    "label": "Az Ön területi képviselője",
+    "initials": "NA",
+    "name": "Nagy Attila",
+    "region": "Pest és Nógrád megye",
+    "text": "Nagyobb tétel, egyedi árajánlat vagy készletkérdés? Egy munkanapon belül válaszolok.",
+    "phone": {
+      "text": "✆ +36 30 123 4567",
+      "url": "tel:+36301234567"
+    },
+    "email": {
+      "text": "nagy.attila@energofish.hu",
+      "url": "mailto:nagy.attila@energofish.hu"
+    }
+  },
+  "footer": {
+    "company": "Energofish Kft.",
+    "address": "[Székhely címe] · [Cégjegyzékszám] · [Adószám]",
+    "legal": "Ezt a levelet azért kapta, mert az Energofish regisztrált kereskedelmi partnere.",
+    "unsubscribe": {
+      "text": "Leiratkozás",
+      "url": "https://energofish.hu/hirlevel/leiratkozas"
+    },
+    "settings": {
+      "text": "Hírlevél-beállítások",
+      "url": "https://energofish.hu/hirlevel/beallitasok"
+    }
+  },
+  "social": {
+    "facebook": {
+      "url": "https://facebook.com/energofish"
+    },
+    "youtube": {
+      "url": "https://youtube.com/@energofish"
+    },
+    "instagram": {
+      "url": "https://instagram.com/energofish"
+    },
+    "tiktok": {
+      "url": "https://tiktok.com/@energofish"
+    }
+  }
+}

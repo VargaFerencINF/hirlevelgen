@@ -1,0 +1,60 @@
+name: Windows build és teszt
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Egységtesztek
+        run: go test ./...
+
+      - name: Exe fordítása
+        shell: bash
+        run: |
+          VERSION="1.0.0-${GITHUB_SHA::7}"
+          GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath \
+            -ldflags "-s -w -H windowsgui -X main.version=${VERSION}" \
+            -o dist/EnergofishHirlevel.exe .
+          cp demo/Energofish_partner_hirlevel_minta.xlsx dist/
+
+      - name: Önteszt (mindhárom sablon, 21 partner, EML)
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath dist\EnergofishHirlevel.exe -ArgumentList '-onteszt','-beallitasok',"$env:RUNNER_TEMP\cfg" -Wait -PassThru
+          Get-Content "$env:RUNNER_TEMP\cfg\naplo.txt" -ErrorAction SilentlyContinue
+          if ($p.ExitCode -ne 0) { throw "önteszt hiba: $($p.ExitCode)" }
+
+      - name: Batch generálás a minta Excelből
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath dist\EnergofishHirlevel.exe -ArgumentList '-batch','-excel','dist\Energofish_partner_hirlevel_minta.xlsx','-sablon','v4','-kimenet',"$env:RUNNER_TEMP\kimenet",'-eml','-beallitasok',"$env:RUNNER_TEMP\cfg2" -Wait -PassThru
+          Get-Content "$env:RUNNER_TEMP\cfg2\naplo.txt" -ErrorAction SilentlyContinue
+          if ($p.ExitCode -ne 0) { throw "batch hiba: $($p.ExitCode)" }
+          Get-ChildItem -Recurse "$env:RUNNER_TEMP\kimenet" | Select-Object -First 12 FullName
+
+      - name: Ablak-teszt (WebView2)
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          $p = Start-Process -FilePath dist\EnergofishHirlevel.exe -ArgumentList '-fustteszt','-beallitasok',"$env:RUNNER_TEMP\cfg3" -PassThru
+          if (-not $p.WaitForExit(120000)) { $p.Kill(); throw "időtúllépés" }
+          Get-Content "$env:RUNNER_TEMP\cfg3\naplo.txt" -ErrorAction SilentlyContinue
+          if ($p.ExitCode -ne 0) { throw "ablak-teszt hiba: $($p.ExitCode)" }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: EnergofishHirlevel
+          path: dist/

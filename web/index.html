@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="api-token" content="{{TOKEN}}">
+<meta name="app-version" content="{{VERSION}}">
+<title>Energofish Partnerhírlevél-generátor</title>
+<link rel="icon" type="image/png" href="/static/img/app-icon-64.png">
+<link rel="stylesheet" href="/static/app.css?v={{VERSION}}">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <img src="/static/img/energofish-mark-light.png" alt="Energofish">
+    <div>
+      <div class="brand-title">Partnerhírlevél-generátor</div>
+      <div class="brand-sub">Energofish · Partnerjelentés</div>
+    </div>
+  </div>
+  <nav class="steps" id="steps" aria-label="Lépések"></nav>
+  <div class="top-actions">
+    <button class="icon-btn" id="menuBtn" title="Menü" aria-haspopup="true"></button>
+  </div>
+</header>
+<div class="stripe"></div>
+<div class="menu hidden" id="menu" role="menu"></div>
+
+<main class="layout">
+  <section class="editor" id="editor">
+    <div class="editor-inner">
+      <div class="pane" data-pane="adatok"></div>
+      <div class="pane" data-pane="tartalom"></div>
+      <div class="pane" data-pane="termekek"></div>
+      <div class="pane" data-pane="ellenorzes"></div>
+      <div class="pane" data-pane="generalas"></div>
+    </div>
+  </section>
+  <aside class="preview" id="preview"></aside>
+</main>
+
+<button class="btn btn-dark pv-toggle" id="pvToggle"></button>
+<div id="toasts" aria-live="polite"></div>
+<div id="dropOverlay"><div>Engedd el az Excel fájlt<small>.xlsx munkafüzet a Partnerek és Termékek munkalappal</small></div></div>
+<script src="/static/app.js?v={{VERSION}}"></script>
+</body>
+</html>
