@@ -16,6 +16,8 @@ Windowsos asztali program, amely egy Excel-partnerlistából **partnerenként le
 1. Töltsd le a [`dist/EnergofishHirlevel.exe`](dist/EnergofishHirlevel.exe) fájlt (és ha kell, a [`dist/Energofish_partner_hirlevel_minta.xlsx`](dist/Energofish_partner_hirlevel_minta.xlsx) mintát).
 2. Indítsd el dupla kattintással. Telepíteni nem kell, egyetlen fájl.
 
+![A program Windows 11-en, kis képernyőn (1024×768) teljes méretre nyitva](docs/kepernyo-windows.png)
+
 **Rendszerigény:** Windows 10 vagy 11. A program a Windowsba épített *Microsoft Edge WebView2* komponenssel jeleníti meg a felületét (Windows 11-en és frissített Windows 10-en megvan). Ha hiányzik, a program automatikusan az alapértelmezett böngészőben nyílik meg, és úgy is teljes értékűen működik.
 
 > **„A Windows megvédte a számítógépet” üzenet:** a program nincs digitálisan aláírva, ezért az első indításnál a SmartScreen figyelmeztethet. Kattints a **További információ → Futtatás mindenképp** gombra.
