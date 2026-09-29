@@ -13,7 +13,7 @@ Windowsos asztali program, amely egy Excel-partnerlistából **partnerenként le
 
 ## Letöltés és indítás
 
-1. Töltsd le a [`dist/EnergofishHirlevel.exe`](dist/EnergofishHirlevel.exe) fájlt (és ha kell, a [`dist/Energofish_partner_hirlevel_minta.xlsx`](dist/Energofish_partner_hirlevel_minta.xlsx) mintát).
+1. Töltsd le a legfrissebb kiadást a [Releases](https://github.com/VargaFerencINF/hirlevelgen/releases/latest) oldalról (vagy a [`dist/EnergofishHirlevel.exe`](dist/EnergofishHirlevel.exe) fájlt) (és ha kell, a [`dist/Energofish_partner_hirlevel_minta.xlsx`](dist/Energofish_partner_hirlevel_minta.xlsx) mintát).
 2. Indítsd el dupla kattintással. Telepíteni nem kell, egyetlen fájl.
 
 ![A program Windows 11-en, kis képernyőn (1024×768) teljes méretre nyitva](docs/kepernyo-windows.png)

@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write   # a main ágon kiadás (Release) készül az exe-vel
 
 jobs:
   windows:
@@ -75,3 +75,16 @@ jobs:
         with:
           name: EnergofishHirlevel
           path: dist/
+
+      - name: Kiadás (Release) a main ágon
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: Energofish Partnerhírlevél-generátor 1.0.${{ github.run_number }}
+          body: |
+            Letöltés: **EnergofishHirlevel.exe** (telepítés nélkül, dupla kattintással indul) és a minta Excel.
+            Commit: ${{ github.sha }}
+          files: |
+            dist/EnergofishHirlevel.exe
+            dist/Energofish_partner_hirlevel_minta.xlsx
