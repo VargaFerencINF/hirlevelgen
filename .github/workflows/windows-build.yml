@@ -60,6 +60,9 @@ jobs:
           $g.CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
           New-Item -ItemType Directory -Force kepernyokep | Out-Null
           $bmp.Save("kepernyokep\ablak.png")
+          # ideiglenes: a kép base64-ben a naplóba (ellenőrzéshez)
+          $b64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes("kepernyokep\ablak.png"))
+          for ($i = 0; $i -lt $b64.Length; $i += 3000) { Write-Output ("KEP64:" + $b64.Substring($i, [Math]::Min(3000, $b64.Length - $i))) }
           if (-not $p.WaitForExit(90000)) { $p.Kill(); throw "időtúllépés" }
           Get-Content $log -ErrorAction SilentlyContinue
           if ($p.ExitCode -ne 0) { throw "ablak-teszt hiba: $($p.ExitCode)" }

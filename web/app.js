@@ -699,7 +699,10 @@ function fieldRow(f) {
     updCounter(); grow(); thumbSoon();
     syncSoon();
   });
-  if (f.tokens) input.addEventListener('focus', () => showTokenBar(wrap, input));
+  if (f.tokens) {
+    input.addEventListener('focus', () => showTokenBar(wrap, input));
+    input._recount = updCounter; // a partner váltásakor újraszámoljuk (a változók hossza más)
+  }
   wrap.append(
     h('div', { class: 'field-top' }, h('label', { for: input.id }, f.label, f.required ? h('span', { class: 'req', text: '*' }) : null), counter),
     thumb ? h('div', { class: 'img-field' }, input, thumb) : input,
@@ -1253,6 +1256,7 @@ function setPreviewPartner(i) {
   S.pv = i;
   $('#pvSel').value = i;
   $$('#ptBody tr.row').forEach(tr => tr.classList.toggle('current', +tr.dataset.i === i));
+  $$('.pane[data-pane="tartalom"] .inp').forEach(el => el._recount && el._recount());
   refreshPreview();
 }
 
