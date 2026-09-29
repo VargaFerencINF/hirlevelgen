@@ -139,6 +139,23 @@ func TestReadExcelAliasesAndLinks(t *testing.T) {
 	}
 }
 
+func TestMultipleEmails(t *testing.T) {
+	p := Partner{Email: "bolt@pelda.hu; tulaj@pelda.hu", Name: "Bolt"}
+	if PartnerBlocked(&p) || len(SplitEmails(p.Email)) != 2 {
+		t.Fatal("két cím egy cellában legyen érvényes")
+	}
+	if FileBaseName("", &p, 1, 5) != "001_bolt@pelda.hu" {
+		t.Errorf("fájlnév: %q", FileBaseName("", &p, 1, 5))
+	}
+	eml := string(BuildEML(nil, &p, "Tárgy", "<p>x</p>", "x"))
+	if !strings.Contains(eml, "To: \"Bolt\" <bolt@pelda.hu>, <tulaj@pelda.hu>\r\n") {
+		t.Errorf("To: %q", eml[:200])
+	}
+	if !PartnerBlocked(&Partner{Email: "bolt@pelda.hu; rossz"}) {
+		t.Error("hibás második cím")
+	}
+}
+
 func TestReadExcelRejectsXLS(t *testing.T) {
 	if _, err := ReadExcel([]byte("x"), "regi.xls", time.Now()); err == nil || !strings.Contains(err.Error(), ".xlsx") {
 		t.Errorf("hiba: %v", err)

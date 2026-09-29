@@ -44,7 +44,7 @@ Tetszőleges oszlopsorrend, a program a **fejléc szövegéből** ismeri fel az 
 
 | Oszlop | Kötelező | Mire kell |
 |---|:-:|---|
-| Partner e-mail | ✔ | A címzett. Hibás/hiányzó e-mail cím esetén a sor kimarad. |
+| Partner e-mail | ✔ | A címzett. Több cím is lehet pontosvesszővel elválasztva (`bolt@x.hu; tulaj@x.hu`). Hibás/hiányzó cím esetén a sor kimarad. |
 | Partner neve | ✔ | Megszólítás: „Kedves {nev}!”. Üresen „Kedves Partnerünk!” lesz. |
 | Területi képviselő | ✔ | A képviselő neve; ebből készül a monogram, ha nincs fotó. |
 | Képviselő kép link | | https:// kép, négyzetes (min. 128×128). Üresen monogram jelenik meg. |

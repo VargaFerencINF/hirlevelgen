@@ -114,7 +114,7 @@ def main():
         photo, tel, mail, region = REPS[rep]
         ws.append([e, n, rep, photo, tel, mail, region, ceg])
     header_row(ws, headers, required={"Partner e-mail", "Partner neve", "Területi képviselő"}, notes={
-        "Partner e-mail": "Kötelező. A címzett e-mail címe, erre készül a hírlevél.",
+        "Partner e-mail": "Kötelező. A címzett e-mail címe. Több cím pontosvesszővel elválasztva is megadható.",
         "Partner neve": "A megszólításhoz: „Kedves {nev}!”. Üresen hagyva „Kedves Partnerünk!” lesz.",
         "Területi képviselő": "A képviselő neve. A monogram ebből készül, ha nincs kép.",
         "Képviselő kép link": "Teljes https:// cím, négyzetes kép (min. 128×128). Üresen hagyva monogram jelenik meg. "

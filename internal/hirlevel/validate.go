@@ -35,6 +35,33 @@ var emailRe = regexp.MustCompile(`^[^\s@<>(),;:"\[\]]+@[^\s@<>(),;:"\[\]]+\.[A-Z
 // ValidEmail egyszerű formai ellenőrzés.
 func ValidEmail(s string) bool { return emailRe.MatchString(strings.TrimSpace(s)) }
 
+var emailSep = regexp.MustCompile(`[;,\s]+`)
+
+// SplitEmails a cellában lévő (pontosvesszővel, vesszővel vagy szóközzel elválasztott) címek.
+func SplitEmails(s string) []string {
+	var out []string
+	for _, e := range emailSep.Split(strings.TrimSpace(s), -1) {
+		if e = strings.TrimSpace(e); e != "" {
+			out = append(out, e)
+		}
+	}
+	return out
+}
+
+// ValidEmailList igaz, ha a cellában legalább egy cím van, és mind érvényes.
+func ValidEmailList(s string) bool {
+	list := SplitEmails(s)
+	if len(list) == 0 {
+		return false
+	}
+	for _, e := range list {
+		if !ValidEmail(e) {
+			return false
+		}
+	}
+	return true
+}
+
 func runeLen(s string) int { return utf8.RuneCountInString(s) }
 
 // checkURL a link formáját ellenőrzi. kind: "url" vagy "image".
@@ -243,7 +270,7 @@ func ValidatePartners(partners []Partner) []Issue {
 		switch {
 		case p.Email == "":
 			add(LevelError, "email", prefix+"hiányzik az e-mail cím")
-		case !ValidEmail(p.Email):
+		case !ValidEmailList(p.Email):
 			add(LevelError, "email", prefix+"érvénytelen e-mail cím")
 		default:
 			k := strings.ToLower(p.Email)
@@ -274,7 +301,7 @@ func ValidatePartners(partners []Partner) []Issue {
 
 // PartnerBlocked igaz, ha a partnernek van hibája (így kimarad a generálásból).
 func PartnerBlocked(p *Partner) bool {
-	return p.Email == "" || !ValidEmail(p.Email)
+	return p.Email == "" || !ValidEmailList(p.Email)
 }
 
 // ValidateColumns a partnerlista felülíró oszlopait ellenőrzi.

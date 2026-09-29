@@ -80,6 +80,9 @@ func FileBaseName(pattern string, p *Partner, seq, total int) string {
 		width = 3
 	}
 	t := PartnerTokens(p)
+	if list := SplitEmails(p.Email); len(list) > 0 {
+		t["email"] = list[0]
+	}
 	t["sorszam"] = fmt.Sprintf("%0*d", width, seq)
 	v, _, _ := Expand(pattern, t, false)
 	return SafeFileName(v)
@@ -328,7 +331,15 @@ func BuildEML(from *mail.Address, p *Partner, subject, html, text string) []byte
 	if from != nil {
 		h("From", from.String())
 	}
-	h("To", (&mail.Address{Name: p.Name, Address: strings.TrimSpace(p.Email)}).String())
+	var to []string
+	for i, e := range SplitEmails(p.Email) {
+		name := ""
+		if i == 0 {
+			name = p.Name
+		}
+		to = append(to, (&mail.Address{Name: name, Address: e}).String())
+	}
+	h("To", strings.Join(to, ", "))
 	h("Subject", mime.QEncoding.Encode("UTF-8", subject))
 	h("MIME-Version", "1.0")
 	h("Content-Type", `multipart/alternative; boundary="`+boundary+`"`)
