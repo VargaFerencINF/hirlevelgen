@@ -78,3 +78,13 @@ func (a *App) pickFolder(title, dir string) (string, error) {
 func defaultOutputDir() string {
 	return filepath.Join(documentsDir(), "Energofish hírlevelek")
 }
+
+func (a *App) pickFiles(title, dir string, filters []fileFilter) ([]string, error) {
+	opts := a.dialogOptions(title, filters)
+	opts = append(opts, zenity.Filename(existingDir(dir)+string(os.PathSeparator)))
+	paths, err := zenity.SelectFileMultiple(opts...)
+	if _, err := dialogErr("", err); err != nil {
+		return nil, err
+	}
+	return paths, nil
+}

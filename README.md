@@ -73,7 +73,7 @@ Tetszőleges oszlopsorrend, a program a **fejléc szövegéből** ismeri fel az 
 | Akció | | max. kb. 18 karakter, üres is lehet |
 | Aktív | | opcionális: „nem” értéknél a termék nem kerül a levélbe |
 
-A rács asztali nézetben 3 oszlopos (mobilon 2), ezért **3, 6 vagy 9 termék** mutat a legjobban; 1–12 termék bármikor működik.
+A rács asztali nézetben 3 oszlopos (480 px alatti mobilon 2), ezért **3, 6 vagy 9 termék** mutat a legjobban; 1–12 termék bármikor működik.
 Linkeknél a cellához rendelt hivatkozás (Ctrl+K) és a `HYPERLINK()` képlet is működik.
 
 ---
@@ -123,14 +123,37 @@ A sablonok saját képei (logó, hullámok, mélységtérkép, alapértelmezett 
 
 ## Sablonok
 
-A tervezői sablonok (`docs/MEZOK-ES-GENERATOR.md`, `{{kulcs}}` helyőrzők) a [`sablonok/`](sablonok) mappában vannak, a következő kiegészítésekkel – alapesetben a kimenet **bájtra azonos** a tervezői előnézettel (ezt teszt ellenőrzi):
+Beépítve a tervező három **reszponzív** sablonja (1.1-es változat, lásd [`docs/SABLON-CHANGELOG.md`](docs/SABLON-CHANGELOG.md)): asztali gépen 600 px, tableten középre igazítva, mobilon 2 oszlopos termékrács és egymás alá rendezett gombok. Az előnézetben asztali, tablet (768 px) és mobil (390 px) nézet is választható.
 
-- a 6 fix terméktégla helyett 1–12 termék (Outlookban is 3 oszlopos rács);
+A sablonok a tervezői formátumot követik ([`docs/MEZOK-ES-GENERATOR.md`](docs/MEZOK-ES-GENERATOR.md), `{{kulcs}}` helyőrzők). A program betöltéskor kiegészíti őket; alapesetben a kimenet **bájtra azonos** a tervezői előnézettel (ezt teszt ellenőrzi):
+
+- a fix terméktéglák helyett 1–12 termék (Outlookban is a sablon oszlopszámával);
 - **képviselő fotója** kör alakban, narancs kerettel; ha nincs fotó, a monogram;
 - a telefon- és e-mail-gomb, a „teljes ajánlat” link, a webes verzió linkje és a közösségi ikonok üres érték esetén elmaradnak;
-- v4: az „Egy kérdés” blokk üres kérdésnél elmarad, a preheaderhez automatikusan hozzáfűzi a „Plusz egy kérdés.” szöveget.
+- kérdés-blokkos sablon (v4): üres kérdésnél a blokk elmarad, a preheaderhez automatikusan hozzáfűzi a „Plusz egy kérdés.” szöveget.
 
-Új sablonverzió esetén: a tervezői fájlokat az `internal/hirlevel/testdata/eredeti/` mappába kell tenni, majd `python3 tools/sablon_atalakitas.py`.
+### Új sablon hozzáadása (1.1)
+
+![Sablonválasztó élő bélyegképekkel és a „Sablon hozzáadása” kártyával](docs/kepernyo-sablonok.png)
+
+*Generálás → Sablon → Sablon hozzáadása* (vagy a menüből, vagy egyszerűen az ablakba húzva):
+
+- **egy `.html` sablon** a tervezői formátumban, vagy
+- **a tervezőtől kapott `.zip` csomag** – a benne lévő összes sablont felveszi (a kitöltött előnézeteket kihagyja), a saját képeikkel együtt.
+
+A program ellenőrzi a sablont: ismeretlen `{{mezőt}}` használó fájlt nem vesz fel, a hiányzó képeket és a nem átalakítható részeket (pl. nem szabványos termékrács → fix termékhelyek) jelzi. A hozzáadott sablonok a gépen maradnak (`%APPDATA%\EnergofishHirlevel\sablonok\`), átnevezhetők és törölhetők.
+
+**A beépített sablonok frissítése:** ha a tervező a v1/v2/v4 új változatát küldi, ugyanazzal a fájlnévvel (pl. `v4-partnerjelentes.html`) hozzáadva lecseréli a beépítettet – nem kell új program. A frissített változat törlésével az eredeti tér vissza.
+
+> Saját képet (`{{assets.base}}/sajat-kep.png`) használó sablonnál a képet is fel kell tölteni a képtár webcímére. A program a kimenetbe is kimásolja.
+
+---
+
+## Változások
+
+**1.1** – reszponzív sablonok (mobil + tablet); új sablonok hozzáadása és mentése (.html vagy .zip), a beépítettek frissítése fájlból; tablet előnézet; élő bélyegképek a sablonválasztóban; több e-mail cím egy partnercellában.
+
+**1.0** – első kiadás.
 
 ---
 
@@ -172,9 +195,9 @@ go run . -bongeszo      # fejlesztői futtatás böngészőben
 |---|---|
 | `main.go`, `app.go` | indítás, helyi HTTP API (csak 127.0.0.1, tokennel védve) |
 | `platform_windows.go` | WebView2 ablak, natív fájlválasztók, DPI-kezelés |
-| `internal/hirlevel/` | sablonmotor, Excel-olvasó, validálás, generálás (HTML, EML, CSV) |
+| `internal/hirlevel/` | sablonmotor és -átalakító, sablontár, Excel-olvasó, validálás, generálás (HTML, EML, CSV) |
 | `web/` | a felület |
-| `sablonok/`, `assets/` | hírlevélsablonok és képeik |
+| `sablonok/`, `assets/` | a tervező nyers (reszponzív) sablonjai és képeik; átalakítás betöltéskor |
 | `demo/`, `tools/minta_excel.py` | minta Excel és előállító szkriptje |
 | `winres/` | ikon, manifest, verzióinfó (`go-winres make --in winres/winres.json --out rsrc`) |
 

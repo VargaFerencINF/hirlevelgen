@@ -190,3 +190,54 @@ func TestHostGuard(t *testing.T) {
 		}
 	}
 }
+
+func TestAPITemplates(t *testing.T) {
+	app, srv := newTestServer(t)
+	zipData, _ := os.ReadFile("internal/hirlevel/testdata/tervezo-csomag-1.1.zip")
+	req, _ := http.NewRequest(http.MethodPost, srv.URL+"/api/templates/upload", bytes.NewReader(zipData))
+	req.Header.Set("X-Token", app.token)
+	req.Header.Set("X-Filename", "csomag.zip")
+	res, err := http.DefaultClient.Do(req)
+	if err != nil || res.StatusCode != 200 {
+		t.Fatalf("upload: %v %v", err, res.StatusCode)
+	}
+	var out struct {
+		Templates []struct {
+			ID        string `json:"id"`
+			Overrides bool   `json:"overrides"`
+		} `json:"templates"`
+		Results []struct{ OK bool } `json:"results"`
+	}
+	_ = json.NewDecoder(res.Body).Decode(&out)
+	res.Body.Close()
+	if len(out.Results) != 3 || len(out.Templates) != 3 || !out.Templates[2].Overrides {
+		t.Fatalf("%+v", out)
+	}
+	// saját sablon + előnézet + saját kép kiszolgálása
+	raw, _ := os.ReadFile("sablonok/v1-sotet-lemez.html")
+	req, _ = http.NewRequest(http.MethodPost, srv.URL+"/api/templates/upload", bytes.NewReader(raw))
+	req.Header.Set("X-Token", app.token)
+	req.Header.Set("X-Filename", "v9-proba.html")
+	res, _ = http.DefaultClient.Do(req)
+	res.Body.Close()
+	req, _ = http.NewRequest(http.MethodGet, srv.URL+"/api/preview?p=-1&tpl=v9-proba", nil)
+	req.Header.Set("X-Token", app.token)
+	res, _ = http.DefaultClient.Do(req)
+	html, _ := io.ReadAll(res.Body)
+	res.Body.Close()
+	if res.StatusCode != 200 || !strings.Contains(string(html), "Kedves Kovács Péter!") {
+		t.Fatalf("előnézet: %d", res.StatusCode)
+	}
+	if r, _ := http.Get(srv.URL + "/assets/energofish-mark.png"); r.StatusCode != 200 {
+		t.Errorf("assets: %d", r.StatusCode)
+	}
+	if code, _ := call(t, srv, app.token, "/api/templates/delete", map[string]string{"id": "v9-proba"}); code != 200 {
+		t.Errorf("törlés: %d", code)
+	}
+	if code, _ := call(t, srv, app.token, "/api/templates/delete", map[string]string{"id": "v2-waterside"}); code != 200 {
+		t.Errorf("frissítés törlése: %d", code)
+	}
+	if code, _ := call(t, srv, app.token, "/api/templates/delete", map[string]string{"id": "v2-waterside"}); code != 400 {
+		t.Errorf("beépített törlése: %d", code)
+	}
+}

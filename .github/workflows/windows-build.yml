@@ -24,7 +24,7 @@ jobs:
       - name: Exe fordítása
         shell: bash
         run: |
-          VERSION="1.0.0-${GITHUB_SHA::7}"
+          VERSION="1.1.${GITHUB_RUN_NUMBER}"
           GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath \
             -ldflags "-s -w -H windowsgui -X main.version=${VERSION}" \
             -o dist/EnergofishHirlevel.exe .
@@ -80,8 +80,8 @@ jobs:
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.${{ github.run_number }}
-          name: Energofish Partnerhírlevél-generátor 1.0.${{ github.run_number }}
+          tag_name: v1.1.${{ github.run_number }}
+          name: Energofish Partnerhírlevél-generátor 1.1.${{ github.run_number }}
           body: |
             Letöltés: **EnergofishHirlevel.exe** (telepítés nélkül, dupla kattintással indul) és a minta Excel.
             Commit: ${{ github.sha }}

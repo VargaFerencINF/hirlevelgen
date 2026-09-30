@@ -22,7 +22,7 @@ import (
 	h "energofish/hirlevel/internal/hirlevel"
 )
 
-var version = "1.0.0"
+var version = "1.1.0"
 
 const appTitle = "Energofish Partnerhírlevél-generátor"
 
@@ -213,7 +213,7 @@ func runBatch(app *App, excelPath, contentPath, tpl, out string, eml bool, from 
 		}
 	}
 	if tpl != "" {
-		t := h.FindTemplate(app.templates, tpl)
+		t := h.FindTemplate(app.tpls(), tpl)
 		if t == nil {
 			return fmt.Errorf("ismeretlen sablon: %s (v1, v2 vagy v4)", tpl)
 		}
@@ -260,7 +260,7 @@ func runSelfTest() error {
 	if n := len(app.excel.Partners); n != 21 {
 		return fmt.Errorf("%d partner (21 várt)", n)
 	}
-	for _, t := range app.templates {
+	for _, t := range app.tpls() {
 		res, err := h.Generate(app.assets, t, app.state.Content, app.state.Products, app.excel.Partners,
 			h.GenerateOptions{OutputDir: dir, EML: true})
 		if err != nil {

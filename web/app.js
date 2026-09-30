@@ -93,6 +93,7 @@ const ICONS = {
   shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/>',
   table: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>',
   eye: '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
+  tablet: '<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M11 18h2"/>',
   copy: '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
 };
 
@@ -282,9 +283,8 @@ function isBlocked(i) {
 
 function contentIssues(scope) { return S.issues.content.filter(i => i.scope === scope); }
 
-function tplShort() {
-  const t = S.templates.find(t => t.id === S.state.template);
-  return t ? t.short : 'v4';
+function curTpl() {
+  return S.templates.find(t => t.id === S.state.template) || S.templates[0] || {};
 }
 
 /* ------------------------------------------------------------------ keret */
@@ -357,6 +357,8 @@ function toggleMenu() {
     item('reset', 'Közös tartalom visszaállítása a mintára…', resetContent),
     h('hr'),
     item('download', 'Minta Excel mentése…', saveDemo),
+    item('plus', 'Sablon hozzáadása…', importTemplates),
+    item('folder', 'Hozzáadott sablonok mappája', () => api('/api/templates/folder').catch(e => toast(e.message, 'err'))),
     item('folder', 'Beállítások és napló mappája', () => openPath(S.config ? S.config.replace(/[\\/][^\\/]*$/, '') : '')),
     S.mode === 'browser' ? [h('hr'), item('power', 'Kilépés a programból', quitApp)] : null,
     h('div', { class: 'ver', text: `Energofish Partnerhírlevél-generátor · ${VERSION}` }));
@@ -620,8 +622,10 @@ function setupDrop() {
     e.preventDefault();
     depth = 0;
     ov.classList.remove('on');
-    const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-    if (f) uploadExcel(f);
+    const files = Array.from((e.dataTransfer && e.dataTransfer.files) || []);
+    const tpls = files.filter(f => /\.(html?|zip)$/i.test(f.name));
+    if (tpls.length) uploadTemplates(tpls);
+    else if (files[0]) uploadExcel(files[0]);
   });
 }
 
@@ -649,12 +653,12 @@ function renderContent() {
     } },
       h('div', { class: 'group-ic' }, icon(g.icon, 20)),
       h('div', { style: { minWidth: 0 } },
-        h('div', { class: 'group-title' }, g.title, g.only ? h('span', { class: 'pill dark', text: 'csak ' + g.only.join(', ') }) : null),
+        h('div', { class: 'group-title' }, g.title, g.poll ? h('span', { class: 'pill dark', text: 'kérdéses sablonban' }) : null),
         h('div', { class: 'group-desc', text: g.desc })),
       h('div', { class: 'group-meta' }, h('span', { class: 'gstat' }), icon('chev', 18)));
     head.lastChild.lastChild.classList.add('chev');
     const body = h('div', { class: 'group-body' },
-      g.only ? h('div', { class: 'inactive-note hidden', text: 'A kiválasztott sablon ezt a blokkot nem használja, a mezők értéke megmarad.' }) : null,
+      g.poll ? h('div', { class: 'inactive-note hidden', text: 'A kiválasztott sablon ezt a blokkot nem használja, a mezők értéke megmarad.' }) : null,
       h('div', { class: 'fields' }, fields.map(fieldRow)));
     card.append(head, body);
     p.append(card);
@@ -733,17 +737,17 @@ function showTokenBar(wrap, input) {
 }
 
 function updateTemplateDependent() {
-  const short = tplShort();
+  const hasPoll = !!curTpl().hasPoll;
   $$('.group').forEach(card => {
     const g = S.groups.find(x => x.id === card.dataset.group);
-    const inactive = !!(g && g.only && !g.only.includes(short));
+    const inactive = !!(g && g.poll && !hasPoll);
     card.classList.toggle('inactive', inactive);
     const note = $('.inactive-note', card);
     if (note) note.classList.toggle('hidden', !inactive);
   });
   for (const f of S.fields) {
     const el = $(`.field[data-key="${f.key}"]`, pane('tartalom'));
-    if (el) el.classList.toggle('dim', !!(f.only && !f.only.includes(short)));
+    if (el) el.classList.toggle('dim', !!(f.poll && !hasPoll));
   }
 }
 
@@ -1082,13 +1086,7 @@ function renderGenerate() {
   p.replaceChildren(
     secHead('05 / Generálás', 'Hírlevelek elkészítése',
       'Partnerenként egy kész HTML fájl készül a kiválasztott sablonnal – ez mehet a küldőrendszerbe. Kérésre Outlookban megnyitható, azonnal küldhető EML piszkozat is készül.'),
-    h('div', { class: 'card card-pad' },
-      h('div', { class: 'card-title' }, icon('mail'), 'Sablon'),
-      h('p', { class: 'card-sub', text: 'Az előnézet feletti kapcsolóval is váltható.' }),
-      h('div', { class: 'tpl-cards' }, S.templates.map(t => h('button', { class: 'tpl-card' + (t.id === S.state.template ? ' sel' : ''), onclick: () => setTemplate(t.id) },
-        h('div', { class: 'mini ' + t.short }, h('i', { class: 'hd' }), h('i', { class: 'cv' }), h('i', { class: 'tx' }), h('div', { class: 'gr' }, h('i'), h('i'), h('i'), h('i'), h('i'), h('i')), h('i', { class: 'ft' })),
-        h('div', { class: 'nm' }, h('span', { class: 'pill dark', text: t.short }), t.name),
-        h('div', { class: 'ds', text: t.desc }))))),
+    templatesCard(),
     h('div', { class: 'card card-pad' },
       h('div', { class: 'card-title' }, icon('folder'), 'Kimenet'),
       h('p', { class: 'card-sub', text: 'Minden generálás egy új, dátummal jelölt almappába kerül: html\\ (a levelek), eml\\ (ha kéred), áttekintő oldal, küldési lista (CSV) és a felhasznált tartalom.' }),
@@ -1184,6 +1182,144 @@ function renderGenResult() {
       h('ul', null, r.skipped.map(s => h('li', { text: `${s.row}. sor: ${s.name || s.email || '–'} – ${s.reason}` })))] : null));
 }
 
+/* ------------------------------------------------------------------ sablonok */
+
+function templatesCard() {
+  const cards = S.templates.map(t => {
+    const actions = t.custom ? h('div', { class: 'tpl-actions' },
+      h('button', { class: 'btn btn-ghost btn-sm', title: 'Átnevezés', onclick: e => { e.stopPropagation(); renameTemplate(t); } }, icon('pen', 15)),
+      h('button', { class: 'btn btn-ghost btn-sm btn-danger', title: t.overrides ? 'Törlés (az eredeti beépített tér vissza)' : 'Törlés', onclick: e => { e.stopPropagation(); deleteTemplate(t); } }, icon('trash', 15))) : null;
+    return h('div', { class: 'tpl-card' + (t.id === S.state.template ? ' sel' : ''), role: 'button', tabindex: '0', onclick: () => setTemplate(t.id),
+      onkeydown: e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setTemplate(t.id); } } },
+      tplThumb(t), actions,
+      h('div', { class: 'nm' }, h('span', { class: 'pill dark', text: t.short || '–' }), h('span', { class: 'tn', text: t.name, title: t.name })),
+      h('div', { class: 'badges' },
+        t.overrides ? h('span', { class: 'pill ok', text: 'frissített' }) : t.custom ? h('span', { class: 'pill ok', text: 'hozzáadott' }) : h('span', { class: 'pill muted', text: 'beépített' }),
+        t.hasPoll ? h('span', { class: 'pill muted', text: 'kérdés-blokk' }) : null,
+        t.fixedSlots ? h('span', { class: 'pill warn', text: `fix ${t.fixedSlots} termék` }) : null),
+      h('div', { class: 'ds', text: t.desc || '' }),
+      t.report && t.report.length ? h('div', { class: 'tpl-notes' }, t.report.map(n => h('div', null, icon('alert', 13), h('span', { text: n })))) : null);
+  });
+  const add = h('div', { class: 'tpl-card add', role: 'button', tabindex: '0', title: 'Sablon hozzáadása', onclick: () => importTemplates(),
+    onkeydown: e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); importTemplates(); } } },
+    h('div', { class: 'add-ic' }, icon('plus', 26)),
+    h('div', { class: 'nm' }, 'Sablon hozzáadása'),
+    h('div', { class: 'ds', text: '.html sablon vagy a tervezőtől kapott .zip csomag – az ablakba húzva is működik.' }));
+  return h('div', { class: 'card card-pad' },
+    h('div', { class: 'card-title' }, icon('mail'), 'Sablon'),
+    h('p', { class: 'card-sub', text: 'Válaszd ki, melyik sablonnal készüljenek a levelek. Új sablon a tervezői formátumban ({{kulcs}} helyőrzőkkel) adható hozzá, és a gépen megmarad. Ha a v1/v2/v4 új változatát kapod, ugyanazzal a fájlnévvel hozzáadva frissíti a beépítettet; törlésével az eredeti tér vissza.' }),
+    h('div', { class: 'tpl-cards' }, cards, add));
+}
+
+function tplThumb(t) {
+  const box = h('div', { class: 'tpl-thumb' });
+  const fr = h('iframe', { sandbox: 'allow-same-origin', tabindex: '-1', title: t.name });
+  box.append(fr);
+  const fit = () => { if (box.clientWidth) fr.style.transform = `scale(${box.clientWidth / 660})`; };
+  new ResizeObserver(fit).observe(box);
+  fetch(`/api/preview?p=${S.pv}&tpl=${encodeURIComponent(t.id)}`, { headers: { 'X-Token': TOKEN } })
+    .then(r => r.text()).then(html => { fr.srcdoc = html; }).catch(() => {});
+  return box;
+}
+
+function applyTemplates(r, selectId) {
+  S.templates = r.templates;
+  if (r.issues) setIssues(r.issues);
+  if (selectId && S.templates.some(t => t.id === selectId)) S.state.template = selectId;
+  else if (r.template) S.state.template = r.template;
+  renderTemplateSeg();
+  updateTemplateDependent();
+  if (S.tab === 'generalas') renderGenerate();
+  syncNow();
+}
+
+function showImportResults(results) {
+  const ok = results.filter(x => x.ok), bad = results.filter(x => !x.ok);
+  const body = h('div', { class: 'imp-list' }, results.map(x => {
+    const notes = x.notes || [];
+    const st = !x.ok ? 'err' : notes.length ? 'warn' : 'ok';
+    const sub = !x.ok ? x.error : x.override ? `${x.file} · a beépített sablon frissítve` : x.replaced ? `${x.file} · a meglévő sablon frissítve` : `${x.file} · új sablon`;
+    return h('div', { class: 'imp' },
+      h('span', { class: 'st ' + st }, icon(st === 'err' ? 'error' : st === 'warn' ? 'alert' : 'check', 15)),
+      h('div', null,
+        h('div', { class: 'p-name', text: x.ok ? x.name : x.file }),
+        h('div', { class: 'p-sub', text: sub }),
+        notes.map(n => h('div', { class: 'p-sub warn-t', text: n }))));
+  }));
+  infoModal(bad.length && !ok.length ? 'A sablon nem adható hozzá' : `${ok.length} sablon hozzáadva`, body);
+}
+
+function afterImport(r) {
+  const first = (r.results || []).find(x => x.ok && !x.override);
+  applyTemplates(r, first ? first.id : null);
+  if (S.tab !== 'generalas') setTab('generalas');
+  showImportResults(r.results || []);
+}
+
+async function importTemplates() {
+  try {
+    const r = await api('/api/templates/import');
+    if (!r.cancelled) afterImport(r);
+  } catch (e) { toast(e.message, 'err'); }
+}
+
+async function uploadTemplates(files) {
+  let last = null;
+  const results = [];
+  for (const f of files) {
+    try {
+      last = await api('/api/templates/upload', f, { raw: true, headers: { 'X-Filename': encodeURIComponent(f.name) } });
+      results.push(...(last.results || []));
+    } catch (e) { results.push({ file: f.name, ok: false, error: e.message }); }
+  }
+  if (last) afterImport(Object.assign({}, last, { results }));
+  else showImportResults(results);
+}
+
+async function renameTemplate(t) {
+  const v = await formModal('Sablon átnevezése', [
+    { k: 'name', label: 'Név', value: t.name },
+    { k: 'desc', label: 'Leírás', value: t.desc || '' }], 'Mentés');
+  if (!v) return;
+  try { applyTemplates(await api('/api/templates/update', { id: t.id, name: v.name, desc: v.desc })); } catch (e) { toast(e.message, 'err'); }
+}
+
+async function deleteTemplate(t) {
+  const txt = t.overrides
+    ? `A(z) „${t.name}” frissített változata törlődik, és a programba épített eredeti sablon tér vissza.`
+    : `A(z) „${t.name}” sablon törlődik a gépről. A már legenerált levelek nem változnak.`;
+  if (!await confirmBox('Sablon törlése', txt, 'Törlés', true)) return;
+  try { applyTemplates(await api('/api/templates/delete', { id: t.id })); toast('A sablon törölve.', 'ok'); } catch (e) { toast(e.message, 'err'); }
+}
+
+function infoModal(title, content) {
+  const done = () => { bg.remove(); document.removeEventListener('keydown', key); };
+  const key = e => { if (e.key === 'Escape') done(); };
+  const bg = h('div', { class: 'modal-bg', onclick: e => { if (e.target === bg) done(); } },
+    h('div', { class: 'modal wide', role: 'dialog' }, h('div', { class: 'mh', text: title }), h('div', { class: 'mb' }, content),
+      h('div', { class: 'mf' }, h('button', { class: 'btn btn-primary', text: 'Rendben', onclick: done }))));
+  document.addEventListener('keydown', key);
+  document.body.append(bg);
+  $('.mf .btn', bg).focus();
+}
+
+function formModal(title, fields, okLabel) {
+  return new Promise(resolve => {
+    const inputs = {};
+    const done = v => { bg.remove(); resolve(v); };
+    const submit = () => { const v = {}; for (const f of fields) v[f.k] = inputs[f.k].value; done(v); };
+    const bg = h('div', { class: 'modal-bg' },
+      h('div', { class: 'modal', role: 'dialog' }, h('div', { class: 'mh', text: title }),
+        h('div', { class: 'mb' }, fields.map(f => h('div', { class: 'field', style: { marginBottom: '12px' } },
+          h('div', { class: 'field-top' }, h('label', { text: f.label })),
+          inputs[f.k] = h('input', { class: 'inp', value: f.value, onkeydown: e => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') done(null); } })))),
+        h('div', { class: 'mf' }, h('button', { class: 'btn btn-ghost', text: 'Mégse', onclick: () => done(null) }), h('button', { class: 'btn btn-primary', text: okLabel, onclick: submit }))));
+    document.body.append(bg);
+    inputs[fields[0].k].focus();
+    inputs[fields[0].k].select();
+  });
+}
+
 /* ------------------------------------------------------------------ előnézet */
 
 function buildPreview() {
@@ -1193,7 +1329,7 @@ function buildPreview() {
     h('div', { class: 'pv-top' },
       h('div', { class: 'seg', id: 'tplSeg' }),
       h('div', { class: 'grow' }),
-      h('div', { class: 'seg icons', id: 'devSeg' }, devBtn('desktop', 'monitor', 'Asztali nézet'), devBtn('mobile', 'phone', 'Mobil nézet (620 px alatt 2 oszlopos rács)'))),
+      h('div', { class: 'seg icons', id: 'devSeg' }, devBtn('desktop', 'monitor', 'Asztali nézet'), devBtn('tablet', 'tablet', 'Tablet nézet (768 px)'), devBtn('mobile', 'phone', 'Mobil nézet (390 px, 2 oszlopos rács)'))),
     h('div', { class: 'pv-bar' },
       h('button', { class: 'sq', title: 'Előző partner', onclick: () => stepPartner(-1) }, icon('left')),
       h('select', { id: 'pvSel', onchange: e => setPreviewPartner(+e.target.value) }),
@@ -1212,15 +1348,15 @@ function buildPreview() {
         h('div', { class: 'pv-stage', id: 'pvStage', style: { position: 'absolute', left: 0, top: 0 } },
           h('iframe', { id: 'pvFrame', title: 'Hírlevél előnézet', sandbox: 'allow-same-origin' })))),
     h('div', { class: 'linkbar', id: 'linkbar' }, icon('link', 14), h('span', { class: 'u', id: 'linkUrl' })));
-  S.device = ls('device') || 'desktop';
+  S.device = ['desktop', 'tablet', 'mobile'].includes(ls('device')) ? ls('device') : 'desktop';
   setDevice(S.device, true);
   new ResizeObserver(() => fitFrame()).observe($('#pvCanvas'));
 }
 
 function renderTemplateSeg() {
   const seg = $('#tplSeg');
-  seg.replaceChildren(...S.templates.map(t => h('button', { class: t.id === S.state.template ? 'on' : '', title: t.desc, onclick: () => setTemplate(t.id) },
-    h('span', { class: 'sh', text: t.short.toUpperCase() }), t.name)));
+  seg.replaceChildren(...S.templates.map(t => h('button', { class: t.id === S.state.template ? 'on' : '', title: t.desc + (t.custom ? ' (hozzáadott sablon)' : ''), onclick: () => setTemplate(t.id) },
+    h('span', { class: 'sh', text: (t.short || '').toUpperCase() }), t.name, t.custom ? h('span', { class: 'dot', title: t.overrides ? 'frissített változat' : 'hozzáadott sablon' }) : null)));
 }
 
 function setTemplate(id) {
@@ -1236,7 +1372,7 @@ function setDevice(id, silent) {
   S.device = id;
   ls('device', id);
   $$('#devSeg button').forEach(b => b.classList.toggle('on', b.dataset.dev === id));
-  $('#pvStage').classList.toggle('mobile', id === 'mobile');
+  $('#pvStage').classList.toggle('device', id !== 'desktop');
   if (!silent) { fitFrame(); refreshPreview(); }
 }
 
@@ -1266,7 +1402,7 @@ function stepPartner(d) {
   setPreviewPartner(((S.pv < 0 ? 0 : S.pv) + d + n) % n);
 }
 
-function frameWidth() { return S.device === 'mobile' ? 390 : 660; }
+function frameWidth() { return { mobile: 390, tablet: 768 }[S.device] || 660; }
 
 function fitFrame() {
   const frame = $('#pvFrame'), canvas = $('#pvCanvas'), stage = $('#pvStage'), sizer = $('#pvSizer');
@@ -1277,14 +1413,14 @@ function fitFrame() {
     const d = frame.contentDocument;
     if (d && d.documentElement) H = Math.max(d.documentElement.scrollHeight, d.body ? d.body.scrollHeight : 0, 300);
   } catch (e) { /* nincs hozzáférés */ }
-  const avail = canvas.clientWidth - 32 - (S.device === 'mobile' ? 24 : 0);
+  const avail = canvas.clientWidth - 32 - (S.device !== 'desktop' ? 24 : 0);
   const s = Math.min(1, Math.max(0.3, avail / W));
   frame.style.width = W + 'px';
   frame.style.height = H + 'px';
   stage.style.width = W + 'px';
   stage.style.transform = `scale(${s})`;
   stage.style.transformOrigin = 'top left';
-  const extra = S.device === 'mobile' ? 24 : 0;
+  const extra = S.device !== 'desktop' ? 24 : 0;
   sizer.style.width = (W * s + extra) + 'px';
   sizer.style.height = (H * s + 20 + extra) + 'px';
   stage.style.left = (extra / 2) + 'px';

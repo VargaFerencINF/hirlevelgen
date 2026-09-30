@@ -156,6 +156,11 @@ func Generate(assets fs.FS, tpl *Template, c Content, products []Product, partne
 		if err := CopyAssets(assets, filepath.Join(folder, "assets")); err != nil {
 			return nil, fmt.Errorf("a képtár másolása nem sikerült: %w", err)
 		}
+		if tpl.AssetsDir != "" {
+			if err := CopyAssets(os.DirFS(tpl.AssetsDir), filepath.Join(folder, "assets")); err != nil {
+				return nil, fmt.Errorf("a sablon képeinek másolása nem sikerült: %w", err)
+			}
+		}
 		res.Warnings = append(res.Warnings, "A képtár webcíme üres volt, ezért a képek az assets mappába kerültek: a levelek helyben jól látszanak, de kiküldés előtt a képtárat fel kell tölteni.")
 		if opt.EML {
 			res.Warnings = append(res.Warnings, "Az EML fájlokban a sablon saját képei (logó, hullámok, {assets} képek) csak feltöltött képtárral jelennek meg.")

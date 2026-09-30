@@ -53,7 +53,7 @@ const savedVersion = 1
 type App struct {
 	mu         sync.Mutex
 	token      string
-	templates  []*h.Template
+	lib        *h.Library
 	defaults   h.Content
 	defProds   []h.Product
 	state      ClientState
@@ -92,10 +92,19 @@ func NewApp(configDir string) (*App, error) {
 	b := make([]byte, 16)
 	_, _ = rand.Read(b)
 	a := &App{
-		token: hex.EncodeToString(b), templates: tpls, defaults: defs, defProds: defProds,
+		token: hex.EncodeToString(b), defaults: defs, defProds: defProds,
 		assets: mustSub(assetsFS, "assets"), web: mustSub(webFS, "web"), demoXLSX: demo,
 		quit: make(chan struct{}), lastBeat: time.Now(),
 	}
+	libDir := ""
+	if configDir != "" {
+		libDir = filepath.Join(configDir, "sablonok")
+	}
+	lib, libErrs := h.OpenLibrary(libDir, tpls, a.assets)
+	for _, e := range libErrs {
+		log.Printf("egyedi sablon kihagyva: %v", e)
+	}
+	a.lib = lib
 	a.state = ClientState{
 		Content: cloneContent(defs), Products: append([]h.Product{}, defProds...), Template: "v4-partnerjelentes",
 		Output: OutputSettings{Dir: defaultOutputDir(), FilePattern: h.DefaultFilePattern},
@@ -131,7 +140,7 @@ func (a *App) loadSaved() {
 	if s.State.Products != nil {
 		a.state.Products = s.State.Products
 	}
-	if h.FindTemplate(a.templates, s.State.Template) != nil {
+	if h.FindTemplate(a.tpls(), s.State.Template) != nil {
 		a.state.Template = s.State.Template
 	}
 	if s.State.Output.Dir != "" {
@@ -181,11 +190,17 @@ func (a *App) saveNow() {
 	}
 }
 
+// tpls a használható sablonok (beépített + egyedi); a hívó tartja a zárat.
+func (a *App) tpls() []*h.Template { return a.lib.All() }
+
 func (a *App) template() *h.Template {
-	if t := h.FindTemplate(a.templates, a.state.Template); t != nil {
+	if t := h.FindTemplate(a.tpls(), a.state.Template); t != nil {
 		return t
 	}
-	return a.templates[len(a.templates)-1]
+	if t := h.FindTemplate(a.tpls(), "v4-partnerjelentes"); t != nil {
+		return t
+	}
+	return a.tpls()[0]
 }
 
 func (a *App) partners() []h.Partner {
@@ -218,7 +233,7 @@ func (a *App) loadExcelData(data []byte, path string, mod time.Time, takeProduct
 		return err
 	}
 	issues := append([]h.Issue{}, ex.Issues...)
-	issues = append(issues, h.ValidateColumns(ex, a.templates)...)
+	issues = append(issues, h.ValidateColumns(ex, a.tpls())...)
 	issues = append(issues, h.ValidatePartners(ex.Partners)...)
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -238,7 +253,7 @@ func (a *App) routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", a.handleIndex)
 	mux.Handle("/static/", http.StripPrefix("/static/", noCache(http.FileServer(http.FS(a.web)))))
-	mux.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.FS(a.assets))))
+	mux.HandleFunc("/assets/", a.handleAsset)
 	mux.HandleFunc("/elonezet", a.handleBrowserPreview)
 
 	api := map[string]func(w http.ResponseWriter, r *http.Request) (any, error){
@@ -261,6 +276,11 @@ func (a *App) routes() http.Handler {
 		"/api/content/export":   a.apiContentExport,
 		"/api/content/import":   a.apiContentImport,
 		"/api/content/defaults": a.apiContentDefaults,
+		"/api/templates/import": a.apiTemplatesImport,
+		"/api/templates/upload": a.apiTemplatesUpload,
+		"/api/templates/update": a.apiTemplatesUpdate,
+		"/api/templates/delete": a.apiTemplatesDelete,
+		"/api/templates/folder": a.apiTemplatesFolder,
 		"/api/heartbeat":        a.apiHeartbeat,
 		"/api/quit":             a.apiQuit,
 	}
@@ -391,8 +411,8 @@ func (a *App) apiInit(w http.ResponseWriter, r *http.Request) (any, error) {
 		log.Printf("füstteszt: a felület betöltődött (%s)", r.UserAgent())
 		time.AfterFunc(10*time.Second, a.Quit)
 	}
-	tpls := make([]h.Template, 0, len(a.templates))
-	for _, t := range a.templates {
+	tpls := make([]h.Template, 0, 8)
+	for _, t := range a.tpls() {
 		tpls = append(tpls, *t)
 	}
 	return map[string]any{
@@ -424,8 +444,8 @@ func (a *App) apiState(w http.ResponseWriter, r *http.Request) (any, error) {
 	if s.Products != nil {
 		a.state.Products = s.Products
 	}
-	if h.FindTemplate(a.templates, s.Template) != nil {
-		a.state.Template = h.FindTemplate(a.templates, s.Template).ID
+	if h.FindTemplate(a.tpls(), s.Template) != nil {
+		a.state.Template = h.FindTemplate(a.tpls(), s.Template).ID
 	}
 	a.state.Output = s.Output
 	a.scheduleSave()
@@ -753,7 +773,7 @@ func (a *App) Quit() { a.quitOnce.Do(func() { close(a.quit) }) }
 func (a *App) renderPreview(pIdx int, tplID string, assetsBase string) (string, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	tpl := h.FindTemplate(a.templates, tplID)
+	tpl := h.FindTemplate(a.tpls(), tplID)
 	if tpl == nil {
 		tpl = a.template()
 	}

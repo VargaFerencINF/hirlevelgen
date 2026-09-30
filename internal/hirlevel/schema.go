@@ -3,28 +3,28 @@ package hirlevel
 // Field a közös (nem partnerenkénti) tartalom egy mezője. A lista vezérli a
 // felület űrlapját, a validálást és a JSON import/exportot is.
 type Field struct {
-	Key         string   `json:"key"`
-	Label       string   `json:"label"`
-	Group       string   `json:"group"`
-	Kind        string   `json:"kind"` // text, textarea, url, image, email
-	Help        string   `json:"help,omitempty"`
-	Placeholder string   `json:"placeholder,omitempty"`
-	Required    bool     `json:"required,omitempty"`
-	Soft        int      `json:"soft,omitempty"` // javasolt maximális hossz (karakter)
-	Min         int      `json:"min,omitempty"`  // javasolt minimális hossz (karakter)
-	MaxWords    int      `json:"maxWords,omitempty"`
-	Only        []string `json:"only,omitempty"`   // csak ezekben a sablonokban (rövid név: v1, v2, v4)
-	Tokens      bool     `json:"tokens,omitempty"` // partner-változók használhatók benne
-	Half        bool     `json:"half,omitempty"`   // fél szélességű mező a felületen
+	Key         string `json:"key"`
+	Label       string `json:"label"`
+	Group       string `json:"group"`
+	Kind        string `json:"kind"` // text, textarea, url, image, email
+	Help        string `json:"help,omitempty"`
+	Placeholder string `json:"placeholder,omitempty"`
+	Required    bool   `json:"required,omitempty"`
+	Soft        int    `json:"soft,omitempty"` // javasolt maximális hossz (karakter)
+	Min         int    `json:"min,omitempty"`  // javasolt minimális hossz (karakter)
+	MaxWords    int    `json:"maxWords,omitempty"`
+	Poll        bool   `json:"poll,omitempty"`   // csak az „Egy kérdés” blokkot tartalmazó sablonokban
+	Tokens      bool   `json:"tokens,omitempty"` // partner-változók használhatók benne
+	Half        bool   `json:"half,omitempty"`   // fél szélességű mező a felületen
 }
 
 // Group mezőcsoport a felületen.
 type Group struct {
-	ID    string   `json:"id"`
-	Title string   `json:"title"`
-	Desc  string   `json:"desc,omitempty"`
-	Icon  string   `json:"icon"`
-	Only  []string `json:"only,omitempty"`
+	ID    string `json:"id"`
+	Title string `json:"title"`
+	Desc  string `json:"desc,omitempty"`
+	Icon  string `json:"icon"`
+	Poll  bool   `json:"poll,omitempty"`
 }
 
 var Groups = []Group{
@@ -32,7 +32,7 @@ var Groups = []Group{
 	{ID: "borito", Title: "Borító", Icon: "image", Desc: "A nagy borítókép és a főcím blokkja."},
 	{ID: "level", Title: "Személyes levél", Icon: "pen", Desc: "Megszólítás és a vezetői levél. A megszólítás partnerenként töltődik ki."},
 	{ID: "ajanlat", Title: "Ajánlat", Icon: "grid", Desc: "Az ajánlatblokk szövegei. Maguk a termékek a Termékek fülön vannak."},
-	{ID: "kerdes", Title: "Egy kérdés", Icon: "poll", Only: []string{"v4"}, Desc: "Csak a Partnerjelentés (v4) sablonban. Üres kérdésnél a blokk elmarad."},
+	{ID: "kerdes", Title: "Egy kérdés", Icon: "poll", Poll: true, Desc: "Csak a kérdés-blokkos sablonokban (pl. v4 Partnerjelentés). Üres kérdésnél a blokk elmarad."},
 	{ID: "kepviselo", Title: "Képviselő-blokk", Icon: "user", Desc: "A képviselő neve, fotója és elérhetősége az Excelből jön, itt a közös szövegek vannak."},
 	{ID: "lablec", Title: "Lábléc és közösségi linkek", Icon: "footer", Desc: "Cégadatok, leiratkozás, közösségi oldalak."},
 	{ID: "halado", Title: "Termék-linkek és követés", Icon: "link", Desc: "Alapértelmezett kép- és termékoldal-minták, UTM-paraméterek."},
@@ -44,8 +44,8 @@ var Fields = []Field{
 		Help: "A levél tárgya a küldőben, és a HTML <title> eleme."},
 	{Key: "meta.preheader", Label: "Előnézeti szöveg (preheader)", Group: "alap", Kind: "textarea", Required: true, Min: 80, Soft: 110, Tokens: true,
 		Help: "A postafiókban a tárgy mellett látszó rejtett szöveg, ideálisan 80-110 karakter."},
-	{Key: "meta.preheaderPoll", Label: "Preheader kiegészítés a v4 sablonhoz", Group: "alap", Kind: "text", Only: []string{"v4"}, Soft: 30,
-		Help: "A Partnerjelentés (v4) sablonnál a preheader végére kerül, ha van kérdés-blokk."},
+	{Key: "meta.preheaderPoll", Label: "Preheader kiegészítés kérdéses sablonhoz", Group: "alap", Kind: "text", Poll: true, Soft: 30,
+		Help: "A kérdés-blokkos sablonoknál (pl. v4) a preheader végére kerül, ha van kérdés."},
 	{Key: "utility.label", Label: "Felső címke", Group: "alap", Kind: "text", Required: true, Soft: 50, Half: true,
 		Help: "A levél legtetején, pl. „Partnerjelentés · 10. szám”."},
 	{Key: "utility.browserLink", Label: "Webes verzió link felirata", Group: "alap", Kind: "text", Soft: 30, Half: true},
@@ -70,7 +70,7 @@ var Fields = []Field{
 	{Key: "cover.meta.readingTime", Label: "Olvasási idő", Group: "borito", Kind: "text", Required: true, Soft: 28, Half: true},
 	{Key: "cover.meta.items", Label: "Termékszám felirat", Group: "borito", Kind: "text", Required: true, Soft: 16, Half: true, Tokens: true,
 		Help: "A {termekszam} a kiválasztott termékek számára cserélődik."},
-	{Key: "cover.meta.poll", Label: "Kérdés felirat", Group: "borito", Kind: "text", Soft: 16, Half: true, Only: []string{"v4"}},
+	{Key: "cover.meta.poll", Label: "Kérdés felirat", Group: "borito", Kind: "text", Soft: 16, Half: true, Poll: true},
 
 	// --- Személyes levél ---
 	{Key: "note.greeting", Label: "Megszólítás", Group: "level", Kind: "text", Required: true, Soft: 50, Tokens: true,
@@ -94,16 +94,16 @@ var Fields = []Field{
 		Help: "Üresen hagyva a link elmarad."},
 
 	// --- Egy kérdés (v4) ---
-	{Key: "poll.label", Label: "Blokk címkéje", Group: "kerdes", Kind: "text", Only: []string{"v4"}, Soft: 40},
-	{Key: "poll.question", Label: "Kérdés", Group: "kerdes", Kind: "text", Only: []string{"v4"}, Soft: 90,
+	{Key: "poll.label", Label: "Blokk címkéje", Group: "kerdes", Kind: "text", Poll: true, Soft: 40},
+	{Key: "poll.question", Label: "Kérdés", Group: "kerdes", Kind: "text", Poll: true, Soft: 90,
 		Help: "Üresen hagyva a teljes kérdés-blokk elmarad."},
-	{Key: "poll.answers.1", Label: "1. válasz felirata", Group: "kerdes", Kind: "text", Only: []string{"v4"}, Soft: 40, Half: true},
-	{Key: "poll.answers.1.url", Label: "1. válasz linkje", Group: "kerdes", Kind: "url", Only: []string{"v4"}, Tokens: true, Half: true},
-	{Key: "poll.answers.2", Label: "2. válasz felirata", Group: "kerdes", Kind: "text", Only: []string{"v4"}, Soft: 40, Half: true},
-	{Key: "poll.answers.2.url", Label: "2. válasz linkje", Group: "kerdes", Kind: "url", Only: []string{"v4"}, Tokens: true, Half: true},
-	{Key: "poll.answers.3", Label: "3. válasz felirata", Group: "kerdes", Kind: "text", Only: []string{"v4"}, Soft: 40, Half: true},
-	{Key: "poll.answers.3.url", Label: "3. válasz linkje", Group: "kerdes", Kind: "url", Only: []string{"v4"}, Tokens: true, Half: true},
-	{Key: "poll.note", Label: "Megjegyzés a válaszok alatt", Group: "kerdes", Kind: "textarea", Only: []string{"v4"}, Soft: 140},
+	{Key: "poll.answers.1", Label: "1. válasz felirata", Group: "kerdes", Kind: "text", Poll: true, Soft: 40, Half: true},
+	{Key: "poll.answers.1.url", Label: "1. válasz linkje", Group: "kerdes", Kind: "url", Poll: true, Tokens: true, Half: true},
+	{Key: "poll.answers.2", Label: "2. válasz felirata", Group: "kerdes", Kind: "text", Poll: true, Soft: 40, Half: true},
+	{Key: "poll.answers.2.url", Label: "2. válasz linkje", Group: "kerdes", Kind: "url", Poll: true, Tokens: true, Half: true},
+	{Key: "poll.answers.3", Label: "3. válasz felirata", Group: "kerdes", Kind: "text", Poll: true, Soft: 40, Half: true},
+	{Key: "poll.answers.3.url", Label: "3. válasz linkje", Group: "kerdes", Kind: "url", Poll: true, Tokens: true, Half: true},
+	{Key: "poll.note", Label: "Megjegyzés a válaszok alatt", Group: "kerdes", Kind: "textarea", Poll: true, Soft: 140},
 
 	// --- Képviselő-blokk ---
 	{Key: "rep.label", Label: "Blokk címkéje", Group: "kepviselo", Kind: "text", Required: true, Soft: 40},
@@ -146,17 +146,7 @@ func FieldByKey(key string) *Field {
 }
 
 // UsedIn megadja, hogy a mező szerepel-e az adott sablonban.
-func (f *Field) UsedIn(short string) bool {
-	if len(f.Only) == 0 {
-		return true
-	}
-	for _, s := range f.Only {
-		if s == short {
-			return true
-		}
-	}
-	return false
-}
+func (f *Field) UsedIn(t *Template) bool { return !f.Poll || t == nil || t.HasPoll }
 
 // IsURLKind igaz, ha a mező értéke link vagy kép címe.
 func (f *Field) IsURLKind() bool { return f.Kind == "url" || f.Kind == "image" }
@@ -165,7 +155,7 @@ func (f *Field) IsURLKind() bool { return f.Kind == "url" || f.Kind == "image" }
 var TemplateInfos = []Template{
 	{ID: "v1-sotet-lemez", Short: "v1", Name: "Sötét lemez", Desc: "Sötét fejléc, narancs csíkok, szögletes téglák."},
 	{ID: "v2-waterside", Short: "v2", Name: "Waterside", Desc: "Krémszínű borító, hullámok, lekerekített téglák."},
-	{ID: "v4-partnerjelentes", Short: "v4", Name: "Partnerjelentés", Desc: "Sötét borító mélységtérképpel és „Egy kérdés” blokkal.", HasPoll: true},
+	{ID: "v4-partnerjelentes", Short: "v4", Name: "Partnerjelentés", Desc: "Sötét borító mélységtérképpel és „Egy kérdés” blokkal."},
 }
 
 // Partner-változók (a felületen beszúrható tokenek).

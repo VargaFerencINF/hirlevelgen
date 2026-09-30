@@ -94,10 +94,6 @@ func ValidateContent(c Content, products []Product, tpl *Template) []Issue {
 	add := func(level, key, msg string) {
 		out = append(out, Issue{Level: level, Scope: ScopeContent, Key: key, Index: -1, Message: msg})
 	}
-	short := ""
-	if tpl != nil {
-		short = tpl.Short
-	}
 	sample := PartnerTokens(&SamplePartner)
 	sample["termekszam"] = fmt.Sprint(len(SelectedProducts(products)))
 	sample["assets"] = "https://pelda.hu/assets"
@@ -108,7 +104,7 @@ func ValidateContent(c Content, products []Product, tpl *Template) []Issue {
 
 	for i := range Fields {
 		f := &Fields[i]
-		if short != "" && !f.UsedIn(short) {
+		if !f.UsedIn(tpl) {
 			continue
 		}
 		v := strings.TrimSpace(c[f.Key])
@@ -159,6 +155,11 @@ func ValidateContent(c Content, products []Product, tpl *Template) []Issue {
 	}
 	if strings.Contains(c["footer.address"], "[") && strings.Contains(c["footer.address"], "]") {
 		add(LevelWarn, "footer.address", "A lábléc címe még a sablon helyőrzőit tartalmazza ([Székhely címe] stb.).")
+	}
+	if tpl != nil && tpl.FixedSlots > 0 {
+		if n := len(SelectedProducts(products)); n != tpl.FixedSlots {
+			add(LevelWarn, "", fmt.Sprintf("A(z) „%s” sablon fix %d termékhelyes, most %d termék van kiválasztva: a többlet kimarad, a hiányzó helyek üresek.", tpl.Name, tpl.FixedSlots, n))
+		}
 	}
 	if assetsEmpty {
 		add(LevelWarn, "assets.base", "A képtár (assets) webcíme üres: a logó, a hullámok és a {assets}/… képek csak helyi megtekintésnél látszanak. Kiküldés előtt töltsd fel az assets mappát, és add meg a címét.")

@@ -74,16 +74,9 @@ func CollectImageTargets(c Content, products []Product, partners []Partner, tpl 
 		pd := Build(c, products, p, tpl, "")
 		add(ImageTarget{URL: pd.Values["rep.photo"], Where: "Képviselő fotója: " + p.RepName, Kind: "rep", Key: "repPhoto", Index: i})
 	}
-	if base := strings.TrimRight(strings.TrimSpace(c["assets.base"]), "/"); base != "" {
-		for _, name := range []string{"energofish-mark.png", "energofish-mark-light.png"} {
+	if base := strings.TrimRight(strings.TrimSpace(c["assets.base"]), "/"); base != "" && tpl != nil {
+		for _, name := range tpl.AssetRefs {
 			add(ImageTarget{URL: base + "/" + name, Where: "Képtár: " + name, Kind: "asset", Key: "assets.base", Index: -1})
-		}
-		if tpl != nil && tpl.Short == "v2" {
-			add(ImageTarget{URL: base + "/wave-band-white.png", Where: "Képtár: wave-band-white.png", Kind: "asset", Key: "assets.base", Index: -1})
-			add(ImageTarget{URL: base + "/wave-white-dusk.png", Where: "Képtár: wave-white-dusk.png", Kind: "asset", Key: "assets.base", Index: -1})
-		}
-		if tpl != nil && tpl.Short == "v4" {
-			add(ImageTarget{URL: base + "/contour-band.png", Where: "Képtár: contour-band.png", Kind: "asset", Key: "assets.base", Index: -1})
 		}
 	}
 	return out

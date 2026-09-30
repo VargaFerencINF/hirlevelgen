@@ -12,9 +12,10 @@ import (
 // kiegészítve három blokkal:
 //
 //	{{#if kulcs}} … {{else}} … {{/if}}   – feltételes rész (nem üres érték = igaz)
-//	{{#grid offer.items}} … {{/grid}}    – terméktégla-rács, a téglán belül {{item.mező}}
+//	{{#grid offer.items:3}} … {{/grid}}  – terméktégla-rács, a téglán belül {{item.mező}}
 //
-// A rács a téglák közé az Outlook (MSO) táblázat-elválasztókat teszi, soronként 3 téglával.
+// A rács a téglák közé az Outlook (MSO) táblázat-elválasztókat teszi; a „:3” az egy
+// sorba kerülő téglák száma (elhagyva 3).
 
 type nodeKind int
 
@@ -29,22 +30,35 @@ type node struct {
 	kind     nodeKind
 	text     string // nodeText
 	key      string // nodeVar, nodeIf, nodeGrid
+	cols     int    // nodeGrid: téglák soronként (Outlook)
 	then     []node
 	otherwis []node
 }
 
 // Template egy betöltött hírlevélsablon.
 type Template struct {
-	ID      string   `json:"id"`      // pl. "v4-partnerjelentes"
-	Short   string   `json:"short"`   // pl. "v4"
-	Name    string   `json:"name"`    // pl. "Partnerjelentés"
-	Desc    string   `json:"desc"`    // rövid leírás a felületre
-	HasPoll bool     `json:"hasPoll"` // van-e „Egy kérdés” blokk
-	Keys    []string `json:"-"`       // a sablonban használt kulcsok
-	nodes   []node
+	ID         string   `json:"id"`                   // pl. "v4-partnerjelentes"
+	Short      string   `json:"short"`                // pl. "v4"
+	Name       string   `json:"name"`                 // pl. "Partnerjelentés"
+	Desc       string   `json:"desc"`                 // rövid leírás a felületre
+	HasPoll    bool     `json:"hasPoll"`              // van-e „Egy kérdés” blokk
+	Builtin    bool     `json:"builtin"`              // a programba épített sablon
+	Custom     bool     `json:"custom"`               // felhasználó által hozzáadott
+	Overrides  bool     `json:"overrides,omitempty"`  // egyedi sablon, amely egy beépítettet frissít
+	FixedSlots int      `json:"fixedSlots,omitempty"` // fix termékhelyek száma (ha a rács nem alakítható)
+	PhotoOK    bool     `json:"photoOk"`              // képviselő-fotó támogatott
+	Added      string   `json:"added,omitempty"`      // hozzáadás ideje
+	Source     string   `json:"source,omitempty"`     // eredeti fájlnév
+	Report     []string `json:"report,omitempty"`     // átalakítási megjegyzések
+	Size       int      `json:"size"`                 // a nyers sablon mérete (bájt)
+	Keys       []string `json:"-"`                    // a sablonban használt kulcsok
+	AssetRefs  []string `json:"assetRefs,omitempty"`  // {{assets.base}}/… hivatkozott képek
+	AssetsDir  string   `json:"-"`                    // saját képek mappája (egyedi sablonnál)
+	Raw        string   `json:"-"`                    // a nyers (átalakítás előtti) sablon
+	nodes      []node
 }
 
-var tagRe = regexp.MustCompile(`\{\{\s*(#if|#grid|else|/if|/grid)?\s*([\w.]*)\s*\}\}`)
+var tagRe = regexp.MustCompile(`\{\{\s*(#if|#grid|else|/if|/grid)?\s*([\w.:]*)\s*\}\}`)
 
 // ParseTemplate feldolgozza a sablon szövegét.
 func ParseTemplate(src string) ([]node, []string, error) {
@@ -87,12 +101,20 @@ func ParseTemplate(src string) ([]node, []string, error) {
 			if key == "" {
 				return nil, nil, fmt.Errorf("%d. sor: %s kulcs nélkül", line, tag)
 			}
-			keys[key] = true
 			k := nodeIf
+			cols := 0
 			if tag == "#grid" {
 				k = nodeGrid
+				cols = GridColumns
+				if i := strings.IndexByte(key, ':'); i > 0 {
+					if n, err := strconv.Atoi(key[i+1:]); err == nil && n > 0 {
+						cols = n
+					}
+					key = key[:i]
+				}
 			}
-			nd := &node{kind: k, key: key}
+			keys[key] = true
+			nd := &node{kind: k, key: key, cols: cols}
 			stack = append(stack, &frame{n: nd, tag: tag})
 		case "else":
 			f := stack[len(stack)-1]
@@ -142,7 +164,7 @@ func (d *RenderData) lookup(key string, item map[string]string) (string, bool) {
 					v, ok := d.Items[n-1][rest[i+1:]]
 					return v, ok
 				}
-				return "", false
+				return "", true // fix termékhelyes sablon üres helye
 			}
 		}
 	}
@@ -196,7 +218,7 @@ func renderNodes(b *strings.Builder, nodes []node, d *RenderData, item map[strin
 		case nodeGrid:
 			for idx, it := range d.Items {
 				if idx > 0 {
-					if idx%GridColumns == 0 {
+					if idx%n.cols == 0 {
 						b.WriteString(msoNextRow)
 					} else {
 						b.WriteString(msoNextCell)
