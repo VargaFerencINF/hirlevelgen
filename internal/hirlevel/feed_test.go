@@ -246,6 +246,10 @@ func TestFeedToProduct(t *testing.T) {
 	if c.Deal != "Kiárusítás" || !strings.Contains(c.Image, "codeimage/C%20SBSLA") {
 		t.Errorf("3. cikk: %+v", c)
 	}
+	webp := []FeedImage{{"thumb", "https://x/T1.WEBP"}, {"code", "https://x/C1.webp"}, {"small", "https://x/S1.JPG"}}
+	if PickImage(webp, "code") != "https://x/S1.JPG" || PickImage(webp[:2], "code") != "https://x/C1.webp" {
+		t.Error("a WEBP csak végső esetben")
+	}
 	if PickImage([]FeedImage{{"gallery2", "g2"}}, "code") != "g2" || PickImage(nil, "code") != "" {
 		t.Error("PickImage")
 	}

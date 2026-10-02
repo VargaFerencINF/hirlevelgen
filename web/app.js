@@ -942,13 +942,20 @@ function imgLevel(id) {
     : 'a főtermék közös képe – szín- vagy méretváltozatnál eltérhet ettől a cikktől';
 }
 
+function isWebp(u) { return /\.webp$/i.test(String(u || '').split('?')[0]); }
+
+// Az előnyben részesített kitöltött kép; WEBP-t (az Outlook nem mutatja) csak végső esetben.
 function pickImg(images, pref) {
   const list = images || [];
-  for (const id of IMG_ORDER[pref] || IMG_ORDER.code) {
-    const im = list.find(x => x.id === id);
-    if (im) return im.url;
+  for (const allowWebp of [false, true]) {
+    for (const id of IMG_ORDER[pref] || IMG_ORDER.code) {
+      const im = list.find(x => x.id === id && (allowWebp || !isWebp(x.url)));
+      if (im) return im.url;
+    }
+    const g = list.find(x => allowWebp || !isWebp(x.url));
+    if (g) return g.url;
   }
-  return list.length ? list[0].url : '';
+  return '';
 }
 
 function codeKey(c) { return norm(c).replace(/-/g, '').trim(); }
@@ -1051,9 +1058,11 @@ function imageSwitcher(pr, inp, onPick) {
       shown.map(im => {
         const dims = h('small', { text: '' });
         const pic = h('img', { src: im.url, alt: '', loading: 'lazy' });
-        pic.onload = () => { dims.textContent = pic.naturalWidth + '×' + pic.naturalHeight; };
+        const webp = isWebp(im.url);
+        pic.onload = () => { dims.textContent = pic.naturalWidth + '×' + pic.naturalHeight + (webp ? ' · WEBP' : ''); };
         pic.onerror = () => { b.classList.add('broken'); dims.textContent = 'nem tölthető be'; };
-        const b = h('button', { type: 'button', class: 'sw' + (cur === im.url ? ' on' : ''), title: imgLabel(im.id) + ' – ' + imgLevel(im.id) + '\n' + im.url,
+        const b = h('button', { type: 'button', class: 'sw' + (cur === im.url ? ' on' : '') + (webp ? ' webp' : ''),
+          title: imgLabel(im.id) + ' – ' + imgLevel(im.id) + (webp ? '\nWEBP: az Outlook asztali változata nem jeleníti meg' : '') + '\n' + im.url,
           onclick: () => { pr.image = im.url; inp.value = im.url; onPick(); render(); syncSoon(0); } },
           pic, h('span', null, h('b', { text: imgLabel(im.id) }), dims));
         return b;
@@ -1368,7 +1377,7 @@ function jumpTo(i) {
 function imageCard() {
   const card = h('div', { class: 'card card-pad' },
     h('div', { class: 'card-title' }, icon('image'), 'Képek ellenőrzése (online)'),
-    h('p', { class: 'card-sub', text: 'Letölti a borító-, termék-, portré- és képviselőképeket, és ellenőrzi, hogy elérhetők-e, és megfelelő-e a méretük (borító 1200×660, termék min. 260×260, négyzetes). Internetkapcsolat kell hozzá.' }),
+    h('p', { class: 'card-sub', text: 'Letölti a borító-, termék-, portré- és képviselőképeket, és ellenőrzi, hogy elérhetők-e, és megfelelő-e a méretük (borító 1200×660, termék min. 260 px, JPG/PNG). Internetkapcsolat kell hozzá.' }),
     h('button', { class: 'btn btn-dark', dataset: { busy: 'Képek letöltése…' }, onclick: e => busy(e.currentTarget, checkImages) }, icon('image', 16), S.imgResults ? 'Újraellenőrzés' : 'Képek ellenőrzése'));
   if (S.imgResults) {
     const r = S.imgResults;

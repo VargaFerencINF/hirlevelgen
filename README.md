@@ -66,7 +66,7 @@ Tetszőleges oszlopsorrend, a program a **fejléc szövegéből** ismeri fel az 
 |---|:-:|---|
 | Cikkszám | ✔ | |
 | Cikknév | ✔ | max. kb. 26 karakter (2 sor) |
-| Cikk kép link | | fehér hátterű, négyzetes, min. 260×260. Üresen: `https://images.energofish.hu/thumbimage/<cikkszám>.JPG` |
+| Cikk kép link | | fehér hátterű, legalább 260 px-es JPG/PNG (a levélben középre igazítva, kb. 130 px-en látszik; a WEBP-t az Outlook nem jeleníti meg). Üresen: `https://images.energofish.hu/thumbimage/<cikkszám>.JPG` |
 | Gomb link | | hová mutasson a gomb és a kép. Üresen: `https://b2b.energofish.hu/termek/<cikkszám>` |
 | Rövid leírás | | max. kb. 30 karakter |
 | Ár | | számként megadva „3 090 Ft” alakra formázódik |

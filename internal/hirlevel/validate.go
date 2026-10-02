@@ -73,6 +73,9 @@ func checkURL(v, kind string) (level, msg string) {
 		if strings.ContainsAny(v, " \t\n") {
 			return LevelError, "szóközt tartalmaz"
 		}
+		if kind == "image" && IsWebp(v) {
+			return LevelWarn, "WEBP kép: az Outlook asztali változata nem jeleníti meg, JPG vagy PNG javasolt"
+		}
 		return "", ""
 	case strings.HasPrefix(v, "http://"):
 		return LevelWarn, "nem biztonságos http:// cím, használj https://-t"

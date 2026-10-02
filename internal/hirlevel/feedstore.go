@@ -66,7 +66,9 @@ type feedMeta struct {
 
 // NewFeedStore új tár (dir: a gyorsítótár mappája; üres = nincs mentés).
 func NewFeedStore(dir string) *FeedStore {
-	return &FeedStore{Dir: dir, Client: &http.Client{Timeout: 10 * time.Minute}, MinInterval: 5 * time.Minute}
+	// a szerver nem ad ETag/Last-Modified fejlécet, így minden ellenőrzés teljes (~50 MB) letöltés:
+	// 15 percen belül újra nem kérdezi le (a Frissítés gomb ettől függetlenül letölti)
+	return &FeedStore{Dir: dir, Client: &http.Client{Timeout: 10 * time.Minute}, MinInterval: 15 * time.Minute}
 }
 
 func (s *FeedStore) cachePath() string { return filepath.Join(s.Dir, "termekadatok.xml.gz") }

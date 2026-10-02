@@ -115,7 +115,7 @@ func badgeOf(files ...string) string {
 
 func convertTermek(t *xmlTermek) FeedProduct {
 	p := FeedProduct{
-		Code: clean(t.CikkszamK), Plain: clean(t.Cikkszam), Name: clean(t.Termeknev),
+		Code: clean(t.CikkszamK), Plain: clean(t.Cikkszam), Name: strings.Join(strings.Fields(t.Termeknev), " "),
 		Family: clean(t.Fotermek.Value), FamilyID: atoi(t.Fotermek.ID), Link: clean(t.TermekLink),
 		Category: clean(t.Kategoria.Value), Subcategory: clean(t.Alkategoria.Value), Brand: clean(t.Marka),
 		Wholesale: atoi(t.NagykerNetto), WholesaleAkc: atoi(t.NagykerAkc),
@@ -332,22 +332,32 @@ var imageOrder = map[string][]string{
 }
 
 // PickImage a kitöltött képek közül az előnyben részesítettet adja (ha az üres, a következőt).
+// A WEBP képet (az Outlook nem jeleníti meg) csak akkor választja, ha nincs más.
 func PickImage(images []FeedImage, pref string) string {
 	order, ok := imageOrder[pref]
 	if !ok {
 		order = imageOrder["code"]
 	}
-	for _, id := range order {
-		for _, im := range images {
-			if im.ID == id {
+	for _, allowWebp := range []bool{false, true} {
+		for _, id := range order {
+			for _, im := range images {
+				if im.ID == id && (allowWebp || !IsWebp(im.URL)) {
+					return im.URL
+				}
+			}
+		}
+		for _, im := range images { // galériakép
+			if allowWebp || !IsWebp(im.URL) {
 				return im.URL
 			}
 		}
 	}
-	if len(images) > 0 { // csak galériakép van
-		return images[0].URL
-	}
 	return ""
+}
+
+// IsWebp igaz, ha a kép WEBP fájlra mutat.
+func IsWebp(u string) bool {
+	return strings.HasSuffix(strings.ToLower(strings.SplitN(u, "?", 2)[0]), ".webp")
 }
 
 // a rövid leírásba nem kerülő paraméterek

@@ -488,3 +488,5 @@ input[type=checkbox]{width:17px;height:17px;accent-color:var(--orange);cursor:po
 .imgsw .sw.more{padding:6px 10px;font-size:11px;font-weight:700;color:var(--rust)}
 .imgsw .sw.fill{padding:6px 10px;font-size:11px;font-weight:700;color:var(--rust);gap:5px;border-style:dashed}
 .imgsw .sw.fill:hover{background:var(--cream)}
+.imgsw .sw.webp small{color:var(--rust);font-weight:700}
+.imgsw .sw.webp.on small{color:var(--orange)}

@@ -149,11 +149,16 @@ func checkOne(ctx context.Context, client *http.Client, t ImageTarget) ImageChec
 			warns = append(warns, fmt.Sprintf("%d KB, javasolt 200 KB alatt", r.Bytes/1024))
 		}
 	case "product":
-		if !square {
-			warns = append(warns, "nem négyzetes")
+		// a sablon fix magasságú cellában, középre igazítva, legfeljebb 130×130 px-en mutatja:
+		// a fekvő (pl. 600×400) termékfotó is jó, csak a nagyon elnyújtott lesz apró
+		if ratio > 2.2 || ratio < 0.45 {
+			warns = append(warns, "nagyon elnyújtott, kicsiben jelenik meg")
 		}
-		if cfg.Width < 260 || cfg.Height < 260 {
-			warns = append(warns, "kisebb, mint 260×260")
+		if cfg.Width < 260 && cfg.Height < 260 {
+			warns = append(warns, "kisebb, mint 260 px, életlen lehet")
+		}
+		if r.Bytes > 300*1024 {
+			warns = append(warns, fmt.Sprintf("%d KB – a levélben kb. 130 px-en látszik, egy kisebb méret gyorsabban tölt", r.Bytes/1024))
 		}
 	case "portrait":
 		if !square {
@@ -172,6 +177,9 @@ func checkOne(ctx context.Context, client *http.Client, t ImageTarget) ImageChec
 		if r.Bytes > 150*1024 {
 			warns = append(warns, fmt.Sprintf("%d KB, egy kis körképhez sok", r.Bytes/1024))
 		}
+	}
+	if format == "webp" {
+		warns = append(warns, "WEBP formátum: az Outlook asztali változata nem jeleníti meg, JPG vagy PNG javasolt")
 	}
 	if len(warns) > 0 {
 		r.Status, r.Message = "warn", strings.Join(warns, "; ")
