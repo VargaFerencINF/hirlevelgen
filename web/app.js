@@ -95,6 +95,7 @@ const ICONS = {
   table: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>',
   eye: '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
   tablet: '<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M11 18h2"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
   copy: '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
 };
 
@@ -305,6 +306,8 @@ function buildShell() {
       h('span', { class: 'num', text: i + 1 }), h('span', { class: 'lbl', text: s.label }), h('span', { class: 'badge' })));
   });
   $('#menuBtn').append(icon('dots', 20));
+  $('#settingsBtn').append(icon('gear', 19));
+  $('#settingsBtn').addEventListener('click', () => openSettings());
   $('#menuBtn').addEventListener('click', e => { e.stopPropagation(); toggleMenu(); });
   document.addEventListener('click', e => { if (!e.target.closest('#menu')) $('#menu').classList.add('hidden'); });
   document.addEventListener('keydown', e => {
@@ -353,9 +356,12 @@ function toggleMenu() {
   if (!m.classList.contains('hidden')) { m.classList.add('hidden'); return; }
   const item = (ic, label, fn) => h('button', { onclick: () => { m.classList.add('hidden'); fn(); } }, icon(ic), label);
   m.replaceChildren(
+    item('gear', 'Beállítások…', () => openSettings()),
+    h('hr'),
     item('save', 'Tartalom mentése fájlba…', exportContent),
     item('open', 'Tartalom betöltése fájlból…', importContent),
     item('reset', 'Közös tartalom visszaállítása a mintára…', resetContent),
+    item('trash', 'Termékek és partnerek törlése (alaphelyzet)…', () => resetData(true, true)),
     h('hr'),
     item('users', 'Partnerek a B2B partnertörzsből…', () => { setTab('adatok'); openPartnerSet(); }),
     item('link', 'Partnertörzs-források (linkek)…', () => openSources()),
@@ -396,13 +402,21 @@ function renderData() {
 }
 
 function dropZone() {
+  const im = S.import || {};
   return h('div', { class: 'drop', id: 'dropZone' },
     h('div', { class: 'big-ic' }, icon('sheet', 30)),
-    h('h3', { text: 'Húzd ide a partnerlista Excel fájlját' }),
-    h('p', { text: 'vagy válaszd ki a gépedről (.xlsx munkafüzet)' }),
+    h('h3', null, 'Import Excel: ', h('span', { class: 'drop-name', text: im.excelName || '' })),
+    h('p', { class: 'drop-path', text: im.exists ? `Megvan: ${im.path} (módosítva: ${fmtTime(im.modTime)})` : `Itt keresem: ${im.path || ''} – még nincs ott.` }),
     h('div', { class: 'btn-row', style: { justifyContent: 'center' } },
-      h('button', { class: 'btn btn-primary', onclick: e => busy(e.currentTarget, browseExcel) }, icon('upload'), 'Excel kiválasztása…'),
-      h('button', { class: 'btn btn-outline', onclick: e => busy(e.currentTarget, saveDemo) }, icon('download'), 'Minta Excel mentése')));
+      im.exists ? h('button', { class: 'btn btn-primary', onclick: e => busy(e.currentTarget, importExcel) }, icon('upload'), 'Betöltés') : null,
+      h('button', { class: im.exists ? 'btn btn-outline' : 'btn btn-primary', title: 'Csak ezzel a névvel olvasható be; a mappája bárhol lehet', onclick: e => busy(e.currentTarget, browseExcel) }, icon('open'), 'Tallózás…'),
+      h('button', { class: 'btn btn-outline', onclick: e => busy(e.currentTarget, saveDemo) }, icon('download'), 'Minta Excel mentése'),
+      h('button', { class: 'btn btn-ghost', onclick: () => openSettings('import') }, icon('gear', 16), 'Név és mappa…')),
+    h('p', { class: 'p-sub', style: { margin: '10px 0 0' }, text: 'A program csak ezzel a névvel olvas be Excelt (behúzva, tallózva vagy a fenti helyről). A név és a mappa a Beállításokban módosítható.' }));
+}
+
+async function importExcel() {
+  try { applyExcel(await api('/api/excel/import')); } catch (e) { toast(e.message, 'err', { timeout: 12000 }); }
 }
 
 function formatCard() {
@@ -555,6 +569,7 @@ function columnsDetails() {
 }
 
 function applyExcel(r, quiet) {
+  if (r.import) S.import = r.import;
   S.excel = r.excel || null;
   if (r.products) S.state.products = r.products;
   setIssues(r.issues);
@@ -600,6 +615,7 @@ async function saveDemo() {
   try {
     const r = await api('/api/demo/save');
     if (r.cancelled) return;
+    if (r.savedOnly) { toast(`A minta Excel elmentve (${r.savedOnly}), de más néven, ezért nem töltöttem be: a program csak a(z) „${(S.import || {}).excelName}” nevű Excelt olvassa.`, 'warn', { timeout: 12000 }); return; }
     applyExcel(r, true);
     toast('A minta Excel elmentve és betöltve. Nyisd meg Excelben, írd át a saját partnereidre, mentsd, majd nyomd meg az Újratöltés gombot.', 'ok', { timeout: 9000 });
   } catch (e) { toast(e.message, 'err'); }
@@ -843,6 +859,7 @@ function renderProducts() {
       h('div', { class: 'count-big' }, `${sel} termék a levélben `, h('small', { text: `/ ${list.length} betöltve` })),
       h('div', { class: 'grow' }),
       exN ? h('button', { class: 'btn btn-outline btn-sm', onclick: e => busy(e.currentTarget, reloadProducts) }, icon('refresh', 16), 'Újratöltés az Excelből') : null,
+      list.length ? h('button', { class: 'btn btn-ghost btn-sm btn-danger', title: 'Az összes termék törlése a hírlevélből', onclick: () => resetData(true, false) }, icon('trash', 16), 'Összes törlése') : null,
       h('button', { class: 'btn btn-primary btn-sm', onclick: openPicker }, icon('plus', 16), 'Új termék')),
     h('div', { id: 'pGeneral' }),
     h('div', { id: 'plist' }, list.length ? list.map(productCard) : h('div', { class: 'card empty' }, 'Még nincs termék. Tölts be Excelt Termékek munkalappal, vagy az „Új termék” gombbal keress a cikktörzsben.')));
@@ -2288,12 +2305,11 @@ async function openPartnerSet(groupId, loaded) {
   runQuery();
 }
 
-// Források (tokenes linkek) – a tokenek nem látszanak, csak kitakarva.
-async function openSources(focusGroup, after) {
-  let st;
-  try { st = await b2bLoadState(); } catch (e) { toast(e.message, 'err'); return; }
+// Források (tokenes linkek) – a tokenek nem látszanak, csak kitakarva. A panel a Források
+// ablakban és a Beállításokban is ugyanaz.
+function sourcesPanel(st, focusGroup) {
   const list = h('div', { class: 'src-list' });
-  const paste = h('textarea', { class: 'inp', rows: 4, spellcheck: false, placeholder: 'B2B HU: https://energofish.hu/admintool/webgalamb_mod.php?action=export&token=…\nB2B SK: https://…' });
+  const paste = h('textarea', { class: 'inp', rows: 3, spellcheck: false, placeholder: 'B2B HU: https://energofish.hu/admintool/webgalamb_mod.php?action=export&token=…\nB2B SK: https://…' });
   const render = () => {
     list.replaceChildren(...B2B.state.groups.map(g => {
       const inp = h('input', { class: 'inp', type: 'password', autocomplete: 'off', spellcheck: false, placeholder: g.configured ? 'új token vagy link (felülírja)' : 'token vagy tokenes link' });
@@ -2314,30 +2330,145 @@ async function openSources(focusGroup, after) {
           } }, icon('trash', 15)) : null));
     }));
   };
+  render();
+  const el = h('div', { class: 'src-panel' },
+    h('div', { class: 'note ' + (st.protected ? 'ok' : 'warn') }, icon('shield'),
+      h('div', { text: st.protected
+        ? 'A tokenek titkosan, a Windows-felhasználódhoz kötve (DPAPI) tárolódnak ezen a gépen; a program sehol nem írja ki őket – itt is csak az első és utolsó 4 karakter látszik. Környezeti változóból (pl. WEBGALAMB_TOKEN_B2B_HU) is megadhatók.'
+        : 'Ezen a rendszeren nincs Windows-titkosítás: a tokenek csak a felhasználó által olvasható fájlba kerülnek. Környezeti változóból (pl. WEBGALAMB_TOKEN_B2B_HU) is megadhatók.' })),
+    h('div', { class: 'label-caps', style: { margin: '12px 0 6px' }, text: 'Több forrás egyszerre (beillesztés vagy egy .txt behúzása az ablakba)' }),
+    paste,
+    h('div', { class: 'btn-row', style: { margin: '8px 0 12px' } }, h('button', { class: 'btn btn-outline btn-sm', onclick: async () => {
+      try {
+        B2B.state = await api('/api/b2b/sources', { text: paste.value });
+        paste.value = '';
+        render();
+        toast('Mentve: ' + (B2B.state.saved || []).join(', '), 'ok');
+      } catch (e) { toast(e.message, 'err'); }
+    } }, icon('save', 15), 'Felismerés és mentés')),
+    list);
+  return { el, paste };
+}
+
+async function openSources(focusGroup, after) {
+  let st;
+  try { st = await b2bLoadState(); } catch (e) { toast(e.message, 'err'); return; }
+  const panel = sourcesPanel(st, focusGroup);
   const done = () => { bg.remove(); if (after) after(); };
   const bg = h('div', { class: 'modal-bg' },
     h('div', { class: 'modal wide src', role: 'dialog' },
       h('div', { class: 'mh', text: 'Partnertörzs-források' }),
-      h('div', { class: 'mb' },
-        h('div', { class: 'note ' + (st.protected ? 'ok' : 'warn') }, icon('shield'),
-          h('div', { text: st.protected
-            ? 'A tokenek titkosan, a Windows-felhasználódhoz kötve (DPAPI) tárolódnak ezen a gépen; a program sehol nem írja ki őket – itt is csak az első és utolsó 4 karakter látszik. Környezeti változóból (pl. WEBGALAMB_TOKEN_B2B_HU) is megadhatók.'
-            : 'Ezen a rendszeren nincs Windows-titkosítás: a tokenek csak a felhasználó által olvasható fájlba kerülnek. Környezeti változóból (pl. WEBGALAMB_TOKEN_B2B_HU) is megadhatók.' })),
-        h('div', { class: 'label-caps', style: { margin: '12px 0 6px' }, text: 'Több forrás egyszerre (beillesztés)' }),
-        paste,
-        h('div', { class: 'btn-row', style: { margin: '8px 0 16px' } }, h('button', { class: 'btn btn-outline btn-sm', onclick: async () => {
-          try {
-            B2B.state = await api('/api/b2b/sources', { text: paste.value });
-            paste.value = '';
-            render();
-            toast('Mentve: ' + (B2B.state.saved || []).join(', '), 'ok');
-          } catch (e) { toast(e.message, 'err'); }
-        } }, icon('save', 15), 'Felismerés és mentés')),
-        list),
+      h('div', { class: 'mb' }, panel.el),
       h('div', { class: 'mf' }, h('button', { class: 'btn btn-primary', text: 'Kész', onclick: done }))));
   document.body.append(bg);
-  render();
-  paste.focus();
+  panel.paste.focus();
+}
+
+// Alaphelyzet: a betöltött termékek és/vagy partnerek törlése.
+async function resetData(products, partners) {
+  const parts = [];
+  if (products) parts.push(`A hírlevél ${S.state.products.length} terméke törlődik (az Excel-fájl és a cikktörzs nem változik).`);
+  if (partners && S.excel) parts.push(S.excel.source === 'b2b'
+    ? 'A betöltött partnerhalmaz kikerül (a partnertörzs, a források és a mentett halmazok megmaradnak).'
+    : 'A betöltött partnerlista kikerül (az Excel-fájl nem változik).');
+  if (!parts.length) { toast('Nincs betöltött termék vagy partner.', 'info'); return; }
+  if (!await confirmBox('Alaphelyzet', parts.join('\n'), 'Törlés', true)) return;
+  try {
+    if (products) {
+      S.state.products = [];
+      await syncNow();
+      renderProducts();
+    }
+    if (partners && S.excel) {
+      const r = await api('/api/excel/close');
+      S.excel = null;
+      setIssues(r.issues);
+      S.sel = new Set(); S.pv = -1;
+      renderPreviewSelect();
+    }
+    renderData();
+    renderSteps();
+    refreshPreview();
+    toast(products && partners ? 'A termékek és a partnerek törölve.' : products ? 'A termékek törölve.' : 'A partnerlista bezárva.', 'ok');
+  } catch (e) { toast(e.message, 'err'); }
+}
+
+// Beállítások: import Excel neve és mappája, cikktörzs címe, partnertörzs-források, alaphelyzet.
+async function openSettings(focus) {
+  let st, b2;
+  try { [st, b2] = await Promise.all([api('/api/settings'), b2bLoadState()]); } catch (e) { toast(e.message, 'err'); return; }
+  S.import = st.import;
+  const sec = (id, ic, title, sub, ...body) => h('section', { class: 'set-sec', id: 'set-' + id },
+    h('div', { class: 'set-h' }, h('div', { class: 'group-ic' }, icon(ic, 18)), h('div', null, h('h3', { text: title }), h('p', { class: 'p-sub', text: sub }))),
+    body);
+
+  // import Excel
+  const nameInp = h('input', { class: 'inp', value: st.import.excelName, spellcheck: false, placeholder: st.import.defaultName });
+  const dirTxt = h('div', { class: 'set-path' });
+  const status = h('div', { class: 'set-status' });
+  const renderImport = im => {
+    S.import = im;
+    nameInp.value = im.excelName;
+    dirTxt.textContent = im.excelDir + (im.excelDir === im.defaultDir ? '  (a program mappája)' : '');
+    status.replaceChildren(im.exists
+      ? h('span', { class: 'pill ok', text: `megvan · módosítva: ${fmtTime(im.modTime)}` })
+      : h('span', { class: 'pill warn', text: 'ezen a helyen még nincs ilyen fájl' }));
+    if (!S.excel) renderData();
+  };
+  const saveImport = async (body) => {
+    try { renderImport((await api('/api/settings/save', body)).import); toast('Az import Excel beállítása mentve.', 'ok'); } catch (e) { toast(e.message, 'err'); }
+  };
+  nameInp.addEventListener('keydown', e => { if (e.key === 'Enter') saveImport({ excelName: nameInp.value }); });
+  renderImport(st.import);
+  const importSec = sec('import', 'sheet', 'Import Excel', 'Ha Excelből dolgozol, a program csak ezt a nevű fájlt olvassa be: induláskor a megadott mappából, illetve behúzva vagy tallózva bárhonnan.',
+    h('div', { class: 'set-grid' },
+      h('label', { class: 'label-caps', text: 'Pontos fájlnév' }),
+      h('div', { class: 'set-row' }, nameInp,
+        h('button', { class: 'btn btn-outline btn-sm', text: 'Mentés', onclick: () => saveImport({ excelName: nameInp.value }) }),
+        h('button', { class: 'btn btn-ghost btn-sm', text: 'Alapértelmezett', title: st.import.defaultName, onclick: () => saveImport({ excelName: '' }) })),
+      h('label', { class: 'label-caps', text: 'Mappa' }),
+      h('div', { class: 'set-row' }, dirTxt,
+        h('button', { class: 'btn btn-outline btn-sm', onclick: async () => { try { renderImport((await api('/api/settings/folder')).import); } catch (e) { toast(e.message, 'err'); } } }, icon('folder', 15), 'Mappa…'),
+        h('button', { class: 'btn btn-ghost btn-sm', text: 'A program mappája', onclick: () => saveImport({ excelDir: '' }) }),
+        h('button', { class: 'btn btn-ghost btn-sm', title: 'A mappa megnyitása', onclick: () => api('/api/settings/open').catch(e => toast(e.message, 'err')) }, icon('external', 15))),
+      h('label', { class: 'label-caps', text: 'Állapot' }),
+      h('div', { class: 'set-row' }, status,
+        h('button', { class: 'btn btn-primary btn-sm', onclick: async e => { await busy(e.currentTarget, importExcel); } }, icon('upload', 15), 'Betöltés most'))));
+
+  // cikktörzs
+  const o = feedOpts();
+  const feedInp = h('input', { class: 'inp', type: 'url', value: o.url || '', placeholder: st.feedURL, spellcheck: false });
+  const saveFeed = v => { o.url = v; feedInp.value = v; syncNow(); refreshFeed(true, v); toast('A cikktörzs címe mentve, a letöltés elindult.', 'ok'); };
+  const feedSec = sec('feed', 'box', 'Cikktörzs (termékfeed)', 'Innen keres az „Új termék” ablak. Üresen az alapértelmezett Energofish nagyker feed.',
+    h('div', { class: 'set-row' }, feedInp,
+      h('button', { class: 'btn btn-outline btn-sm', text: 'Mentés', onclick: () => saveFeed(feedInp.value.trim()) }),
+      h('button', { class: 'btn btn-ghost btn-sm', text: 'Alapértelmezett', onclick: () => saveFeed('') })),
+    S.feed ? h('div', { class: 'p-sub', style: { marginTop: '6px' }, text: S.feed.ready ? `${S.feed.count.toLocaleString('hu-HU')} cikk · letöltve: ${fmtTime(S.feed.dataTime)}` : (S.feed.lastError || 'még nincs letöltve') }) : null);
+
+  // partnertörzs-források
+  const srcSec = sec('sources', 'link', 'B2B partnertörzs-források', 'A célcsoportok (országok) tokenes exportlinkjei. A program mellé tett partnerforrasok.txt-t indításkor automatikusan beolvassa.',
+    sourcesPanel(b2, null).el);
+
+  // alaphelyzet
+  const resetSec = sec('reset', 'reset', 'Alaphelyzet', 'A betöltött adatok törlése a hírlevélből. A források, a beállítások és a közös tartalom megmaradnak.',
+    h('div', { class: 'btn-row' },
+      h('button', { class: 'btn btn-outline btn-sm btn-danger', onclick: () => resetData(true, false) }, icon('trash', 15), `Termékek törlése (${S.state.products.length})`),
+      h('button', { class: 'btn btn-outline btn-sm btn-danger', onclick: () => resetData(false, true) }, icon('x', 15), `Partnerek törlése (${S.excel ? S.excel.partners.length : 0})`),
+      h('button', { class: 'btn btn-dark btn-sm', onclick: () => resetData(true, true) }, 'Mindkettő')));
+
+  const nav = h('div', { class: 'set-nav' }, [['import', 'Import Excel'], ['feed', 'Cikktörzs'], ['sources', 'Partnertörzs-források'], ['reset', 'Alaphelyzet']].map(([id, t]) =>
+    h('button', { type: 'button', text: t, onclick: () => { const el = document.getElementById('set-' + id); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); } })));
+  const done = () => { document.removeEventListener('keydown', key); bg.remove(); };
+  const key = e => { if (e.key === 'Escape' && !document.querySelector('.modal-bg + .modal-bg')) done(); };
+  const bg = h('div', { class: 'modal-bg', onclick: e => { if (e.target === bg) done(); } },
+    h('div', { class: 'modal settings', role: 'dialog' },
+      h('div', { class: 'mh' }, h('span', null, icon('gear', 18), ' Beállítások'), h('button', { class: 'x', title: 'Bezárás', onclick: done }, icon('x', 18))),
+      nav,
+      h('div', { class: 'mb' }, importSec, feedSec, srcSec, resetSec),
+      h('div', { class: 'mf' }, h('button', { class: 'btn btn-primary', text: 'Kész', onclick: done }))));
+  document.body.append(bg);
+  document.addEventListener('keydown', key);
+  if (focus) { const el = document.getElementById('set-' + focus); if (el) el.scrollIntoView({ block: 'start' }); }
 }
 
 // Képviselő-fotók (a partnertörzsben nincs kép): monogramonként egy kép link.
@@ -2384,7 +2515,7 @@ async function init() {
   }
   Object.assign(S, {
     fields: d.fields, groups: d.groups, templates: d.templates, tokens: d.tokens, defaults: d.defaults,
-    sample: d.sample, state: d.state, excel: d.excel, mode: d.mode, config: d.config, feedURL: d.feedURL,
+    sample: d.sample, state: d.state, excel: d.excel, mode: d.mode, config: d.config, feedURL: d.feedURL, import: d.import,
   });
   if (!S.state.output) S.state.output = {};
   if (!S.state.feed) S.state.feed = {};

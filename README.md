@@ -69,6 +69,13 @@ Az *Adatok* lépés **B2B partnertörzs** kártyáján:
 
 A partner **tokenje** (automatikus bejelentkezés) titkosan tárolódik, de a linkekbe még **nem** kerül: a webes oldal elkészülte és a link-szabályok (paraméternév, csak energofish.hu linkek, UTM-ek) véglegesítése után kapcsolható be.
 
+## Beállítások (⚙ a jobb felső sarokban)
+
+- **Import Excel** – ha Excelből dolgozol, a program **csak a beállított nevű fájlt** olvassa be (alapból `Energofish_partner_hirlevel_minta.xlsx`): induláskor a megadott mappából (alapból a program mappája; korábbi változatról frissítve az eddig használt Excel mappája), behúzva vagy tallózva pedig bárhonnan, de csak ezzel a névvel. Más nevű Excelt a program nem tölt be, hanem megmondja, mi a várt név. A név és a mappa itt bármikor átírható; az *Adatok* lépésben a **Betöltés** gomb a beállított fájlt tölti be.
+- **Cikktörzs (termékfeed)** – a termékkereső forrása (üresen az Energofish nagyker feed).
+- **B2B partnertörzs-források** – a célcsoportok tokenes linkjei (titkosítva tárolva, lásd fent).
+- **Alaphelyzet** – a betöltött **termékek** és/vagy **partnerek** törlése a hírlevélből (a források, a beállítások és a közös tartalom megmaradnak). A *Termékek* lépésben az **Összes törlése** gomb is ezt teszi a termékekkel; a törölt terméklistát a program újraindításkor sem tölti vissza.
+
 ## Az Excel felépítése
 
 Tetszőleges oszlopsorrend, a program a **fejléc szövegéből** ismeri fel az oszlopokat (kis-/nagybetű és ékezet nem számít, pl. „E-mail cím”, „Partner e-mail” egyaránt jó).

@@ -577,3 +577,24 @@ input[type=checkbox]{width:17px;height:17px;accent-color:var(--orange);cursor:po
 @media (max-width:900px){.ps-body{grid-template-columns:1fr}.ps-left{max-height:40vh;border-right:0;border-bottom:1px solid var(--line)}.src-row{grid-template-columns:1fr}}
 .file-sum{font-size:12px;color:var(--rust);font-weight:600;line-height:17px;margin:2px 0}
 .modal.wide .mb{max-height:calc(100vh - 170px);overflow:auto}
+
+/* ---------- Beállítások ---------- */
+.modal.settings{max-width:900px;width:calc(100% - 32px);height:min(90vh,860px);display:flex;flex-direction:column}
+.modal.settings .mh{display:flex;align-items:center;gap:10px;flex:none}
+.modal.settings .mh > span{display:flex;align-items:center;gap:8px}
+.modal.settings .mb{flex:1;overflow:auto;max-height:none;display:flex;flex-direction:column;gap:14px;background:var(--bg)}
+.set-nav{display:flex;gap:4px;padding:8px 16px;border-bottom:1px solid var(--line);flex:none;flex-wrap:wrap;background:#FCFCFC}
+.set-nav button{border:0;background:none;padding:6px 10px;border-radius:8px;font:inherit;font-weight:700;font-size:13px;color:var(--graphite);cursor:pointer}
+.set-nav button:hover{background:var(--cream);color:var(--ink)}
+.set-sec{background:#fff;border:1px solid var(--line);border-radius:var(--r-lg);padding:16px 18px;scroll-margin-top:8px}
+.set-h{display:flex;gap:12px;align-items:flex-start;margin-bottom:12px}
+.set-h h3{margin:0;font-size:16px}
+.set-h p{margin:2px 0 0}
+.set-grid{display:grid;grid-template-columns:120px minmax(0,1fr);gap:10px 14px;align-items:center}
+.set-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;min-width:0}
+.set-row .inp{flex:1;min-width:220px;padding:7px 10px}
+.set-path{flex:1;min-width:0;font-size:13px;color:var(--graphite);word-break:break-all;background:var(--soft);border-radius:8px;padding:7px 10px}
+.set-status{flex:1}
+.drop-name{color:var(--rust);word-break:break-all}
+.drop-path{font-size:12px;color:var(--muted);word-break:break-all;max-width:640px;margin-left:auto !important;margin-right:auto !important}
+@media (max-width:700px){.set-grid{grid-template-columns:1fr}}

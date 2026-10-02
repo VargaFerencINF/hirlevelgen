@@ -42,11 +42,12 @@ type ClientState struct {
 
 // Saved a lemezre mentett beállítások.
 type Saved struct {
-	Version   int         `json:"version"`
-	State     ClientState `json:"state"`
-	ExcelPath string      `json:"excelPath"`
-	ExcelMod  time.Time   `json:"excelMod"`
-	B2B       B2BSettings `json:"b2b"`
+	Version   int            `json:"version"`
+	State     ClientState    `json:"state"`
+	ExcelPath string         `json:"excelPath"`
+	ExcelMod  time.Time      `json:"excelMod"`
+	B2B       B2BSettings    `json:"b2b"`
+	Import    ImportSettings `json:"import"`
 }
 
 const savedVersion = 1
@@ -59,6 +60,7 @@ type App struct {
 	feed       *h.FeedStore
 	b2b        *h.B2BStore
 	b2bSet     B2BSettings
+	imp        ImportSettings
 	notices    []map[string]string // egyszeri üzenetek a felületnek (pl. beolvasott forrásfájl)
 	configDir  string
 	defaults   h.Content
@@ -167,13 +169,25 @@ func (a *App) loadSaved() {
 	a.state.Feed = s.State.Feed
 	a.b2bSet = s.B2B
 	b2bLoaded := s.B2B.Loaded
-	// az utoljára használt Excel újraolvasása; ha közben módosult, a termékeket is onnan vesszük
+	a.imp = s.Import
+	// korábbi változatról: az eddig használt Excel mappája lesz az import mappa
+	if a.imp.ExcelDir == "" && filepath.IsAbs(s.ExcelPath) {
+		if st, err := os.Stat(filepath.Dir(s.ExcelPath)); err == nil && st.IsDir() {
+			a.imp.ExcelDir = filepath.Dir(s.ExcelPath)
+		}
+	}
+	// ha Excelből dolgoztunk: csak a beállított nevű és helyű Excel töltődik be újra; ha közben
+	// módosult (vagy más fájl), a termékeket is onnan vesszük
 	if s.ExcelPath != "" {
-		if st, err := os.Stat(s.ExcelPath); err == nil {
-			changed := !st.ModTime().Equal(s.ExcelMod)
-			if err := a.loadExcelPath(s.ExcelPath, changed || len(a.state.Products) == 0); err != nil {
+		path := a.importPathLocked()
+		if st, err := os.Stat(path); err == nil {
+			changed := !strings.EqualFold(path, s.ExcelPath) || !st.ModTime().Equal(s.ExcelMod)
+			// (a törölt terméklistát nem töltjük újra: az a felhasználó döntése volt)
+			if err := a.loadExcelPath(path, changed); err != nil {
 				log.Printf("az Excel nem tölthető be újra: %v", err)
 			}
+		} else {
+			log.Printf("az import Excel nem található: %s", path)
 		}
 	}
 	// a B2B partnertörzsből betöltött halmaz a helyi adatbázisból épül újra (hálózat nélkül;
@@ -198,7 +212,7 @@ func (a *App) scheduleSave() {
 
 func (a *App) saveNow() {
 	a.mu.Lock()
-	s := Saved{Version: savedVersion, State: a.state, B2B: a.b2bSet}
+	s := Saved{Version: savedVersion, State: a.state, B2B: a.b2bSet, Import: a.imp}
 	if a.excel != nil {
 		s.ExcelPath, s.ExcelMod = a.excel.Path, a.excel.ModTime
 	}
@@ -293,6 +307,11 @@ func (a *App) routes() http.Handler {
 		"/api/excel/products":   a.apiExcelProducts,
 		"/api/excel/open":       a.apiExcelOpenExternal,
 		"/api/excel/close":      a.apiExcelClose,
+		"/api/excel/import":     a.apiExcelImport,
+		"/api/settings":         a.apiSettings,
+		"/api/settings/save":    a.apiSettingsSave,
+		"/api/settings/folder":  a.apiSettingsFolder,
+		"/api/settings/open":    a.apiSettingsOpenFolder,
 		"/api/demo/save":        a.apiDemoSave,
 		"/api/images/check":     a.apiImagesCheck,
 		"/api/output/browse":    a.apiOutputBrowse,
@@ -476,6 +495,7 @@ func (a *App) apiInit(w http.ResponseWriter, r *http.Request) (any, error) {
 		"feed":      a.feed.Status(),
 		"feedURL":   h.DefaultFeedURL,
 		"notices":   a.takeNoticesLocked(),
+		"import":    a.importInfoLocked(),
 	}, nil
 }
 
@@ -510,7 +530,7 @@ func (a *App) apiIssues(w http.ResponseWriter, r *http.Request) (any, error) {
 func (a *App) excelResponse() (any, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	return map[string]any{"excel": a.excelViewLocked(), "products": a.state.Products, "issues": a.issuesLocked()}, nil
+	return map[string]any{"excel": a.excelViewLocked(), "products": a.state.Products, "issues": a.issuesLocked(), "import": a.importInfoLocked()}, nil
 }
 
 func (a *App) apiExcelBrowse(w http.ResponseWriter, r *http.Request) (any, error) {
@@ -527,6 +547,12 @@ func (a *App) apiExcelBrowse(w http.ResponseWriter, r *http.Request) (any, error
 	if path == "" {
 		return map[string]any{"cancelled": true}, nil
 	}
+	if err := a.checkImportName(path); err != nil {
+		return nil, err
+	}
+	a.mu.Lock()
+	a.imp.ExcelDir = filepath.Dir(path) // innen töltődik be legközelebb is
+	a.mu.Unlock()
 	if err := a.loadExcelPath(path, true); err != nil {
 		return nil, err
 	}
@@ -538,6 +564,9 @@ func (a *App) apiExcelLoad(w http.ResponseWriter, r *http.Request) (any, error) 
 		Path string `json:"path"`
 	}
 	if err := decode(r, &req); err != nil {
+		return nil, err
+	}
+	if err := a.checkImportName(req.Path); err != nil {
 		return nil, err
 	}
 	if err := a.loadExcelPath(req.Path, true); err != nil {
@@ -554,6 +583,9 @@ func (a *App) apiExcelUpload(w http.ResponseWriter, r *http.Request) (any, error
 	name = filepath.Base(name)
 	if name == "" {
 		name = "feltoltott.xlsx"
+	}
+	if err := a.checkImportName(name); err != nil {
+		return nil, err
 	}
 	data, err := io.ReadAll(io.LimitReader(r.Body, 64<<20))
 	if err != nil {
@@ -616,7 +648,13 @@ func (a *App) apiExcelClose(w http.ResponseWriter, r *http.Request) (any, error)
 }
 
 func (a *App) apiDemoSave(w http.ResponseWriter, r *http.Request) (any, error) {
-	path, err := a.pickSave("Minta Excel mentése", documentsDir(), "Energofish_partner_hirlevel_minta.xlsx",
+	a.mu.Lock()
+	name, dir := a.importNameLocked(), a.importDirLocked()
+	a.mu.Unlock()
+	if st, err := os.Stat(dir); err != nil || !st.IsDir() {
+		dir = documentsDir()
+	}
+	path, err := a.pickSave("Minta Excel mentése", dir, name,
 		[]fileFilter{{"Excel munkafüzet", []string{"*.xlsx"}}})
 	if err != nil {
 		return nil, err
@@ -630,6 +668,13 @@ func (a *App) apiDemoSave(w http.ResponseWriter, r *http.Request) (any, error) {
 	if err := os.WriteFile(path, a.demoXLSX, 0o644); err != nil {
 		return nil, fmt.Errorf("a mentés nem sikerült: %w", err)
 	}
+	if a.checkImportName(path) != nil {
+		// más néven mentve: nem töltjük be (a program csak a beállított nevű Excelt olvassa)
+		return map[string]any{"savedOnly": path}, nil
+	}
+	a.mu.Lock()
+	a.imp.ExcelDir = filepath.Dir(path)
+	a.mu.Unlock()
 	if err := a.loadExcelPath(path, true); err != nil {
 		return nil, err
 	}

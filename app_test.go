@@ -111,16 +111,29 @@ func TestAPIFlow(t *testing.T) {
 		t.Errorf("áttekintő: %v", err)
 	}
 
-	// feltöltés (drag & drop útvonal) ékezetes névvel
+	// feltöltés (drag & drop útvonal) ékezetes névvel: csak a beállított nevű Excel olvasható be
 	data, _ := os.ReadFile(xlsx)
-	req, _ = http.NewRequest(http.MethodPost, srv.URL+"/api/excel/upload", bytes.NewReader(data))
-	req.Header.Set("X-Token", app.token)
-	req.Header.Set("X-Filename", "Partnerlista%20okt%C3%B3ber.xlsx")
-	res, err = http.DefaultClient.Do(req)
-	if err != nil || res.StatusCode != 200 {
-		t.Fatalf("feltöltés: %v %v", err, res.StatusCode)
+	upload := func() int {
+		req, _ := http.NewRequest(http.MethodPost, srv.URL+"/api/excel/upload", bytes.NewReader(data))
+		req.Header.Set("X-Token", app.token)
+		req.Header.Set("X-Filename", "Partnerlista%20okt%C3%B3ber.xlsx")
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		res.Body.Close()
+		return res.StatusCode
 	}
-	res.Body.Close()
+	if code := upload(); code != 400 {
+		t.Fatalf("más nevű Excel: %d", code)
+	}
+	if code, st := call(t, srv, app.token, "/api/settings/save", map[string]any{"excelName": "Partnerlista október"}); code != 200 ||
+		st["import"].(map[string]any)["excelName"] != "Partnerlista október.xlsx" {
+		t.Fatalf("név beállítása: %d %v", code, st)
+	}
+	if code := upload(); code != 200 {
+		t.Fatalf("feltöltés: %d", code)
+	}
 	app.mu.Lock()
 	name := app.excel.FileName
 	app.mu.Unlock()
@@ -533,5 +546,57 @@ func TestB2BImportFileAndSourcesFile(t *testing.T) {
 	// ismeretlen célcsoport
 	if r := upload("B2B_XX", "0", data); r["error"] == nil {
 		t.Error("ismeretlen célcsoport")
+	}
+}
+
+func TestImportExcelSettings(t *testing.T) {
+	dir := t.TempDir()
+	xdir := filepath.Join(dir, "hírlevél import")
+	_ = os.MkdirAll(xdir, 0o755)
+	demo, _ := os.ReadFile("demo/Energofish_partner_hirlevel_minta.xlsx")
+	app, err := NewApp(filepath.Join(dir, "cfg"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(app.routes())
+	defer srv.Close()
+	// hibás beállítások
+	for _, bad := range []map[string]any{{"excelName": "a/b.xlsx"}, {"excelName": "lista.csv"}, {"excelDir": "relativ"}, {"excelDir": filepath.Join(dir, "nincs")}} {
+		if code, _ := call(t, srv, app.token, "/api/settings/save", bad); code != 400 {
+			t.Errorf("%v: %d", bad, code)
+		}
+	}
+	_, st := call(t, srv, app.token, "/api/settings/save", map[string]any{"excelDir": xdir})
+	in := st["import"].(map[string]any)
+	if in["excelName"] != DefaultImportExcel || in["exists"] != false || in["path"] != filepath.Join(xdir, DefaultImportExcel) {
+		t.Fatalf("beállítás: %v", in)
+	}
+	// nincs még fájl → érthető hiba
+	if code, r := call(t, srv, app.token, "/api/excel/import", nil); code != 400 || !strings.Contains(r["error"].(string), "nem található") {
+		t.Errorf("hiányzó fájl: %d %v", code, r)
+	}
+	_ = os.WriteFile(filepath.Join(xdir, DefaultImportExcel), demo, 0o644)
+	_ = os.WriteFile(filepath.Join(xdir, "masik.xlsx"), demo, 0o644)
+	if code, r := call(t, srv, app.token, "/api/excel/import", nil); code != 200 || len(r["excel"].(map[string]any)["partners"].([]any)) != 21 || r["import"].(map[string]any)["exists"] != true {
+		t.Fatalf("betöltés: %d", code)
+	}
+	if code, _ := call(t, srv, app.token, "/api/excel/load", map[string]any{"path": filepath.Join(xdir, "masik.xlsx")}); code != 400 {
+		t.Error("más nevű Excel betöltése")
+	}
+	app.saveNow()
+	// újraindításkor a beállított helyről töltődik
+	app2, _ := NewApp(filepath.Join(dir, "cfg"))
+	if app2.excel == nil || app2.excel.Path != filepath.Join(xdir, DefaultImportExcel) {
+		t.Fatalf("újraindítás: %+v", app2.excel)
+	}
+	// a név változik → a régi fájl nem töltődik be
+	app2.imp.ExcelName = "Uj_lista.xlsx"
+	app2.saveNow()
+	app3, _ := NewApp(filepath.Join(dir, "cfg"))
+	if app3.excel != nil {
+		t.Error("más nevű Excel töltődött be")
+	}
+	if n, err := normalizeExcelName("Partnerek"); err != nil || n != "Partnerek.xlsx" {
+		t.Error(n, err)
 	}
 }
