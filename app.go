@@ -122,15 +122,20 @@ func NewApp(configDir string) (*App, error) {
 	a.configDir = configDir
 	a.b2b = h.NewB2BStore(configDir)
 	a.b2b.Protect, a.b2b.Unprotect = protectSecret, unprotectSecret
-	a.state = ClientState{
-		Content: cloneContent(defs), Products: append([]h.Product{}, defProds...), Template: "v4-partnerjelentes",
-		Output: OutputSettings{Dir: defaultOutputDir(), FilePattern: h.DefaultFilePattern},
-	}
+	a.state = a.defaultState()
 	if configDir != "" {
 		a.configPath = filepath.Join(configDir, "beallitasok.json")
 		a.loadSaved()
 	}
 	return a, nil
+}
+
+// defaultState az első indításkori (alap) állapot.
+func (a *App) defaultState() ClientState {
+	return ClientState{
+		Content: cloneContent(a.defaults), Products: append([]h.Product{}, a.defProds...), Template: "v4-partnerjelentes",
+		Output: OutputSettings{Dir: defaultOutputDir(), FilePattern: h.DefaultFilePattern},
+	}
 }
 
 func cloneContent(c h.Content) h.Content {
@@ -271,6 +276,17 @@ func (a *App) loadExcelData(data []byte, path string, mod time.Time, takeProduct
 	if err != nil {
 		return err
 	}
+	if len(ex.Partners) == 0 {
+		// partner nélküli (rossz) Excel nem kerülhet be: a korábbi lista marad
+		msg := "az Excelben nem találtam egyetlen partnert sem"
+		for _, i := range ex.Issues {
+			if i.Level == h.LevelError {
+				msg += " (" + i.Message + ")"
+				break
+			}
+		}
+		return errors.New(msg + " – a fájl nincs betöltve. Az első munkalapon soronként egy partner kell, e-mail oszloppal; a „Minta Excel mentése” gomb kész példát ad")
+	}
 	issues := append([]h.Issue{}, ex.Issues...)
 	issues = append(issues, h.ValidateColumns(ex, a.tpls())...)
 	issues = append(issues, h.ValidatePartners(ex.Partners)...)
@@ -312,6 +328,7 @@ func (a *App) routes() http.Handler {
 		"/api/settings/save":    a.apiSettingsSave,
 		"/api/settings/folder":  a.apiSettingsFolder,
 		"/api/settings/open":    a.apiSettingsOpenFolder,
+		"/api/settings/reset":   a.apiSettingsReset,
 		"/api/demo/save":        a.apiDemoSave,
 		"/api/images/check":     a.apiImagesCheck,
 		"/api/output/browse":    a.apiOutputBrowse,
@@ -424,7 +441,27 @@ func (a *App) excelViewLocked() *excelView {
 			reps[p.RepName] = true
 		}
 	}
-	return &excelView{ExcelData: a.excel, Reps: len(reps)}
+	// a felület üres listát vár, nem null-t
+	cp := *a.excel
+	if cp.Partners == nil {
+		cp.Partners = []h.Partner{}
+	}
+	if cp.Products == nil {
+		cp.Products = []h.Product{}
+	}
+	if cp.PartnerColumns == nil {
+		cp.PartnerColumns = []h.Column{}
+	}
+	if cp.ProductColumns == nil {
+		cp.ProductColumns = []h.Column{}
+	}
+	if cp.Issues == nil {
+		cp.Issues = []h.Issue{}
+	}
+	if cp.Sheets == nil {
+		cp.Sheets = []string{}
+	}
+	return &excelView{ExcelData: &cp, Reps: len(reps)}
 }
 
 func (a *App) contentIssuesLocked() []h.Issue {

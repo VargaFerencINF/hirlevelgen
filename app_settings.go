@@ -190,3 +190,66 @@ func (a *App) apiExcelImport(w http.ResponseWriter, r *http.Request) (any, error
 	}
 	return a.excelResponse()
 }
+
+// backupSettings a jelenlegi beállításfájl másolata visszaállítás előtt (beallitasok-mentes-….json).
+func backupSettings(configPath string) string {
+	if configPath == "" {
+		return ""
+	}
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return ""
+	}
+	dst := strings.TrimSuffix(configPath, ".json") + "-mentes-" + time.Now().Format("20060102-150405") + ".json"
+	if os.WriteFile(dst, data, 0o600) != nil {
+		return ""
+	}
+	return dst
+}
+
+// apiSettingsReset visszaállítja a program beállításait az alapállapotra (mintha most indulna
+// először). A régi beállításfájlról másolat készül. Kérésre a partnertörzs-források (linkek),
+// valamint a mentett partnerhalmazok és képviselő-fotók is törlődnek. A letöltött partnertörzs,
+// a cikktörzs és a hozzáadott sablonok megmaradnak.
+func (a *App) apiSettingsReset(w http.ResponseWriter, r *http.Request) (any, error) {
+	var req struct {
+		Sources bool `json:"sources"`
+		B2B     bool `json:"b2b"`
+	}
+	_ = decode(r, &req)
+	backup := backupSettings(a.configPath)
+	a.mu.Lock()
+	a.state = a.defaultState()
+	a.excel, a.excelIssue = nil, nil
+	a.imp = ImportSettings{}
+	if req.B2B {
+		a.b2bSet = B2BSettings{}
+	} else {
+		a.b2bSet.Loaded, a.b2bSet.Filter = nil, h.PartnerFilter{}
+	}
+	if a.saveTimer != nil {
+		a.saveTimer.Stop()
+	}
+	a.mu.Unlock()
+	a.saveNow()
+	if req.Sources {
+		if err := a.saveSources(map[string]string{}); err != nil {
+			return nil, err
+		}
+	}
+	return map[string]any{"ok": true, "backup": backup}, nil
+}
+
+// resetSettingsFile a -alaphelyzet kapcsolóhoz: a beállításfájlt félreteszi (másolatként megmarad),
+// így a program alapállapotban indul.
+func resetSettingsFile(configDir string) (string, error) {
+	path := filepath.Join(configDir, "beallitasok.json")
+	if _, err := os.Stat(path); err != nil {
+		return "", nil
+	}
+	backup := backupSettings(path)
+	if backup == "" {
+		return "", errors.New("a beállítások nem menthetők félre")
+	}
+	return backup, os.Remove(path)
+}

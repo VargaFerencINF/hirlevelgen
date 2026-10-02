@@ -44,6 +44,7 @@ func main() {
 		smoke    = flag.Bool("fustteszt", false, "ablak-teszt: megnyitja a felületet, majd kilép (CI)")
 		feedtest = flag.Bool("feedteszt", false, "az élő cikktörzs letöltése és feldolgozása, statisztikával (CI)")
 		feedURL  = flag.String("feed", "", "feedteszt: a cikktörzs címe (üresen az alapértelmezett)")
+		reset    = flag.Bool("alaphelyzet", false, "a program alapállapotban indul (a régi beállítások másolatként megmaradnak)")
 		ptest    = flag.String("partnerteszt", "", "a B2B partnertörzs élő exportjának ellenőrzése (pl. B2B_HU; a token a WEBGALAMB_TOKEN_B2B_HU változóból)")
 	)
 	flag.Parse()
@@ -81,6 +82,14 @@ func main() {
 		}
 		log.Printf("önteszt rendben")
 		return
+	}
+
+	if *reset && configDir != "" {
+		if b, err := resetSettingsFile(configDir); err != nil {
+			log.Printf("alaphelyzet: %v", err)
+		} else if b != "" {
+			log.Printf("alaphelyzet: a régi beállítások másolata: %s", b)
+		}
 	}
 
 	app, err := NewApp(configDir)

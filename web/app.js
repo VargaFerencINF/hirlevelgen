@@ -361,7 +361,8 @@ function toggleMenu() {
     item('save', 'Tartalom mentése fájlba…', exportContent),
     item('open', 'Tartalom betöltése fájlból…', importContent),
     item('reset', 'Közös tartalom visszaállítása a mintára…', resetContent),
-    item('trash', 'Termékek és partnerek törlése (alaphelyzet)…', () => resetData(true, true)),
+    item('trash', 'Termékek és partnerek törlése…', () => resetData(true, true)),
+    item('reset', 'Visszaállítás alapállapotba…', () => openFactoryReset()),
     h('hr'),
     item('users', 'Partnerek a B2B partnertörzsből…', () => { setTab('adatok'); openPartnerSet(); }),
     item('link', 'Partnertörzs-források (linkek)…', () => openSources()),
@@ -570,7 +571,7 @@ function columnsDetails() {
 
 function applyExcel(r, quiet) {
   if (r.import) S.import = r.import;
-  S.excel = r.excel || null;
+  S.excel = normalizeExcel(r.excel || null);
   if (r.products) S.state.products = r.products;
   setIssues(r.issues);
   S.sel = new Set(S.excel ? S.excel.partners.map((_, i) => i) : []);
@@ -2454,7 +2455,11 @@ async function openSettings(focus) {
     h('div', { class: 'btn-row' },
       h('button', { class: 'btn btn-outline btn-sm btn-danger', onclick: () => resetData(true, false) }, icon('trash', 15), `Termékek törlése (${S.state.products.length})`),
       h('button', { class: 'btn btn-outline btn-sm btn-danger', onclick: () => resetData(false, true) }, icon('x', 15), `Partnerek törlése (${S.excel ? S.excel.partners.length : 0})`),
-      h('button', { class: 'btn btn-dark btn-sm', onclick: () => resetData(true, true) }, 'Mindkettő')));
+      h('button', { class: 'btn btn-dark btn-sm', onclick: () => resetData(true, true) }, 'Mindkettő')),
+    h('div', { class: 'set-factory' },
+      h('div', null, h('b', { text: 'Teljes visszaállítás alapállapotba' }),
+        h('div', { class: 'p-sub', text: 'Minden beállítás az első indításkori értékre áll (a régiekről másolat készül). Ha a program el sem indul rendesen: EnergofishHirlevel.exe -alaphelyzet' })),
+      h('button', { class: 'btn btn-dark btn-sm', onclick: () => openFactoryReset() }, icon('reset', 15), 'Visszaállítás…')));
 
   const nav = h('div', { class: 'set-nav' }, [['import', 'Import Excel'], ['feed', 'Cikktörzs'], ['sources', 'Partnertörzs-források'], ['reset', 'Alaphelyzet']].map(([id, t]) =>
     h('button', { type: 'button', text: t, onclick: () => { const el = document.getElementById('set-' + id); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); } })));
@@ -2517,22 +2522,82 @@ async function init() {
     fields: d.fields, groups: d.groups, templates: d.templates, tokens: d.tokens, defaults: d.defaults,
     sample: d.sample, state: d.state, excel: d.excel, mode: d.mode, config: d.config, feedURL: d.feedURL, import: d.import,
   });
-  if (!S.state.output) S.state.output = {};
-  if (!S.state.feed) S.state.feed = {};
-  if (d.feed) setFeedStatus(d.feed);
-  for (const n of d.notices || []) toast(n.text, n.kind, { timeout: 14000 });
-  setIssues(d.issues);
-  S.sel = new Set(S.excel ? S.excel.partners.map((_, i) => i) : []);
-  S.pv = S.excel && S.excel.partners.length ? 0 : -1;
-  renderTemplateSeg();
-  renderData();
-  renderContent();
-  renderProducts();
-  renderPreviewSelect();
-  const saved = ls('tab');
-  setTab(STEPS.some(s => s.id === saved) ? saved : (S.excel ? 'tartalom' : 'adatok'));
-  refreshPreview();
   setInterval(() => api('/api/heartbeat').catch(() => {}), 20000);
+  try {
+    S.state = S.state || {};
+    if (!Array.isArray(S.state.products)) S.state.products = [];
+    if (!S.state.content) S.state.content = {};
+    if (!S.state.output) S.state.output = {};
+    if (!S.state.feed) S.state.feed = {};
+    S.excel = normalizeExcel(S.excel);
+    if (d.feed) setFeedStatus(d.feed);
+    for (const n of d.notices || []) toast(n.text, n.kind, { timeout: 14000 });
+    setIssues(d.issues);
+    S.sel = new Set(S.excel ? S.excel.partners.map((_, i) => i) : []);
+    S.pv = S.excel && S.excel.partners.length ? 0 : -1;
+    renderTemplateSeg();
+    renderData();
+    renderContent();
+    renderProducts();
+    renderPreviewSelect();
+    const saved = ls('tab');
+    setTab(STEPS.some(s => s.id === saved) ? saved : (S.excel ? 'tartalom' : 'adatok'));
+    refreshPreview();
+  } catch (e) {
+    showRecovery(e);
+  }
+}
+
+// A felület nem tudott felépülni (pl. sérült betöltött adat): helyreállítási lehetőségek.
+function showRecovery(err) {
+  console.error(err);
+  const box = h('div', { class: 'recovery card card-pad' },
+    h('div', { class: 'card-title' }, icon('alert'), 'A program felülete nem tudott betöltődni'),
+    h('p', { class: 'card-sub', text: 'Valószínűleg egy hibás betöltött adat (pl. rossz Excel) okozza. Az alábbi gombokkal helyreállíthatod; a hozzáadott sablonok, a letöltött partnertörzs és a cikktörzs megmaradnak.' }),
+    h('div', { class: 'note err' }, icon('error'), h('div', { text: 'Hiba: ' + (err && err.message ? err.message : String(err)) })),
+    h('div', { class: 'btn-row' },
+      h('button', { class: 'btn btn-primary', onclick: async e => {
+        await busy(e.currentTarget, async () => {
+          try { await api('/api/excel/close'); await api('/api/state', Object.assign({}, S.state || {}, { products: [] })); } catch (x) { /* tovább */ }
+          location.reload();
+        });
+      } }, icon('trash', 16), 'Betöltött partnerek és termékek törlése'),
+      h('button', { class: 'btn btn-dark', onclick: () => openFactoryReset() }, icon('reset', 16), 'Teljes visszaállítás alapállapotba…')));
+  const ed = $('.editor-inner') || document.body;
+  ed.replaceChildren(box);
+}
+
+// A betöltött Excel/partnerhalmaz adatainak egységesítése (null helyett üres lista).
+function normalizeExcel(ex) {
+  if (!ex) return null;
+  for (const k of ['partners', 'products', 'partnerColumns', 'productColumns', 'issues', 'sheets']) if (!Array.isArray(ex[k])) ex[k] = [];
+  return ex;
+}
+
+// Teljes visszaállítás alapállapotba (a menüből is elérhető, akkor is, ha a felület nem töltődött be).
+async function openFactoryReset() {
+  const src = h('input', { type: 'checkbox' });
+  const b2b = h('input', { type: 'checkbox' });
+  const ok = await new Promise(resolve => {
+    const done = v => { bg.remove(); resolve(v); };
+    const bg = h('div', { class: 'modal-bg' }, h('div', { class: 'modal', role: 'dialog' },
+      h('div', { class: 'mh', text: 'Visszaállítás alapállapotba' }),
+      h('div', { class: 'mb' },
+        h('p', { style: { margin: '0 0 10px' }, text: 'A program úgy indul újra, mintha most használnád először: a közös tartalom a tervezői mintára, a termékek a mintatermékekre állnak vissza, a betöltött partnerlista, az import Excel beállítása, a kimeneti mappa és a cikktörzs címe alapértékre kerül.' }),
+        h('p', { class: 'p-sub', style: { margin: '0 0 12px' }, text: 'A régi beállításokról másolat készül (beallitasok-mentes-….json a beállítások mappájában). A hozzáadott sablonok, a letöltött partnertörzs és a cikktörzs megmaradnak.' }),
+        h('label', { class: 'ps-check' }, src, 'A partnertörzs-források (linkek) is törlődjenek'),
+        h('label', { class: 'ps-check', style: { marginTop: '6px' } }, b2b, 'A mentett partnerhalmazok és képviselő-fotók is törlődjenek')),
+      h('div', { class: 'mf' }, h('button', { class: 'btn btn-ghost', text: 'Mégse', onclick: () => done(false) }), h('button', { class: 'btn btn-dark', text: 'Visszaállítás', onclick: () => done(true) }))));
+    document.body.append(bg);
+  });
+  if (!ok) return;
+  try {
+    clearTimeout(S.syncTimer);
+    const r = await api('/api/settings/reset', { sources: src.checked, b2b: b2b.checked });
+    try { localStorage.clear(); } catch (e) { /* nincs */ }
+    toast('A program alapállapotba állt' + (r.backup ? ' (a régi beállítások másolata elkészült).' : '.'), 'ok');
+    setTimeout(() => location.reload(), 600);
+  } catch (e) { toast(e.message, 'err'); }
 }
 
 init();

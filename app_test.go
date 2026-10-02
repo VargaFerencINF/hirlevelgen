@@ -14,6 +14,8 @@ import (
 	"time"
 
 	h "energofish/hirlevel/internal/hirlevel"
+
+	"github.com/xuri/excelize/v2"
 )
 
 func newTestServer(t *testing.T) (*App, *httptest.Server) {
@@ -598,5 +600,76 @@ func TestImportExcelSettings(t *testing.T) {
 	}
 	if n, err := normalizeExcelName("Partnerek"); err != nil || n != "Partnerek.xlsx" {
 		t.Error(n, err)
+	}
+}
+
+func TestBadExcelAndFactoryReset(t *testing.T) {
+	dir := t.TempDir()
+	app, err := NewApp(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	xlsx, _ := filepath.Abs("demo/Energofish_partner_hirlevel_minta.xlsx")
+	if err := app.loadExcelPath(xlsx, true); err != nil {
+		t.Fatal(err)
+	}
+	// partner nélküli Excel: elutasítva, a korábbi lista marad
+	f := excelize.NewFile()
+	_ = f.SetCellValue("Sheet1", "A1", "Cikkszám")
+	_ = f.SetCellValue("Sheet1", "B1", "Ár")
+	var buf bytes.Buffer
+	_ = f.Write(&buf)
+	if err := app.loadExcelData(buf.Bytes(), "Energofish_partner_hirlevel_minta.xlsx", time.Now(), true); err == nil || !strings.Contains(err.Error(), "nem találtam egyetlen partnert") {
+		t.Errorf("rossz Excel: %v", err)
+	}
+	if app.excel == nil || len(app.excel.Partners) != 21 {
+		t.Fatal("a korábbi lista elveszett")
+	}
+	// üres listák null helyett
+	app.excel.Products = nil
+	app.mu.Lock()
+	v := app.excelViewLocked()
+	app.mu.Unlock()
+	if b, _ := json.Marshal(v); strings.Contains(string(b), `"products":null`) {
+		t.Error("null lista a felület felé")
+	}
+
+	// teljes visszaállítás
+	app.mu.Lock()
+	app.state.Content["meta.subject"] = "Átírt tárgy"
+	app.state.Products = nil
+	app.imp.ExcelName = "Mas.xlsx"
+	app.b2bSet.Presets = []B2BPreset{{Name: "x", Group: "B2B_HU"}}
+	app.mu.Unlock()
+	app.saveNow()
+	_ = app.saveSources(map[string]string{"B2B_HU": h.B2BExportURL + "0123456789abcdef0123456789abcdef"})
+	srv := httptest.NewServer(app.routes())
+	defer srv.Close()
+	_, r := call(t, srv, app.token, "/api/settings/reset", map[string]any{"sources": false, "b2b": false})
+	if r["ok"] != true || r["backup"] == "" {
+		t.Fatalf("visszaállítás: %v", r)
+	}
+	old, _ := os.ReadFile(r["backup"].(string))
+	if !strings.Contains(string(old), "Átírt tárgy") {
+		t.Error("a mentés nem a régi beállításokat tartalmazza")
+	}
+	app2, _ := NewApp(dir)
+	if app2.state.Content["meta.subject"] == "Átírt tárgy" || len(app2.state.Products) != 6 || app2.excel != nil || app2.imp.ExcelName != "" || len(app2.b2bSet.Presets) != 1 {
+		t.Errorf("alapállapot: %q %d %v %q %d", app2.state.Content["meta.subject"], len(app2.state.Products), app2.excel != nil, app2.imp.ExcelName, len(app2.b2bSet.Presets))
+	}
+	if src, _ := app2.sourceFor("B2B_HU"); src == "" {
+		t.Error("a forrásoknak meg kellett maradniuk")
+	}
+	call(t, srv, app.token, "/api/settings/reset", map[string]any{"sources": true, "b2b": true})
+	app3, _ := NewApp(dir)
+	if src, _ := app3.sourceFor("B2B_HU"); src != "" || len(app3.b2bSet.Presets) != 0 {
+		t.Error("a források / halmazok nem törlődtek")
+	}
+	// -alaphelyzet kapcsoló
+	if b, err := resetSettingsFile(dir); err != nil || b == "" {
+		t.Errorf("kapcsoló: %v %q", err, b)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "beallitasok.json")); !os.IsNotExist(err) {
+		t.Error("a beállításfájl megmaradt")
 	}
 }

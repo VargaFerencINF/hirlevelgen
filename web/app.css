@@ -598,3 +598,6 @@ input[type=checkbox]{width:17px;height:17px;accent-color:var(--orange);cursor:po
 .drop-name{color:var(--rust);word-break:break-all}
 .drop-path{font-size:12px;color:var(--muted);word-break:break-all;max-width:640px;margin-left:auto !important;margin-right:auto !important}
 @media (max-width:700px){.set-grid{grid-template-columns:1fr}}
+.recovery{margin-top:20px;border-color:#F0C0BA}
+.recovery .card-title{color:var(--err)}
+.set-factory{display:flex;gap:14px;align-items:center;justify-content:space-between;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}

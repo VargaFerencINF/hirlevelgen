@@ -71,9 +71,10 @@ A partner **tokenje** (automatikus bejelentkezés) titkosan tárolódik, de a li
 
 ## Beállítások (⚙ a jobb felső sarokban)
 
-- **Import Excel** – ha Excelből dolgozol, a program **csak a beállított nevű fájlt** olvassa be (alapból `Energofish_partner_hirlevel_minta.xlsx`): induláskor a megadott mappából (alapból a program mappája; korábbi változatról frissítve az eddig használt Excel mappája), behúzva vagy tallózva pedig bárhonnan, de csak ezzel a névvel. Más nevű Excelt a program nem tölt be, hanem megmondja, mi a várt név. A név és a mappa itt bármikor átírható; az *Adatok* lépésben a **Betöltés** gomb a beállított fájlt tölti be.
+- **Import Excel** – ha Excelből dolgozol, a program **csak a beállított nevű fájlt** olvassa be (alapból `Energofish_partner_hirlevel_minta.xlsx`): induláskor a megadott mappából (alapból a program mappája; korábbi változatról frissítve az eddig használt Excel mappája), behúzva vagy tallózva pedig bárhonnan, de csak ezzel a névvel. Más nevű Excelt a program nem tölt be, hanem megmondja, mi a várt név; partner nélküli (rossz) Excelt sem tölt be, a korábbi lista marad. A név és a mappa itt bármikor átírható; az *Adatok* lépésben a **Betöltés** gomb a beállított fájlt tölti be.
 - **Cikktörzs (termékfeed)** – a termékkereső forrása (üresen az Energofish nagyker feed).
 - **B2B partnertörzs-források** – a célcsoportok tokenes linkjei (titkosítva tárolva, lásd fent).
+- **Visszaállítás alapállapotba** – minden beállítás az első indításkori értékre áll (közös tartalom, mintatermékek, sablon, kimeneti mappa, import Excel, cikktörzs címe; kérésre a partnertörzs-források és a mentett partnerhalmazok is). A régi beállításokról másolat készül (`beallitasok-mentes-….json`); a hozzáadott sablonok, a letöltött partnertörzs és a cikktörzs megmaradnak. A jobb felső **⋮** menüből is elérhető – akkor is, ha a felület hibás adat miatt nem töltődik be (ilyenkor a program helyreállító panelt mutat). Végső esetben: `EnergofishHirlevel.exe -alaphelyzet`.
 - **Alaphelyzet** – a betöltött **termékek** és/vagy **partnerek** törlése a hírlevélből (a források, a beállítások és a közös tartalom megmaradnak). A *Termékek* lépésben az **Összes törlése** gomb is ezt teszi a termékekkel; a törölt terméklistát a program újraindításkor sem tölti vissza.
 
 ## Az Excel felépítése
@@ -223,6 +224,7 @@ A program ellenőrzi a sablont: ismeretlen `{{mezőt}}` használó fájlt nem ve
 | Az Excel módosítása nem látszik | Mentsd a fájlt Excelben, majd *Újratöltés*. |
 | „A régi .xls formátum nem támogatott” | Excelben *Mentés másként → Excel-munkafüzet (.xlsx)*. |
 | A termékképek nem látszanak | Az *Ellenőrzés → Képek ellenőrzése* megmutatja, melyik link rossz. |
+| Üres, szétesett felület (pl. rossz Excel megnyitása után) | Jobb felső **⋮** menü → *Visszaállítás alapállapotba…*, vagy a megjelenő helyreállító panel gombjai. Ha a program el sem indul: `EnergofishHirlevel.exe -alaphelyzet` (a régi beállítások másolatként megmaradnak). |
 | „Gyanúsan kevés partner” a partnertörzs frissítésekor | Az export a jelenlegi aktívak 80%-ánál kevesebbet adott, ezért a program nem inaktivált senkit. Ha tényleg ennyien maradtak, a figyelmeztetésben kényszeríthető. |
 | „A szerver válasza HTTP 403” a partnertörzsnél | A célcsoport tokenje érvénytelen vagy lejárt: *Források…* → új token. |
 | „A cikktörzs nem érhető el” | Internetkapcsolat vagy tűzfal/proxy; a hibaüzenet megmondja az okát. Ha korábban már letöltődött, a mentett változatból lehet keresni; terméket kézzel is fel lehet venni. |
