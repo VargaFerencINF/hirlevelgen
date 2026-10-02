@@ -116,12 +116,22 @@ type SyncResult struct {
 // Sync letölti az exportot és frissíti az adatbázist (S01–S09). Hiba esetén semmi nem
 // változik, csak a napló; az ErrSuspiciousExport hibánál force-szal mégis lefuttatható.
 func (s *B2BStore) Sync(ctx context.Context, group, src string, force bool) (SyncResult, error) {
-	var res SyncResult
 	if strings.TrimSpace(src) == "" {
-		return res, errors.New("ehhez a célcsoporthoz nincs megadva forrás (token)")
+		return SyncResult{}, errors.New("ehhez a célcsoporthoz nincs megadva forrás (token)")
 	}
 	start := s.Now()
 	data, status, ferr := s.fetch(ctx, src)
+	return s.apply(group, data, status, ferr, start, force, "")
+}
+
+// ImportData egy kézzel letöltött (pl. böngészőben megnyitott) export betöltése ugyanazokkal a
+// szabályokkal, mint a szinkron. A source a napló számára rövid leírás (pl. a fájl neve).
+func (s *B2BStore) ImportData(group string, data []byte, source string, force bool) (SyncResult, error) {
+	return s.apply(group, data, 0, nil, s.Now(), force, source)
+}
+
+func (s *B2BStore) apply(group string, data []byte, status int, ferr error, start time.Time, force bool, source string) (SyncResult, error) {
+	var res SyncResult
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	db, err := s.dbLocked(group)
@@ -131,6 +141,8 @@ func (s *B2BStore) Sync(ctx context.Context, group, src string, force bool) (Syn
 	fail := func(cause error, rep *ExportReport) (SyncResult, error) {
 		next := db.Clone()
 		res.Log = next.LogFailure(start, status, cause.Error(), rep)
+		res.Log.Source = source
+		next.Log[len(next.Log)-1].Source = source
 		if s.saveLocked(next) == nil {
 			s.dbs[group] = next
 		}
@@ -149,8 +161,8 @@ func (s *B2BStore) Sync(ctx context.Context, group, src string, force bool) (Syn
 	if err != nil {
 		return fail(err, &rep)
 	}
-	next.Log[len(next.Log)-1].HTTP = status
-	l.HTTP = status
+	l.HTTP, l.Source = status, source
+	next.Log[len(next.Log)-1] = l
 	if err := s.saveLocked(next); err != nil { // S08: csak sikeres mentés után cseréljük
 		return res, fmt.Errorf("a partnertörzs mentése nem sikerült, semmi nem változott: %v", err)
 	}

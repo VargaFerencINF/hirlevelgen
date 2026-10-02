@@ -96,7 +96,8 @@ func webviewDataDir() string {
 // runWindow saját ablakban (WebView2) futtatja a felületet. Ha a WebView2
 // futtatókörnyezet hiányzik, false-t ad, és a program a böngészőben nyílik meg.
 func runWindow(a *App, url string, debug bool) bool {
-	if v, err := webviewloader.GetInstalledVersion(); err != nil || v == "" {
+	v, err := webviewloader.GetInstalledVersion()
+	if err != nil || v == "" {
 		log.Printf("WebView2 nem érhető el: %v", err)
 		return false
 	}
@@ -106,6 +107,7 @@ func runWindow(a *App, url string, debug bool) bool {
 	// A WebView2 a környezeti változót is figyeli (és az elsőbbséget élvez a paraméterrel szemben):
 	// így az adatmappa akkor is helyes, ha a paraméter átadása elromlana.
 	_ = os.Setenv("WEBVIEW2_USER_DATA_FOLDER", dataDir)
+	log.Printf("WebView2 %s, betöltő: %s, adatmappa: %s", v, webviewloader.LoaderInfo(), dataDir)
 	wv := webview2.NewWithOptions(webview2.WebViewOptions{
 		Debug:     debug,
 		AutoFocus: true,

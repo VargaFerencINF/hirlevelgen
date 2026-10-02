@@ -6,8 +6,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -681,4 +683,92 @@ func (a *App) refreshB2BBeforeSend(only []int) ([]int, map[string]any, error) {
 	}
 	info := map[string]any{"log": res.Log, "added": added, "dropped": dropped, "only": next}
 	return next, info, nil
+}
+
+// apiB2BImport egy kézzel letöltött export (JSON-fájl) betöltése ugyanazokkal a szabályokkal,
+// mint a szinkron. Fejlécek: X-Group, X-Filename (URL-kódolva), X-Force: 1.
+func (a *App) apiB2BImport(w http.ResponseWriter, r *http.Request) (any, error) {
+	g, err := validGroup(r.Header.Get("X-Group"))
+	if err != nil {
+		return nil, err
+	}
+	name := r.Header.Get("X-Filename")
+	if n, err := url.QueryUnescape(name); err == nil {
+		name = n
+	}
+	name = filepath.Base(strings.ReplaceAll(name, "\\", "/"))
+	data, err := io.ReadAll(io.LimitReader(r.Body, 200<<20))
+	if err != nil {
+		return nil, err
+	}
+	res, err := a.b2b.ImportData(g, data, "fájl: "+name, r.Header.Get("X-Force") == "1")
+	l := res.Log
+	if err != nil {
+		log.Printf("partnertörzs %s: fájlbetöltés megszakítva (%s)", g, h.MaskSecrets(err.Error()))
+	} else {
+		log.Printf("partnertörzs %s fájlból: %d rekord, %d új, %d frissítve, %d újraaktivált, %d inaktivált, %d aktív",
+			g, l.Records, l.New, l.Updated, l.Reactivated, l.Inactivated, l.Active)
+	}
+	out := a.b2bState()
+	out["result"] = res
+	if err != nil {
+		out["failed"] = h.MaskSecrets(err.Error())
+		out["suspicious"] = errors.Is(err, h.ErrSuspiciousExport)
+	}
+	return out, nil
+}
+
+// sourcesImportFile az egyszeri beolvasásra szolgáló, nyílt szöveges forráslista neve.
+const sourcesImportFile = "partnerforrasok.txt"
+
+// importSourcesFiles a program mellett (vagy a beállítások mappájában) talált partnerforrasok.txt
+// linkjeit titkosítva a beállításokba menti, majd biztonsági okból törli a nyílt szöveges fájlt.
+func (a *App) importSourcesFiles() {
+	var dirs []string
+	if exe, err := os.Executable(); err == nil {
+		if real, err := filepath.EvalSymlinks(exe); err == nil {
+			exe = real
+		}
+		dirs = append(dirs, filepath.Dir(exe))
+	}
+	if a.configDir != "" {
+		dirs = append(dirs, a.configDir)
+	}
+	for _, d := range dirs {
+		path := filepath.Join(d, sourcesImportFile)
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		found := h.ParseB2BSources(string(data))
+		if len(found) == 0 {
+			a.addNotice("warn", "A „"+sourcesImportFile+"” fájlban nem találtam célcsoportot és tokenes linket (minta: „B2B HU: https://…&token=…”).")
+			continue
+		}
+		m := a.loadSources()
+		var names []string
+		for g, u := range found {
+			m[g] = u
+			names = append(names, strings.ReplaceAll(g, "_", " "))
+		}
+		sort.Strings(names)
+		if err := a.saveSources(m); err != nil {
+			a.addNotice("err", "A partnerforrások mentése nem sikerült: "+err.Error())
+			continue
+		}
+		msg := fmt.Sprintf("Partnerforrások beolvasva és titkosítva elmentve: %s.", strings.Join(names, ", "))
+		if err := os.Remove(path); err != nil {
+			msg += " A nyílt szöveges „" + sourcesImportFile + "” fájlt töröld kézzel (" + d + ")."
+		} else {
+			msg += " A nyílt szöveges fájlt a program biztonsági okból törölte."
+		}
+		log.Printf("partnerforrások beolvasva fájlból: %s", strings.Join(names, ", "))
+		a.addNotice("ok", msg)
+	}
+}
+
+func (a *App) addNotice(kind, msg string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.notices = append(a.notices, map[string]string{"kind": kind, "text": msg})
 }

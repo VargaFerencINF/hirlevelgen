@@ -43,7 +43,9 @@ Minden beállítás automatikusan mentődik; a program a következő indításko
 A webshop feliratkozói célcsoportonként (B2B HU, SK, CZ, COM, AT, DE, RO, ES, RS) külön JSON-exportból jönnek.
 Az *Adatok* lépés **B2B partnertörzs** kártyáján:
 
-1. **Források…** – illeszd be a célcsoportok tokenes linkjeit (pl. több sor `B2B HU: https://…&token=…` alakban; a program felismeri, melyik melyik), vagy célcsoportonként a tokent. A tokenek titkosan, a Windows-felhasználóhoz kötve (DPAPI) tárolódnak `%APPDATA%\EnergofishHirlevel\` alatt; a program sehol nem írja ki őket (a felületen is csak az első és utolsó 4 karakterük látszik), és a naplóba sem kerülnek. Környezeti változóból is megadhatók: `WEBGALAMB_TOKEN_B2B_HU`, `WEBGALAMB_TOKEN_B2B_SK`, …
+1. **Források** – a linkeket egyszer kell megadni, utána a program titkosítva megjegyzi őket:
+   - a legegyszerűbb: tedd a program mellé (vagy a beállítások mappájába) a `partnerforrasok.txt` fájlt, soronként `B2B HU: https://…&token=…` alakban. Indításkor a program beolvassa, titkosítva elmenti, és **a nyílt szöveges fájlt törli**; vagy húzd be a .txt-t az ablakba;
+   - vagy a **Források…** gombnál illeszd be a célcsoportok tokenes linkjeit (pl. több sor `B2B HU: https://…&token=…` alakban; a program felismeri, melyik melyik), vagy célcsoportonként a tokent. A tokenek titkosan, a Windows-felhasználóhoz kötve (DPAPI) tárolódnak `%APPDATA%\EnergofishHirlevel\` alatt; a program sehol nem írja ki őket (a felületen is csak az első és utolsó 4 karakterük látszik), és a naplóba sem kerülnek. Környezeti változóból is megadhatók: `WEBGALAMB_TOKEN_B2B_HU`, `WEBGALAMB_TOKEN_B2B_SK`, …
 2. **Partnerhalmaz összeállítása…** – célcsoport (ország) választás, **Frissítés most** (letöltés), majd a feltételek:
    - **területi képviselő**, **besorolás** (Basic … Top, Bizományos), **partnerbolt / horgászbolt**, **megye**, *Tulajdonság 6* – több érték is kijelölhető, és mindegyik megfordítható (*kivéve*);
    - **bizományosok** és **belső másolati címek** (Fix): mind / csak ők / nélkülük;
@@ -51,6 +53,7 @@ Az *Adatok* lépés **B2B partnertörzs** kártyáján:
    - egyes partnerek **egyenként kizárhatók** a listából (és visszavehetők).
 
    Egy szemponton belül bármelyik, a szempontok között mindegyik feltételnek teljesülnie kell. Minden érték mellett látszik, hány partner felel meg rá a többi feltétellel együtt. A halmaz **elmenthető névvel**, és később egy kattintással visszatölthető.
+   A partnertörzs a böngészőben letöltött exportból (JSON) is betölthető: húzd be a fájlt az ablakba (a program megkérdezi, melyik célcsoporté), vagy a halmazválasztó **JSON-fájl…** gombja. Ugyanazok a szabályok érvényesek, mint a letöltésnél; régi fájlnál figyelmeztet (az azóta leiratkozottak újra aktívvá válnának).
 3. **Betöltés a hírlevélhez** – a halmaz partnerlistaként töltődik be, a program többi része (tartalom, termékek, ellenőrzés, előnézet, generálás) ugyanúgy működik, mint Excellel.
 
 **Mi kerül a levélbe:** e-mail cím; megszólítás (*automatikus*: a csupa nagybetűs cégnév helyett a tartalék „Kedves Partnerünk!”, személynévnél a név – átállítható); a területi képviselő neve (a „ - Energofish Kft.” utótag nélkül – átállítható), telefonja, e-mailje; a **képviselő fotója** (a partnertörzsben nincs: monogramonként a *Képviselő-fotók…* gombnál adható meg, nélküle monogram); a lábléc leiratkozó linkje helyén **a partner saját leiratkozó linkje**. Változóként használható még: `{nazon}`, `{megye}`, `{besorolas}`, `{partnerbolt}`, `{telefon}`, `{feliratkozas}`, `{ceg}`, és az export esetleges új mezői.
@@ -208,7 +211,7 @@ A program ellenőrzi a sablont: ismeretlen `{{mezőt}}` használó fájlt nem ve
 | Jelenség | Megoldás |
 |---|---|
 | SmartScreen figyelmeztetés | *További információ → Futtatás mindenképp.* |
-| „Nem sikerült létrehozni az adatkönyvtárat” (Microsoft Edge), értelmetlen nevű mappák a program mellett, csak rendszergazdaként indul | Az 1.3.8 előtti változatok hibája volt (a WebView2 adatmappa útvonala sérülhetett). Töltsd le a legfrissebb kiadást, a program mellett keletkezett furcsa nevű mappákat pedig nyugodtan töröld. Rendszergazdai jog nem kell. |
+| „Nem sikerült létrehozni az adatkönyvtárat” (Microsoft Edge), értelmetlen nevű mappák a program mellett, csak rendszergazdaként indul | A korábbi változatok hibája volt (a WebView2 adatmappa útvonala sérülhetett). Töltsd le a legfrissebb kiadást, a program mellett keletkezett furcsa nevű mappákat pedig nyugodtan töröld. Rendszergazdai jog nem kell. Ha mégis előjönne, a `naplo.txt` „WebView2 … betöltő … adatmappa” sora segít a hiba azonosításában. |
 | Böngészőben nyílik meg ablak helyett | Hiányzik a WebView2: [telepíthető a Microsofttól](https://developer.microsoft.com/microsoft-edge/webview2/), de böngészőben is minden működik. Kilépés: jobb felső menü → *Kilépés a programból*. |
 | Az Excel módosítása nem látszik | Mentsd a fájlt Excelben, majd *Újratöltés*. |
 | „A régi .xls formátum nem támogatott” | Excelben *Mentés másként → Excel-munkafüzet (.xlsx)*. |

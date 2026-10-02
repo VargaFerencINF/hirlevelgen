@@ -59,6 +59,7 @@ type App struct {
 	feed       *h.FeedStore
 	b2b        *h.B2BStore
 	b2bSet     B2BSettings
+	notices    []map[string]string // egyszeri üzenetek a felületnek (pl. beolvasott forrásfájl)
 	configDir  string
 	defaults   h.Content
 	defProds   []h.Product
@@ -319,6 +320,7 @@ func (a *App) routes() http.Handler {
 		"/api/b2b/options":      a.apiB2BOptions,
 		"/api/b2b/presets":      a.apiB2BPresets,
 		"/api/b2b/load":         a.apiB2BLoad,
+		"/api/b2b/import":       a.apiB2BImport,
 		"/api/heartbeat":        a.apiHeartbeat,
 		"/api/quit":             a.apiQuit,
 	}
@@ -473,6 +475,7 @@ func (a *App) apiInit(w http.ResponseWriter, r *http.Request) (any, error) {
 		"config":    a.configPath,
 		"feed":      a.feed.Status(),
 		"feedURL":   h.DefaultFeedURL,
+		"notices":   a.takeNoticesLocked(),
 	}, nil
 }
 
@@ -753,6 +756,12 @@ func (a *App) apiOpenURL(w http.ResponseWriter, r *http.Request) (any, error) {
 		return nil, errors.New("leiratkozó linket a program nem nyit meg: a megnyitás azonnal leiratkoztathatja a partnert")
 	}
 	return map[string]any{"ok": true}, openURL(u.String())
+}
+
+func (a *App) takeNoticesLocked() []map[string]string {
+	n := a.notices
+	a.notices = nil
+	return n
 }
 
 // previewUnsubscribe a partner leiratkozó linkjének helyettesítője az előnézetben.

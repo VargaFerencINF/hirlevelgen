@@ -357,6 +357,7 @@ type ImportLog struct {
 	Group       string    `json:"group"`
 	Start       time.Time `json:"start"`
 	HTTP        int       `json:"http,omitempty"`
+	Source      string    `json:"source,omitempty"` // kézi betöltésnél a fájl neve (egyébként a letöltés)
 	Records     int       `json:"records"`
 	Unique      int       `json:"unique"`
 	New         int       `json:"new"`

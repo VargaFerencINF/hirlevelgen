@@ -26,4 +26,6 @@ This will use go-winloader to load an embedded copy of WebView2Loader.dll. If yo
 javítással: a `pkg/edge/chromium.go` `Embed` függvénye a felhasználói adatmappa UTF-16 útvonalát a
 `Chromium` struktúrában tartja, mert a WebView2-környezet létrehozása aszinkron, és az ideiglenes
 puffert a Go szemétgyűjtője felszabadíthatta (a tünet: „Nem sikerült létrehozni az adatkönyvtárat”,
-értelmetlen nevű mappák a program mellett).
+értelmetlen nevű mappák a program mellett). Továbbá a `webviewloader` a `WebView2Loader.dll`-t csak
+a System32-ből tölti (különben a beépítettet használja), hogy ne egy másik program PATH-on talált,
+eltérő verziójú betöltője fusson; a `LoaderInfo()` naplózáshoz megadja, melyik fut.

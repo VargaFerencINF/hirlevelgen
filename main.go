@@ -88,6 +88,9 @@ func main() {
 		fatal(err)
 	}
 
+	// a program mellé tett partnerforrasok.txt egyszeri beolvasása (titkosítva a beállításokba)
+	app.importSourcesFiles()
+
 	if *batch {
 		if err := runBatch(app, *excel, *content, *tplFlag, *outDir, *eml, *from); err != nil {
 			log.Printf("HIBA: %v", err)

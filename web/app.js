@@ -626,7 +626,11 @@ function setupDrop() {
     ov.classList.remove('on');
     const files = Array.from((e.dataTransfer && e.dataTransfer.files) || []);
     const tpls = files.filter(f => /\.(html?|zip)$/i.test(f.name));
+    const json = files.find(f => /\.json$/i.test(f.name));
+    const txt = files.find(f => /\.txt$/i.test(f.name));
     if (tpls.length) uploadTemplates(tpls);
+    else if (json) b2bImportFile(json);
+    else if (txt) b2bImportSourcesText(txt);
     else if (files[0]) uploadExcel(files[0]);
   });
 }
@@ -1953,7 +1957,8 @@ function b2bCard() {
       !configured.length ? h('div', { class: 'note cream' }, icon('info'), h('div', null, 'Még nincs megadva forrás. A ', h('b', { text: 'Források' }), ' gombnál illeszd be a célcsoportok linkjeit (pl. „B2B HU: https://…&token=…”). A tokeneket a program titkosítva tárolja ezen a gépen.')) : null,
       h('div', { class: 'btn-row' },
         h('button', { class: 'btn btn-primary', onclick: () => openPartnerSet(g && g.id) }, icon('users'), 'Partnerhalmaz összeállítása…'),
-        h('button', { class: 'btn btn-ghost', onclick: () => openSources() }, icon('link', 16), 'Források…')));
+        h('button', { class: 'btn btn-ghost', onclick: () => openSources() }, icon('link', 16), 'Források…')),
+      h('div', { class: 'p-sub', text: 'A böngészőben letöltött exportot (JSON) is behúzhatod az ablakba; a forráslinkeket pedig egy „B2B HU: https://…” sorokat tartalmazó .txt fájl behúzásával is felveheted.' }));
   }).catch(e => body.replaceChildren(h('div', { class: 'note err' }, icon('error'), h('div', { text: e.message }))));
   return card;
 }
@@ -1995,6 +2000,59 @@ async function b2bSyncFailed(r, group, retry) {
     return;
   }
   toast(r.failed, 'err', { timeout: 12000 });
+}
+
+// Böngészőben letöltött export (JSON) betöltése – ugyanazokkal a szabályokkal, mint a letöltés.
+async function b2bUpload(file, group, force) {
+  const res = await fetch('/api/b2b/import', { method: 'POST', headers: { 'X-Token': TOKEN, 'X-Group': group, 'X-Filename': encodeURIComponent(file.name), 'X-Force': force ? '1' : '0' }, body: file });
+  let r = null;
+  try { r = await res.json(); } catch (e) { /* üres */ }
+  if (!res.ok || !r || r.error) throw new Error((r && r.error) || 'A fájl nem tölthető be (' + res.status + ')');
+  B2B.state = r;
+  if (r.failed) {
+    if (r.suspicious && await confirmBox('Gyanúsan kevés partner', r.failed + '\n\nHa biztos vagy benne, hogy ez a teljes, friss export, a betöltés kényszeríthető: a hiányzók inaktívak lesznek.', 'Mégis betöltöm', true)) return b2bUpload(file, group, true);
+    if (!r.suspicious) toast(r.failed, 'err', { timeout: 12000 });
+    return null;
+  }
+  toast(`${file.name}: ` + b2bLogText(r.result.log), 'ok', { timeout: 9000 });
+  return r;
+}
+
+async function b2bImportFile(file, group) {
+  let st;
+  try { st = await b2bLoadState(); } catch (e) { toast(e.message, 'err'); return null; }
+  const ageH = (Date.now() - file.lastModified) / 36e5;
+  if (!group) {
+    const sel = h('select', { class: 'inp' }, st.groups.map(g => h('option', { value: g.id, selected: g.id === (st.settings.group || 'B2B_HU'), text: `${g.label} – ${g.country}` })));
+    const ok = await new Promise(resolve => {
+      const done = v => { bg.remove(); resolve(v); };
+      const bg = h('div', { class: 'modal-bg' }, h('div', { class: 'modal', role: 'dialog' },
+        h('div', { class: 'mh', text: 'Partnertörzs betöltése fájlból' }),
+        h('div', { class: 'mb' },
+          h('p', { style: { margin: '0 0 10px' }, text: `${file.name} (${(file.size / 1024).toFixed(0)} KB)` }),
+          h('div', { class: 'label-caps', style: { marginBottom: '6px' }, text: 'Melyik célcsoport exportja?' }), sel,
+          ageH > 24 ? h('div', { class: 'note warn', style: { margin: '12px 0 0' } }, icon('alert'), h('div', { text: `A fájl ${Math.round(ageH / 24)} napos. Régi exporttal az azóta leiratkozottak újra aktívvá válnának – lehetőleg friss exportot tölts be (generáláskor a program úgyis frissít a linkről, ha be van állítva).` })) : null,
+          h('p', { class: 'p-sub', style: { margin: '12px 0 0' }, text: 'Ugyanazok a szabályok érvényesek, mint a letöltésnél: új partner bekerül, a meglévő frissül, aki nincs a fájlban, inaktív lesz.' })),
+        h('div', { class: 'mf' }, h('button', { class: 'btn btn-ghost', text: 'Mégse', onclick: () => done(null) }), h('button', { class: 'btn btn-primary', text: 'Betöltés', onclick: () => done(sel.value) }))));
+      document.body.append(bg);
+    });
+    if (!ok) return null;
+    group = ok;
+  }
+  try {
+    const r = await b2bUpload(file, group, false);
+    if (r && pane('adatok') && !S.excel) renderData();
+    return r;
+  } catch (e) { toast(e.message, 'err'); return null; }
+}
+
+async function b2bImportSourcesText(file) {
+  try {
+    const text = await file.text();
+    B2B.state = await api('/api/b2b/sources', { text });
+    toast('Partnerforrások titkosítva elmentve: ' + (B2B.state.saved || []).join(', ') + '. A nyílt szöveges fájlt érdemes törölni.', 'ok', { timeout: 10000 });
+    if (!S.excel) renderData();
+  } catch (e) { toast(e.message, 'err'); }
 }
 
 // Partnerhalmaz-választó.
@@ -2200,6 +2258,12 @@ async function openPartnerSet(groupId, loaded) {
   }
 
   groupSel.addEventListener('change', () => { group = groupSel.value; filter = {}; presetName = ''; tab = ''; renderGroups(); query(); });
+  const jsonInput = h('input', { type: 'file', accept: '.json,application/json', hidden: true, onchange: async () => {
+    const f = jsonInput.files[0];
+    jsonInput.value = '';
+    if (!f) return;
+    try { if (await b2bUpload(f, group, false)) { renderGroups(); query(); } else { renderGroups(); } } catch (e) { toast(e.message, 'err'); }
+  } });
   const bg = h('div', { class: 'modal-bg' },
     h('div', { class: 'modal pset', role: 'dialog', 'aria-label': 'Partnerhalmaz összeállítása' },
       h('div', { class: 'mh' }, h('span', { text: 'Partnerhalmaz a B2B partnertörzsből' }), h('button', { class: 'x', title: 'Bezárás', onclick: done }, icon('x', 18))),
@@ -2207,8 +2271,9 @@ async function openPartnerSet(groupId, loaded) {
         h('div', { class: 'ps-gwrap' }, h('span', { class: 'label-caps', text: 'Célcsoport' }), groupSel),
         syncInfo, h('div', { class: 'grow' }),
         h('button', { class: 'btn btn-outline btn-sm', dataset: { busy: 'Letöltés…' }, onclick: e => busy(e.currentTarget, () => doSync(false)) }, icon('refresh', 15), 'Frissítés most'),
+        h('button', { class: 'btn btn-ghost btn-sm', title: 'A böngészőben letöltött export (JSON) betöltése ehhez a célcsoporthoz', onclick: () => jsonInput.click() }, icon('upload', 15), 'JSON-fájl…'),
         h('button', { class: 'btn btn-ghost btn-sm', onclick: () => openSources(group, () => { b2bLoadState().then(() => { renderGroups(); query(); }); }) }, icon('link', 15), 'Források…')),
-      h('div', { class: 'ps-body' }, left, right),
+      h('div', { class: 'ps-body' }, left, right), jsonInput,
       h('div', { class: 'mf pk-foot' },
         h('div', { class: 'p-sub', text: 'Csak az aktív (feliratkozott) partnerek választhatók. Egy szemponton belül bármelyik, a szempontok között mindegyik feltételnek teljesülnie kell.' }),
         h('div', { class: 'grow' }),
@@ -2320,6 +2385,7 @@ async function init() {
   if (!S.state.output) S.state.output = {};
   if (!S.state.feed) S.state.feed = {};
   if (d.feed) setFeedStatus(d.feed);
+  for (const n of d.notices || []) toast(n.text, n.kind, { timeout: 14000 });
   setIssues(d.issues);
   S.sel = new Set(S.excel ? S.excel.partners.map((_, i) => i) : []);
   S.pv = S.excel && S.excel.partners.length ? 0 : -1;

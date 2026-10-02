@@ -469,3 +469,69 @@ func TestAPIB2B(t *testing.T) {
 		t.Errorf("Excel: %v", err)
 	}
 }
+
+func TestB2BImportFileAndSourcesFile(t *testing.T) {
+	dir := t.TempDir()
+	// a program mellé / a beállítások közé tett forráslista egyszer beolvasódik, majd törlődik
+	txt := "Partnerforrások\nB2B HU: https://energofish.hu/admintool/webgalamb_mod.php?action=export&token=0123456789abcdef0123456789abcdef\n" +
+		"B2B SK: https://energofish.hu/admintool/webgalamb_mod.php?action=export&token=fedcba9876543210fedcba9876543210\n"
+	if err := os.WriteFile(filepath.Join(dir, sourcesImportFile), []byte(txt), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	app, err := NewApp(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	app.importSourcesFiles()
+	if _, err := os.Stat(filepath.Join(dir, sourcesImportFile)); !os.IsNotExist(err) {
+		t.Error("a nyílt szöveges forrásfájl nem törlődött")
+	}
+	if src, origin := app.sourceFor("B2B_SK"); origin != "saved" || !strings.HasSuffix(src, "fedcba9876543210fedcba9876543210") {
+		t.Errorf("forrás: %q %q", src, origin)
+	}
+	if len(app.notices) != 1 || app.notices[0]["kind"] != "ok" || strings.Contains(app.notices[0]["text"], "0123456789abcdef") {
+		t.Errorf("üzenet: %v", app.notices)
+	}
+	srv := httptest.NewServer(app.routes())
+	defer srv.Close()
+	_, init := call(t, srv, app.token, "/api/init", nil)
+	if n := init["notices"].([]any); len(n) != 1 {
+		t.Errorf("init üzenetek: %v", init["notices"])
+	}
+
+	// kézzel letöltött export (JSON-fájl) betöltése
+	data, _ := os.ReadFile("internal/hirlevel/testdata/b2b-minta.json")
+	upload := func(group, force string, body []byte) map[string]any {
+		req, _ := http.NewRequest(http.MethodPost, srv.URL+"/api/b2b/import", bytes.NewReader(body))
+		req.Header.Set("X-Token", app.token)
+		req.Header.Set("X-Group", group)
+		req.Header.Set("X-Filename", "webgalamb_37_B2B-teljes-celcsoport.json")
+		req.Header.Set("X-Force", force)
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer res.Body.Close()
+		var out map[string]any
+		_ = json.NewDecoder(res.Body).Decode(&out)
+		return out
+	}
+	r := upload("B2B_HU", "0", data)
+	l := r["result"].(map[string]any)["log"].(map[string]any)
+	if r["failed"] != nil || l["new"].(float64) != 9 || l["source"] != "fájl: webgalamb_37_B2B-teljes-celcsoport.json" {
+		t.Fatalf("fájlbetöltés: %v", r)
+	}
+	// hibás fájl: nem változik semmi
+	r = upload("B2B_HU", "0", []byte("<html>"))
+	if r["failed"] == nil || r["error"] != nil {
+		t.Errorf("hibás fájl: %v", r)
+	}
+	db, _ := app.b2b.DB("B2B_HU")
+	if db.ActiveCount() != 9 {
+		t.Errorf("aktív: %d", db.ActiveCount())
+	}
+	// ismeretlen célcsoport
+	if r := upload("B2B_XX", "0", data); r["error"] == nil {
+		t.Error("ismeretlen célcsoport")
+	}
+}

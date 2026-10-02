@@ -106,29 +106,6 @@ jobs:
           Set-Content -Path (Join-Path $cache 'termekadatok.json') -Value $meta -Encoding utf8NoBOM
           Get-ChildItem $cache | ForEach-Object { Write-Host "$($_.Name) $($_.Length)" }
 
-      - name: "Diagnózis: az előző kiadás (v1.3.7) ékezetes mappából, mentett cikktörzzsel"
-        continue-on-error: true
-        timeout-minutes: 6
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          $exe = Join-Path $env:RUNNER_TEMP 'regi.exe'
-          gh release download v1.3.7 --repo $env:GITHUB_REPOSITORY --pattern EnergofishHirlevel.exe --output $exe
-          foreach ($gogc in @('100', '1')) {
-            $dir = Join-Path $env:RUNNER_TEMP "régi hírlevél $gogc\Program 1.3"
-            $cfg = Join-Path $env:RUNNER_TEMP "cfg-regi-$gogc"
-            New-Item -ItemType Directory -Force $dir, $cfg | Out-Null
-            Copy-Item $exe (Join-Path $dir 'EnergofishHirlevel.exe')
-            if (Test-Path "$env:RUNNER_TEMP\feedcache\cikktorzs") { Copy-Item -Recurse "$env:RUNNER_TEMP\feedcache\cikktorzs" $cfg }
-            $env:GOGC = $gogc
-            $p = Start-Process -FilePath (Join-Path $dir 'EnergofishHirlevel.exe') -ArgumentList '-fustteszt','-beallitasok',$cfg -WorkingDirectory $dir -PassThru
-            if (-not $p.WaitForExit(60000)) { $p.Kill(); Write-Host "GOGC=${gogc}: a régi változat nem lépett ki 60 mp alatt (hibaablak?)" }
-            $dirs = @(Get-ChildItem $dir -Directory)
-            Write-Host "GOGC=${gogc}: $($dirs.Count) mappa a régi program mellett"
-            $dirs | ForEach-Object { Write-Host "   $($_.Name)" }
-          }
-
       - name: Ablak-teszt ékezetes mappából, mentett cikktörzzsel és agresszív szemétgyűjtéssel (WebView2 adatmappa)
         shell: pwsh
         run: |

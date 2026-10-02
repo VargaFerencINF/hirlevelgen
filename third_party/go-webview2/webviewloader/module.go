@@ -10,7 +10,10 @@ import (
 )
 
 var (
-	nativeModule                                       = windows.NewLazyDLL("WebView2Loader")
+	// Energofish-javítás: csak a System32-ből (ahol általában nincs), különben a beépített
+	// betöltő fut. Így nem egy másik program PATH-on talált, eltérő verziójú
+	// WebView2Loader.dll-je töltődik be (DLL-keresési sorrend).
+	nativeModule                                       = windows.NewLazySystemDLL("WebView2Loader")
 	nativeCreate                                       = nativeModule.NewProc("CreateCoreWebView2EnvironmentWithOptions")
 	nativeCompareBrowserVersions                       = nativeModule.NewProc("CompareBrowserVersions")
 	nativeGetAvailableCoreWebView2BrowserVersionString = nativeModule.NewProc("GetAvailableCoreWebView2BrowserVersionString")
@@ -150,4 +153,12 @@ func loadFromMemory(nativeErr error) error {
 		memGetAvailableCoreWebView2BrowserVersionString = memModule.Proc("GetAvailableCoreWebView2BrowserVersionString")
 	})
 	return err
+}
+
+// LoaderInfo melyik WebView2Loader fut („beépített” vagy a rendszerben talált) – naplózáshoz.
+func LoaderInfo() string {
+	if nativeModule.Load() == nil {
+		return "rendszer (System32)"
+	}
+	return "beépített"
 }
