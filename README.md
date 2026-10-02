@@ -224,6 +224,7 @@ A program ellenőrzi a sablont: ismeretlen `{{mezőt}}` használó fájlt nem ve
 | Az Excel módosítása nem látszik | Mentsd a fájlt Excelben, majd *Újratöltés*. |
 | „A régi .xls formátum nem támogatott” | Excelben *Mentés másként → Excel-munkafüzet (.xlsx)*. |
 | A termékképek nem látszanak | Az *Ellenőrzés → Képek ellenőrzése* megmutatja, melyik link rossz. |
+| Üres, „lefagyott” felület egy nagy Excel (pl. teljes cikklista) megnyitása után | Az 1.3.14-től a program 50-nél több soros terméklistát nem vesz át (figyelmeztet), legfeljebb 20 000 partnert olvas be, egy levélbe legfeljebb 48 termék kerülhet, és a felület a nagy listákat is gyorsan megjeleníti. Ha a régi változat már elmentette a hibás állapotot: *Termékek › Összes törlése*, vagy *⋮ › Visszaállítás alapállapotba…*. |
 | Üres, szétesett felület (pl. rossz Excel megnyitása után) | Jobb felső **⋮** menü → *Visszaállítás alapállapotba…*, vagy a megjelenő helyreállító panel gombjai. Ha a program el sem indul: `EnergofishHirlevel.exe -alaphelyzet` (a régi beállítások másolatként megmaradnak). |
 | „Gyanúsan kevés partner” a partnertörzs frissítésekor | Az export a jelenlegi aktívak 80%-ánál kevesebbet adott, ezért a program nem inaktivált senkit. Ha tényleg ennyien maradtak, a figyelmeztetésben kényszeríthető. |
 | „A szerver válasza HTTP 403” a partnertörzsnél | A célcsoport tokenje érvénytelen vagy lejárt: *Források…* → új token. |

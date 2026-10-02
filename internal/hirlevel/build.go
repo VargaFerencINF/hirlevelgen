@@ -7,7 +7,7 @@ import (
 
 // SelectedProducts a bekapcsolt termékek.
 func SelectedProducts(products []Product) []Product {
-	out := make([]Product, 0, len(products))
+	out := make([]Product, 0, min(len(products), 16))
 	for _, p := range products {
 		if p.On {
 			out = append(out, p)
@@ -15,6 +15,10 @@ func SelectedProducts(products []Product) []Product {
 	}
 	return out
 }
+
+// MaxNewsletterProducts egy levélbe kerülő termékek felső korlátja (fölötte hiba; az előnézet
+// és a levél is legfeljebb ennyit mutat, hogy egy hibás terméklista ne bénítsa meg a programot).
+const MaxNewsletterProducts = 48
 
 // ResolveAssets az assets.base végső értéke; üres mezőnél a fallback (relatív út).
 func ResolveAssets(c Content, fallback string) string {
@@ -29,6 +33,9 @@ func ResolveAssets(c Content, fallback string) string {
 // assetsFallback: a képtár relatív címe, ha az assets.base üres (pl. "../assets").
 func Build(c Content, products []Product, p *Partner, tpl *Template, assetsFallback string) *RenderData {
 	sel := SelectedProducts(products)
+	if len(sel) > MaxNewsletterProducts {
+		sel = sel[:MaxNewsletterProducts]
+	}
 	assets := ResolveAssets(c, assetsFallback)
 
 	tokens := PartnerTokens(p)

@@ -243,6 +243,8 @@ func ValidateProducts(c Content, products []Product) []Issue {
 	switch {
 	case sel == 0:
 		add(LevelError, -1, "", "Nincs kiválasztott termék: tölts be terméklistát az Excelből, vagy vegyél fel terméket.")
+	case sel > MaxNewsletterProducts:
+		add(LevelError, -1, "", fmt.Sprintf("%d termék van kiválasztva – egy levélbe legfeljebb %d kerülhet (javasolt 3, 6 vagy 9). Kapcsolj ki termékeket, vagy a Termékek lépésben: Összes törlése.", sel, MaxNewsletterProducts))
 	case sel > 12:
 		add(LevelWarn, -1, "", fmt.Sprintf("%d termék van kiválasztva: ez hosszú levél lesz (javasolt 3, 6 vagy 9).", sel))
 	case sel%GridColumns != 0:

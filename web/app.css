@@ -601,3 +601,4 @@ input[type=checkbox]{width:17px;height:17px;accent-color:var(--orange);cursor:po
 .recovery{margin-top:20px;border-color:#F0C0BA}
 .recovery .card-title{color:var(--err)}
 .set-factory{display:flex;gap:14px;align-items:center;justify-content:space-between;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+.boot{display:flex;align-items:center;gap:10px;padding:40px 8px;color:var(--graphite);font-weight:600}

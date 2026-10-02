@@ -517,7 +517,8 @@ function avatar(name, photo, size) {
 function renderPartnerRows() {
   const body = $('#ptBody');
   if (!body) return;
-  const vis = visiblePartners();
+  const all = visiblePartners();
+  const vis = all.slice(0, MAX_PARTNER_ROWS);
   const rows = vis.map(i => {
     const p = S.excel.partners[i];
     const st = S.pStatus.get(i);
@@ -535,6 +536,7 @@ function renderPartnerRows() {
   });
   body.replaceChildren(...rows);
   if (!rows.length) body.append(h('tr', null, h('td', { colspan: 5, class: 'empty', text: 'Nincs találat.' })));
+  if (all.length > vis.length) body.append(h('tr', null, h('td', { colspan: 5, class: 'empty', text: `… és még ${all.length - vis.length} partner. Keress névre, e-mailre vagy képviselőre a szűréshez.` })));
   updateSelInfo();
 }
 
@@ -837,6 +839,10 @@ async function resetContent() {
 
 /* ------------------------------------------------------------------ 3. Termékek */
 
+const MAX_PRODUCT_CARDS = 60;
+const MAX_PARTNER_ROWS = 300;
+const MAX_PREVIEW_OPTIONS = 1000;
+
 const PFIELDS = [
   { k: 'code', label: 'Cikkszám', half: true, req: true },
   { k: 'price', label: 'Ár', half: true, ph: 'pl. 3 090 Ft' },
@@ -863,7 +869,9 @@ function renderProducts() {
       list.length ? h('button', { class: 'btn btn-ghost btn-sm btn-danger', title: 'Az összes termék törlése a hírlevélből', onclick: () => resetData(true, false) }, icon('trash', 16), 'Összes törlése') : null,
       h('button', { class: 'btn btn-primary btn-sm', onclick: openPicker }, icon('plus', 16), 'Új termék')),
     h('div', { id: 'pGeneral' }),
-    h('div', { id: 'plist' }, list.length ? list.map(productCard) : h('div', { class: 'card empty' }, 'Még nincs termék. Tölts be Excelt Termékek munkalappal, vagy az „Új termék” gombbal keress a cikktörzsben.')));
+    list.length > MAX_PRODUCT_CARDS ? h('div', { class: 'note warn' }, icon('alert'), h('div', null, `${list.length} termék van betöltve – ez nem hírlevél-terméklista (egy levélbe legfeljebb 48 kerülhet). Csak az első ${MAX_PRODUCT_CARDS} látszik. `,
+      h('button', { class: 'linkbtn', text: 'Összes törlése', onclick: () => resetData(true, false) }))) : null,
+    h('div', { id: 'plist' }, list.length ? list.slice(0, MAX_PRODUCT_CARDS).map(productCard) : h('div', { class: 'card empty' }, 'Még nincs termék. Tölts be Excelt Termékek munkalappal, vagy az „Új termék” gombbal keress a cikktörzsben.')));
   updateProductIssues();
   renderSteps();
   lookupImages();
@@ -1772,7 +1780,11 @@ function renderPreviewSelect() {
     sel.value = -1;
     return;
   }
-  sel.replaceChildren(...S.excel.partners.map((p, i) => h('option', { value: i, text: `${i + 1}. ${p.name || p.company || '(név nélkül)'} – ${p.email || 'nincs e-mail'}${isBlocked(i) ? '  ⚠' : ''}` })));
+  const n = S.excel.partners.length;
+  const idx = new Set(Array.from({ length: Math.min(n, MAX_PREVIEW_OPTIONS) }, (_, i) => i));
+  if (S.pv >= 0) idx.add(S.pv);
+  sel.replaceChildren(...Array.from(idx).sort((a, b) => a - b).map(i => { const p = S.excel.partners[i]; return h('option', { value: i, text: `${i + 1}. ${p.name || p.company || '(név nélkül)'} – ${p.email || 'nincs e-mail'}${isBlocked(i) ? '  ⚠' : ''}` }); }),
+    n > MAX_PREVIEW_OPTIONS ? h('option', { disabled: true, text: `… további ${n - MAX_PREVIEW_OPTIONS} partner (a nyilakkal léptethető)` }) : null);
   sel.value = S.pv;
 }
 
@@ -2511,6 +2523,9 @@ async function openRepPhotos(group, after) {
 
 async function init() {
   buildShell();
+  const boot = h('div', { class: 'boot' }, h('span', { class: 'spin dark' }), h('span', { text: 'A program betöltése…' }));
+  const ed = $('.editor-inner');
+  if (ed) ed.prepend(boot);
   let d;
   try {
     d = await api('/api/init');
@@ -2542,6 +2557,7 @@ async function init() {
     renderPreviewSelect();
     const saved = ls('tab');
     setTab(STEPS.some(s => s.id === saved) ? saved : (S.excel ? 'tartalom' : 'adatok'));
+    boot.remove();
     refreshPreview();
   } catch (e) {
     showRecovery(e);

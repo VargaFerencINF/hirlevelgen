@@ -23,6 +23,13 @@ type Column struct {
 	Target string `json:"target,omitempty"` // override kulcs vagy változónév
 }
 
+// Ésszerűségi korlátok: ennél több sor biztosan nem hírlevél-partnerlista / -terméklista
+// (pl. egy teljes cikklista), és a felületet is megbénítaná.
+const (
+	MaxExcelProducts = 50
+	MaxExcelPartners = 20000
+)
+
 // ExcelData a beolvasott munkafüzet.
 type ExcelData struct {
 	Path           string    `json:"path"`

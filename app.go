@@ -287,6 +287,15 @@ func (a *App) loadExcelData(data []byte, path string, mod time.Time, takeProduct
 		}
 		return errors.New(msg + " – a fájl nincs betöltve. Az első munkalapon soronként egy partner kell, e-mail oszloppal; a „Minta Excel mentése” gomb kész példát ad")
 	}
+	if len(ex.Partners) > h.MaxExcelPartners {
+		return fmt.Errorf("az Excelben %d partnersor van (legfeljebb %d lehet) – ez valószínűleg nem a partnerlista, a fájl nincs betöltve", len(ex.Partners), h.MaxExcelPartners)
+	}
+	if n := len(ex.Products); n > h.MaxExcelProducts {
+		// egy teljes cikklista nem hírlevél-terméklista: nem vesszük át (a felületet is megbénítaná)
+		ex.Products = nil
+		ex.Issues = append(ex.Issues, h.Issue{Level: h.LevelWarn, Scope: h.ScopeExcel, Index: -1,
+			Message: fmt.Sprintf("A termék-munkalapon %d sor van – a hírlevélbe legfeljebb %d termék vehető át (javasolt 3–12), ezért a termékeket nem vettem át. Ellenőrizd, jó-e a fájl; terméket az „Új termék” gombbal is felvehetsz.", n, h.MaxExcelProducts)})
+	}
 	issues := append([]h.Issue{}, ex.Issues...)
 	issues = append(issues, h.ValidateColumns(ex, a.tpls())...)
 	issues = append(issues, h.ValidatePartners(ex.Partners)...)
