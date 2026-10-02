@@ -444,6 +444,11 @@ func (a *App) issuesLocked() issuesView {
 func (a *App) apiInit(w http.ResponseWriter, r *http.Request) (any, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	if !a.inited {
+		// a gépre mentett cikktörzs betöltése (hálózat nélkül) csak akkor, amikor a felület
+		// már betöltődött: induláskor ne versenyezzen az ablak létrehozásával
+		go a.feed.LoadCached(strings.TrimSpace(a.state.Feed.URL))
+	}
 	a.inited = true
 	if a.smoke {
 		log.Printf("füstteszt: a felület betöltődött (%s)", r.UserAgent())

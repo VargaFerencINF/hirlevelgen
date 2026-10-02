@@ -109,7 +109,6 @@ func main() {
 	}()
 	url := fmt.Sprintf("http://127.0.0.1:%d/", addr.Port)
 	log.Printf("%s %s – %s", appTitle, version, url)
-	app.feed.LoadCached(app.feedURL()) // a gépre mentett cikktörzs a háttérben (hálózat nélkül)
 
 	if *smoke {
 		app.smoke = true

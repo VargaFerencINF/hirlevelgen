@@ -88,38 +88,66 @@ jobs:
           Get-Content $log -ErrorAction SilentlyContinue
           if ($p.ExitCode -ne 0) { throw "ablak-teszt hiba: $($p.ExitCode)" }
 
-      - name: "Diagnózis: az előző kiadás (v1.3.7) ékezetes mappából, agresszív szemétgyűjtéssel"
+      - name: Valódi cikktörzs-gyorsítótár előkészítése (mint egy használt gépen)
         continue-on-error: true
-        timeout-minutes: 4
+        timeout-minutes: 5
+        shell: pwsh
+        run: |
+          $cache = Join-Path $env:RUNNER_TEMP 'feedcache\cikktorzs'
+          New-Item -ItemType Directory -Force $cache | Out-Null
+          $feed = 'https://energofish.hu/listak/feeds/wholesale/termekadatok_hu.xml'
+          $xml = Join-Path $env:RUNNER_TEMP 'termekadatok.xml'
+          Invoke-WebRequest -Uri $feed -OutFile $xml
+          $in = [IO.File]::OpenRead($xml)
+          $out = [IO.File]::Create((Join-Path $cache 'termekadatok.xml.gz'))
+          $gz = New-Object IO.Compression.GZipStream($out, [IO.Compression.CompressionMode]::Compress)
+          $in.CopyTo($gz); $gz.Dispose(); $out.Dispose(); $in.Dispose()
+          $meta = @{ url = $feed; etag = ''; lastModified = ''; fetchedAt = (Get-Date).ToUniversalTime().ToString('o'); count = 12433 } | ConvertTo-Json
+          Set-Content -Path (Join-Path $cache 'termekadatok.json') -Value $meta -Encoding utf8NoBOM
+          Get-ChildItem $cache | ForEach-Object { Write-Host "$($_.Name) $($_.Length)" }
+
+      - name: "Diagnózis: az előző kiadás (v1.3.7) ékezetes mappából, mentett cikktörzzsel"
+        continue-on-error: true
+        timeout-minutes: 6
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $dir = Join-Path $env:RUNNER_TEMP "régi hírlevél\Program 1.3"
-          New-Item -ItemType Directory -Force $dir | Out-Null
-          gh release download v1.3.7 --repo $env:GITHUB_REPOSITORY --pattern EnergofishHirlevel.exe --dir $dir
-          $env:GOGC = "1"
-          $p = Start-Process -FilePath (Join-Path $dir 'EnergofishHirlevel.exe') -ArgumentList '-fustteszt','-beallitasok',"$env:RUNNER_TEMP\cfg-regi" -WorkingDirectory $dir -PassThru
-          if (-not $p.WaitForExit(60000)) { $p.Kill(); Write-Host "a régi változat nem lépett ki 60 mp alatt (hibaablak?)" }
-          Write-Host "mappák a régi program mellett:"
-          Get-ChildItem $dir -Directory | ForEach-Object { Write-Host " - $($_.Name)" }
+          $exe = Join-Path $env:RUNNER_TEMP 'regi.exe'
+          gh release download v1.3.7 --repo $env:GITHUB_REPOSITORY --pattern EnergofishHirlevel.exe --output $exe
+          foreach ($gogc in @('100', '1')) {
+            $dir = Join-Path $env:RUNNER_TEMP "régi hírlevél $gogc\Program 1.3"
+            $cfg = Join-Path $env:RUNNER_TEMP "cfg-regi-$gogc"
+            New-Item -ItemType Directory -Force $dir, $cfg | Out-Null
+            Copy-Item $exe (Join-Path $dir 'EnergofishHirlevel.exe')
+            if (Test-Path "$env:RUNNER_TEMP\feedcache\cikktorzs") { Copy-Item -Recurse "$env:RUNNER_TEMP\feedcache\cikktorzs" $cfg }
+            $env:GOGC = $gogc
+            $p = Start-Process -FilePath (Join-Path $dir 'EnergofishHirlevel.exe') -ArgumentList '-fustteszt','-beallitasok',$cfg -WorkingDirectory $dir -PassThru
+            if (-not $p.WaitForExit(60000)) { $p.Kill(); Write-Host "GOGC=${gogc}: a régi változat nem lépett ki 60 mp alatt (hibaablak?)" }
+            $dirs = @(Get-ChildItem $dir -Directory)
+            Write-Host "GOGC=${gogc}: $($dirs.Count) mappa a régi program mellett"
+            $dirs | ForEach-Object { Write-Host "   $($_.Name)" }
+          }
 
-      - name: Ablak-teszt ékezetes mappából, agresszív szemétgyűjtéssel (WebView2 adatmappa)
+      - name: Ablak-teszt ékezetes mappából, mentett cikktörzzsel és agresszív szemétgyűjtéssel (WebView2 adatmappa)
         shell: pwsh
         run: |
-          $dir = Join-Path $env:RUNNER_TEMP "hírlevél próba\Program 1.3"
-          New-Item -ItemType Directory -Force $dir | Out-Null
-          Copy-Item dist\EnergofishHirlevel.exe $dir
-          $env:GOGC = "1"
-          $log = "$env:RUNNER_TEMP\cfg4\naplo.txt"
-          $p = Start-Process -FilePath (Join-Path $dir 'EnergofishHirlevel.exe') -ArgumentList '-fustteszt','-beallitasok',"$env:RUNNER_TEMP\cfg4" -WorkingDirectory $dir -PassThru
-          if (-not $p.WaitForExit(120000)) { $p.Kill(); throw "időtúllépés" }
-          Get-Content $log -ErrorAction SilentlyContinue
-          $extra = Get-ChildItem $dir -Directory
-          if ($extra) { $extra | ForEach-Object { Write-Host "VÁRATLAN MAPPA: $($_.Name)" }; throw "a program mappájában mappa keletkezett" }
+          foreach ($gogc in @('100', '1')) {
+            $dir = Join-Path $env:RUNNER_TEMP "hírlevél próba $gogc\Program 1.3"
+            $cfg = Join-Path $env:RUNNER_TEMP "cfg-uj-$gogc"
+            New-Item -ItemType Directory -Force $dir, $cfg | Out-Null
+            Copy-Item dist\EnergofishHirlevel.exe $dir
+            if (Test-Path "$env:RUNNER_TEMP\feedcache\cikktorzs") { Copy-Item -Recurse "$env:RUNNER_TEMP\feedcache\cikktorzs" $cfg }
+            $env:GOGC = $gogc
+            $p = Start-Process -FilePath (Join-Path $dir 'EnergofishHirlevel.exe') -ArgumentList '-fustteszt','-beallitasok',$cfg -WorkingDirectory $dir -PassThru
+            if (-not $p.WaitForExit(120000)) { $p.Kill(); throw "GOGC=${gogc}: időtúllépés" }
+            Get-Content (Join-Path $cfg 'naplo.txt') -ErrorAction SilentlyContinue
+            $extra = @(Get-ChildItem $dir -Directory)
+            if ($extra.Count) { $extra | ForEach-Object { Write-Host "VÁRATLAN MAPPA: $($_.Name)" }; throw "GOGC=${gogc}: a program mappájában mappa keletkezett" }
+            if ($p.ExitCode -ne 0) { throw "GOGC=${gogc}: ablak-teszt hiba: $($p.ExitCode)" }
+            Write-Host "GOGC=${gogc} rendben: a program mappája tiszta"
+          }
           if (-not (Test-Path "$env:LOCALAPPDATA\EnergofishHirlevel\WebView2")) { throw "nincs WebView2 adatmappa a LOCALAPPDATA alatt" }
-          if ($p.ExitCode -ne 0) { throw "ablak-teszt hiba: $($p.ExitCode)" }
-          Write-Host "rendben: a WebView2 adatmappa a LOCALAPPDATA alatt van, a program mappája tiszta"
 
       - uses: actions/upload-artifact@v4
         if: always()
