@@ -24,7 +24,7 @@ jobs:
       - name: Exe fordítása
         shell: bash
         run: |
-          VERSION="1.1.${GITHUB_RUN_NUMBER}"
+          VERSION="1.2.${GITHUB_RUN_NUMBER}"
           GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath \
             -ldflags "-s -w -H windowsgui -X main.version=${VERSION}" \
             -o dist/EnergofishHirlevel.exe .
@@ -36,6 +36,15 @@ jobs:
           $p = Start-Process -FilePath dist\EnergofishHirlevel.exe -ArgumentList '-onteszt','-beallitasok',"$env:RUNNER_TEMP\cfg" -Wait -PassThru
           Get-Content "$env:RUNNER_TEMP\cfg\naplo.txt" -ErrorAction SilentlyContinue
           if ($p.ExitCode -ne 0) { throw "önteszt hiba: $($p.ExitCode)" }
+
+      - name: Élő cikktörzs letöltése és feldolgozása (energofish.hu)
+        continue-on-error: true   # a külső szerver elérhetetlensége ne akassza meg a kiadást
+        timeout-minutes: 15
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath dist\EnergofishHirlevel.exe -ArgumentList '-feedteszt','-beallitasok',"$env:RUNNER_TEMP\cfgfeed" -Wait -PassThru
+          Get-Content "$env:RUNNER_TEMP\cfgfeed\naplo.txt" -ErrorAction SilentlyContinue
+          if ($p.ExitCode -ne 0) { throw "cikktörzs-teszt hiba: $($p.ExitCode)" }
 
       - name: Batch generálás a minta Excelből
         shell: pwsh
@@ -80,10 +89,11 @@ jobs:
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.1.${{ github.run_number }}
-          name: Energofish Partnerhírlevél-generátor 1.1.${{ github.run_number }}
+          tag_name: v1.2.${{ github.run_number }}
+          name: Energofish Partnerhírlevél-generátor 1.2.${{ github.run_number }}
           body: |
             Letöltés: **EnergofishHirlevel.exe** (telepítés nélkül, dupla kattintással indul) és a minta Excel.
+            Újdonság az 1.2-ben: „Új termék” keresés a friss cikktörzsben (cikkszám vagy név), a mezők automatikus kitöltése, képméret-váltó a termékkártyán.
             Commit: ${{ github.sha }}
           files: |
             dist/EnergofishHirlevel.exe

@@ -22,7 +22,7 @@ import (
 	h "energofish/hirlevel/internal/hirlevel"
 )
 
-var version = "1.1.0"
+var version = "1.2.0"
 
 const appTitle = "Energofish Partnerhírlevél-generátor"
 
@@ -42,6 +42,8 @@ func main() {
 		from     = flag.String("felado", "", "batch: feladó az EML-hez")
 		selftest = flag.Bool("onteszt", false, "beépített önteszt (CI)")
 		smoke    = flag.Bool("fustteszt", false, "ablak-teszt: megnyitja a felületet, majd kilép (CI)")
+		feedtest = flag.Bool("feedteszt", false, "az élő cikktörzs letöltése és feldolgozása, statisztikával (CI)")
+		feedURL  = flag.String("feed", "", "feedteszt: a cikktörzs címe (üresen az alapértelmezett)")
 	)
 	flag.Parse()
 
@@ -51,7 +53,16 @@ func main() {
 			configDir = filepath.Join(d, "EnergofishHirlevel")
 		}
 	}
-	setupLog(configDir, *batch || *selftest || *noOpen)
+	setupLog(configDir, *batch || *selftest || *noOpen || *feedtest)
+
+	if *feedtest {
+		if err := runFeedTest(*feedURL); err != nil {
+			log.Printf("CIKKTÖRZS-TESZT HIBA: %v", err)
+			os.Exit(1)
+		}
+		log.Printf("cikktörzs-teszt rendben")
+		return
+	}
 
 	if *selftest {
 		if err := runSelfTest(); err != nil {
@@ -88,6 +99,7 @@ func main() {
 	}()
 	url := fmt.Sprintf("http://127.0.0.1:%d/", addr.Port)
 	log.Printf("%s %s – %s", appTitle, version, url)
+	app.feed.LoadCached(app.feedURL()) // a gépre mentett cikktörzs a háttérben (hálózat nélkül)
 
 	if *smoke {
 		app.smoke = true

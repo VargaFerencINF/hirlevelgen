@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xml>
+<Termek>
+	<Cikkszam>10000327</Cikkszam>
+	<CikkszamK>10000-327</CikkszamK>
+	<Termeknev><![CDATA[CRAB RED 12CM]]></Termeknev>
+	<Fotermek id="24021"><![CDATA[WIZARD CRAB]]></Fotermek>
+	<Termek_link>https://energofish.hu/product.php/Mucsali-WIZARD-CRAB/24021/</Termek_link>
+	<Vonalkod>5999018248267</Vonalkod>
+	<Vonalkod2></Vonalkod2>
+	<VTSZ_SZJ>95079000</VTSZ_SZJ>
+	<Kategoria id="210"><![CDATA[Műcsali]]></Kategoria>
+	<Alkategoria id="210040"><![CDATA[Gumihal]]></Alkategoria>
+	<Marka_gyarto><![CDATA[Arno]]></Marka_gyarto>
+	<Nagyker_netto>395</Nagyker_netto>
+	<Nagyker_akcios_netto>320</Nagyker_akcios_netto>
+	<Kisker_brutto>690</Kisker_brutto>
+	<Kisker_akcios_brutto>530</Kisker_akcios_brutto>
+	<Min_mennyiseg_nagyker>1</Min_mennyiseg_nagyker>
+	<Min_mennyiseg_kisker>1</Min_mennyiseg_kisker>
+	<KartonMennyiseg>24</KartonMennyiseg>
+	<KartonSuly>1.2000</KartonSuly>
+	<KartonTerfogat>0.0090</KartonTerfogat>
+	<Letrehozas_datuma>2024-11-11 07:32:44</Letrehozas_datuma>
+	<Keszleten>1</Keszleten>
+	<Termekleiras><![CDATA[<p>	Wizard Crab </p><p>	Egyedi rákutánzat, melyet a legtöbb ragadozó szívesen fogyaszt. </p><p>	Jigre vagy offsetes - chebus módszerrel is feltűzhető</p>]]></Termekleiras>
+	<Kepek>
+		<Kep id="thumb">https://images.energofish.hu/thumbimage/T10000-330.JPG</Kep>
+		<Kep id="code">https://images.energofish.hu/codeimage/C10000-327.JPG</Kep>
+		<Kep id="small">https://images.energofish.hu/smallimage/S10000-328.JPG</Kep>
+		<Kep id="large">https://images.energofish.hu/largeimage/L10000-327.JPG</Kep>
+		<Kep id="gallery1">https://images.energofish.hu/galleryimage/G10000-327.JPG</Kep>
+		<Kep id="gallery2">https://images.energofish.hu/galleryimage/G10000-328.JPG</Kep>
+		<Kep id="gallery3">https://images.energofish.hu/galleryimage/G10000-330.JPG</Kep>
+	</Kepek>
+	<Video title=""></Video>
+	<Termek_jellemzok>
+	</Termek_jellemzok>
+	<Parameterek>
+		<Parameter id="5" name="Cikkszám"><![CDATA[10000-327]]></Parameter>
+		<Parameter id="16" name="Horogméret"><![CDATA[]]></Parameter>
+		<Parameter id="19" name="Kiszerelés"><![CDATA[]]></Parameter>
+		<Parameter id="21" name="Méret"><![CDATA[12 cm]]></Parameter>
+		<Parameter id="23" name="Merülési szint (m)"><![CDATA[]]></Parameter>
+		<Parameter id="28" name="Súly"><![CDATA[]]></Parameter>
+		<Parameter id="31" name="Szín"><![CDATA[Red]]></Parameter>
+		<Parameter id="33" name="Típus"><![CDATA[Crab]]></Parameter>
+		<Parameter id="37" name="Változat"><![CDATA[]]></Parameter>
+	</Parameterek>
+	<Nagyker_egysegar_netto>395 Ft/DB</Nagyker_egysegar_netto>
+	<Nagyker_akcios_egysegar_netto>320 Ft/DB</Nagyker_akcios_egysegar_netto>
+	<Kisker_egysegar_brutto>690 Ft/DB</Kisker_egysegar_brutto>
+	<Kisker_akcios_egysegar_brutto>530 Ft/DB</Kisker_akcios_egysegar_brutto>
+	<Ertekesitesi_egyseg>DB</Ertekesitesi_egyseg>
+	<Kiszerelesi_egyseg>DB</Kiszerelesi_egyseg>
+	<Katalogus_info>K</Katalogus_info>
+	<Alacsony_keszlet>1</Alacsony_keszlet>
+	<Fotermek_matrica>56p_kifuto_plecsni.png</Fotermek_matrica>
+	<Altermek_matrica>56s_kifuto_plecsni.png</Altermek_matrica>
+</Termek>
+<Termek>
+	<Cikkszam>10729300</Cikkszam>
+	<CikkszamK>10729-300</CikkszamK>
+	<Termeknev><![CDATA[KAMASAKI BOT TELE POWER 3M/40-80G]]></Termeknev>
+	<Fotermek id="6992"><![CDATA[KAMASAKI TELE POWER BOT]]></Fotermek>
+	<Termek_link>https://energofish.hu/product.php/Botok-KAMASAKI-TELE-POWER-BOT/6992/</Termek_link>
+	<Vonalkod>5999018323513</Vonalkod>
+	<Vonalkod2></Vonalkod2>
+	<VTSZ_SZJ>95071000</VTSZ_SZJ>
+	<Kategoria id="10"><![CDATA[Botok]]></Kategoria>
+	<Alkategoria id="10080"><![CDATA[Általános teleszkópos]]></Alkategoria>
+	<Marka_gyarto><![CDATA[Kamasaki]]></Marka_gyarto>
+	<Nagyker_netto>4970</Nagyker_netto>
+	<Nagyker_akcios_netto>0</Nagyker_akcios_netto>
+	<Kisker_brutto>8690</Kisker_brutto>
+	<Kisker_akcios_brutto>0</Kisker_akcios_brutto>
+	<Min_mennyiseg_nagyker>1</Min_mennyiseg_nagyker>
+	<Min_mennyiseg_kisker>1</Min_mennyiseg_kisker>
+	<KartonMennyiseg>25</KartonMennyiseg>
+	<KartonSuly>9.0000</KartonSuly>
+	<KartonTerfogat>0.0500</KartonTerfogat>
+	<Letrehozas_datuma>2014-01-09 17:39:00</Letrehozas_datuma>
+	<Keszleten>1</Keszleten>
+	<Termekleiras><![CDATA[<p>	</p><p>	Kamasaki Tele Power bot<br />	<br />	A népszerű Kamasaki márka orsói és számos hasznos kiegészítője mellett most megbízható, gondosan megtervezett horgászbotjait kínálja a horgászoknak.<br />	<br />	Igényes megjelenésű, duplon nyéllel szerelt és erőteljességet sugárzó horgászbot. Kiemelkedő tulajdonságai közé tartozik rendkívül kedvező ár-érték aránya.<br />	<br />	- Tökéletes választás a fenekező pontyhorgászoknak, de nem kizárólag nekik ajánlható.<br />	- Bátran átszerelhetjük úszós vagy fenekező rablóhalazásra, a bot gerince kellő erőt fog adnia bevágáshoz.<br />	<br />	Ajánlott zsinórvastagság 0.25 mm - 0,35 mm-ig.<br />	Válasszunk hozzá 50-es 60-as, kifogástalan fékrendszerű orsót.<br />	<br />	- SiC gyűrűsorral készül, ami garancia a jó minőségre.<br />	- A bot szállítási hossza 100 cm alatti, így bárhová kényelmesen magunkkal vihetjük.<br />	<br />	Kezdő horgászoktól a középhaladókig mindenki eredményesen használhatja.</p>]]></Termekleiras>
+	<Kepek>
+		<Kep id="thumb">https://images.energofish.hu/thumbimage/T10729-300.JPG</Kep>
+		<Kep id="code"></Kep>
+		<Kep id="small">https://images.energofish.hu/smallimage/S10729-300.JPG</Kep>
+		<Kep id="large"></Kep>
+		<Kep id="gallery1">https://images.energofish.hu/galleryimage/6992_4328.jpg</Kep>
+		<Kep id="gallery2">https://images.energofish.hu/galleryimage/6992_4329.jpg</Kep>
+		<Kep id="gallery3">https://images.energofish.hu/galleryimage/6992_4330.jpg</Kep>
+		<Kep id="gallery4">https://images.energofish.hu/galleryimage/6992_4336.jpg</Kep>
+	</Kepek>
+	<Video title=""></Video>
+	<Termek_jellemzok>
+		<Jellemzo id="100" name=""><![CDATA[A B kategóriás botoknál mind a fárasztás, mind a dobás során a bot felső harmada hajlik. Népszerű karakter, mivel horgászat teljes spektrumában, a dobástól a szákolásig, megbízhatóan dolgozik.]]></Jellemzo>
+		<Jellemzo id="25" name=""><![CDATA[A szénszálas anyagok és a gyártástechnológia rohamos fejlődésének köszönhetően a horgászbotok új generációja jelent meg az üzletek polcain. Az IM5-ös karbon felhasználásával készült botok könnyebbek és kecsesebbek, mint a hasonló paraméterekkel rendelkező üvegszálból készült kompozit társaik.]]></Jellemzo>
+		<Jellemzo id="113" name=""><![CDATA[Teljes egészében kiváló minőségű duplon anyaggal borított, klasszikus kialakítású nyél. A kemény, szivacsszerű felületnek köszönhetően akár nedves kézzel is stabil fogást biztosít a fárasztás és a dobás során is.]]></Jellemzo>
+		<Jellemzo id="133" name=""><![CDATA[A botra a leggyakrabban alkalmazott csavaros orsótartó került. A több évtizede használt típus népszerűsége az egyszerűségben és a megbízható felépítésben rejlik. Az orsó rögzítésére két darab, az orsótalp befogadására képes, műanyagbetétes pofa szolgál, melyek közül az egyik egy nagyméretű anyával szorítható meg.]]></Jellemzo>
+		<Jellemzo id="126" name=""><![CDATA[A úgynevezett SIC (szilícium-karbid) gyűrűk eleinte kizárólag a felsőkategóriás botok sajátjai voltak. Mára a technológia fejlődésével széles körben alkalmazzák. Kimagasló kopásállóságának és viszonylag kis súlyának köszönhetően a botgyártók egyik kedvelt gyűrűtípusává vált.]]></Jellemzo>
+	</Termek_jellemzok>
+	<Parameterek>
+		<Parameter id="5" name="Cikkszám"><![CDATA[10729-300]]></Parameter>
+		<Parameter id="7" name="Dobósúly"><![CDATA[40-80 g]]></Parameter>
+		<Parameter id="17" name="Hossz"><![CDATA[3 m]]></Parameter>
+		<Parameter id="28" name="Súly"><![CDATA[290 g]]></Parameter>
+		<Parameter id="29" name="Szállítási méret"><![CDATA[98 cm]]></Parameter>
+		<Parameter id="34" name="Tagok száma"><![CDATA[]]></Parameter>
+		<Parameter id="40" name="Akció"><![CDATA[B]]></Parameter>
+	</Parameterek>
+	<Nagyker_egysegar_netto></Nagyker_egysegar_netto>
+	<Nagyker_akcios_egysegar_netto></Nagyker_akcios_egysegar_netto>
+	<Kisker_egysegar_brutto></Kisker_egysegar_brutto>
+	<Kisker_akcios_egysegar_brutto></Kisker_akcios_egysegar_brutto>
+	<Ertekesitesi_egyseg>DB</Ertekesitesi_egyseg>
+	<Kiszerelesi_egyseg></Kiszerelesi_egyseg>
+	<Katalogus_info></Katalogus_info>
+	<Alacsony_keszlet>1</Alacsony_keszlet>
+	<Fotermek_matrica></Fotermek_matrica>
+	<Altermek_matrica></Altermek_matrica>
+</Termek>
+<Termek>
+	<Cikkszam>SBSLASG0</Cikkszam>
+	<CikkszamK>SBSLA-S_G</CikkszamK>
+	<Termeknev><![CDATA[SONIK & CO BAG 10PCS/BAG]]></Termeknev>
+	<Fotermek id="999"><![CDATA[SONIK TÁSKA]]></Fotermek>
+	<Termek_link>https://energofish.hu/product.php/Taska-A&amp;B/999/</Termek_link>
+	<Vonalkod>&#160;5999018248268</Vonalkod>
+	<Vonalkod2></Vonalkod2>
+	<VTSZ_SZJ>95079000</VTSZ_SZJ>
+	<Kategoria id="1"><![CDATA[]]></Kategoria>
+	<Alkategoria id="999"><![CDATA[Feeder ]]></Alkategoria>
+	<Marka_gyarto><![CDATA[Sonik]]></Marka_gyarto>
+	<Nagyker_netto>395</Nagyker_netto>
+	<Nagyker_akcios_netto>0</Nagyker_akcios_netto>
+	<Kisker_brutto>690</Kisker_brutto>
+	<Kisker_akcios_brutto>0</Kisker_akcios_brutto>
+	<Min_mennyiseg_nagyker>1</Min_mennyiseg_nagyker>
+	<Min_mennyiseg_kisker>1</Min_mennyiseg_kisker>
+	<KartonMennyiseg>24</KartonMennyiseg>
+	<KartonSuly>1.2000</KartonSuly>
+	<KartonTerfogat>0.0090</KartonTerfogat>
+	<Letrehozas_datuma>2024-11-11 07:32:44</Letrehozas_datuma>
+	<Keszleten>0</Keszleten>
+	<Termekleiras><![CDATA[<p>	Wizard Crab </p><p>	Egyedi rákutánzat, melyet a legtöbb ragadozó szívesen fogyaszt. </p><p>	Jigre vagy offsetes - chebus módszerrel is feltűzhető</p>]]></Termekleiras>
+	<Kepek>
+		<Kep id="thumb"></Kep>
+		<Kep id="code">https://images.energofish.hu/codeimage/C SBSLA-S_G.JPG</Kep>
+		<Kep id="small">https://images.energofish.hu/smallimage/S10000-328.JPG</Kep>
+		<Kep id="large">https://images.energofish.hu/largeimage/LSBSLA-S_G.JPG</Kep>
+		<Kep id="gallery1">https://images.energofish.hu/galleryimage/GSBSLA-S_G.JPG</Kep>
+		<Kep id="gallery2">https://images.energofish.hu/galleryimage/G10000-328.JPG</Kep>
+		<Kep id="gallery3">https://images.energofish.hu/galleryimage/G10000-330.JPG</Kep>
+	</Kepek>
+	<Video title=""></Video>
+	<Termek_jellemzok>
+	</Termek_jellemzok>
+	<Parameterek>
+		<Parameter id="5" name="Cikkszám"><![CDATA[SBSLA-S_G]]></Parameter>
+		<Parameter id="16" name="Horogméret"><![CDATA[]]></Parameter>
+		<Parameter id="19" name="Kiszerelés"><![CDATA[]]></Parameter>
+		<Parameter id="21" name="Méret"><![CDATA[12 cm]]></Parameter>
+		<Parameter id="23" name="Merülési szint (m)"><![CDATA[]]></Parameter>
+		<Parameter id="28" name="Súly"><![CDATA[]]></Parameter>
+		<Parameter id="31" name="Szín"><![CDATA[Red]]></Parameter>
+		<Parameter id="33" name="Típus"><![CDATA[Crab]]></Parameter>
+		<Parameter id="37" name="Változat"><![CDATA[]]></Parameter>
+	</Parameterek>
+	<Nagyker_egysegar_netto>395 Ft/DB</Nagyker_egysegar_netto>
+	<Nagyker_akcios_egysegar_netto>320 Ft/DB</Nagyker_akcios_egysegar_netto>
+	<Kisker_egysegar_brutto>690 Ft/DB</Kisker_egysegar_brutto>
+	<Kisker_akcios_egysegar_brutto>530 Ft/DB</Kisker_akcios_egysegar_brutto>
+	<Ertekesitesi_egyseg>DB</Ertekesitesi_egyseg>
+	<Kiszerelesi_egyseg>DB</Kiszerelesi_egyseg>
+	<Katalogus_info>K</Katalogus_info>
+	<Alacsony_keszlet>1</Alacsony_keszlet>
+	<Fotermek_matrica></Fotermek_matrica>
+	<Altermek_matrica>57s_keszletcsokkentett_plecsni.png</Altermek_matrica>
+</Termek>
+</xml>

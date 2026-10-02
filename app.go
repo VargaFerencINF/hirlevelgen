@@ -37,6 +37,7 @@ type ClientState struct {
 	Products []h.Product    `json:"products"`
 	Template string         `json:"template"`
 	Output   OutputSettings `json:"output"`
+	Feed     h.FeedOptions  `json:"feed"`
 }
 
 // Saved a lemezre mentett beállítások.
@@ -54,6 +55,7 @@ type App struct {
 	mu         sync.Mutex
 	token      string
 	lib        *h.Library
+	feed       *h.FeedStore
 	defaults   h.Content
 	defProds   []h.Product
 	state      ClientState
@@ -105,6 +107,11 @@ func NewApp(configDir string) (*App, error) {
 		log.Printf("egyedi sablon kihagyva: %v", e)
 	}
 	a.lib = lib
+	feedDir := ""
+	if configDir != "" {
+		feedDir = filepath.Join(configDir, "cikktorzs")
+	}
+	a.feed = h.NewFeedStore(feedDir)
 	a.state = ClientState{
 		Content: cloneContent(defs), Products: append([]h.Product{}, defProds...), Template: "v4-partnerjelentes",
 		Output: OutputSettings{Dir: defaultOutputDir(), FilePattern: h.DefaultFilePattern},
@@ -149,6 +156,7 @@ func (a *App) loadSaved() {
 	if a.state.Output.FilePattern == "" {
 		a.state.Output.FilePattern = h.DefaultFilePattern
 	}
+	a.state.Feed = s.State.Feed
 	// az utoljára használt Excel újraolvasása; ha közben módosult, a termékeket is onnan vesszük
 	if s.ExcelPath != "" {
 		if st, err := os.Stat(s.ExcelPath); err == nil {
@@ -281,6 +289,11 @@ func (a *App) routes() http.Handler {
 		"/api/templates/update": a.apiTemplatesUpdate,
 		"/api/templates/delete": a.apiTemplatesDelete,
 		"/api/templates/folder": a.apiTemplatesFolder,
+		"/api/feed/status":      a.apiFeedStatus,
+		"/api/feed/refresh":     a.apiFeedRefresh,
+		"/api/feed/search":      a.apiFeedSearch,
+		"/api/feed/products":    a.apiFeedProducts,
+		"/api/feed/images":      a.apiFeedImages,
 		"/api/heartbeat":        a.apiHeartbeat,
 		"/api/quit":             a.apiQuit,
 	}
@@ -428,6 +441,8 @@ func (a *App) apiInit(w http.ResponseWriter, r *http.Request) (any, error) {
 		"issues":    a.issuesLocked(),
 		"sample":    h.SamplePartner,
 		"config":    a.configPath,
+		"feed":      a.feed.Status(),
+		"feedURL":   h.DefaultFeedURL,
 	}, nil
 }
 
@@ -448,6 +463,7 @@ func (a *App) apiState(w http.ResponseWriter, r *http.Request) (any, error) {
 		a.state.Template = h.FindTemplate(a.tpls(), s.Template).ID
 	}
 	a.state.Output = s.Output
+	a.state.Feed = s.Feed
 	a.scheduleSave()
 	return map[string]any{"issues": a.issuesLocked()}, nil
 }

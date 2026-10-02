@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -326,7 +327,7 @@ func TestJSONRoundTrip(t *testing.T) {
 			t.Errorf("%s: %q != %q", k, c2[k], v)
 		}
 	}
-	if len(p2) != len(products) || p2[5] != products[5] {
+	if len(p2) != len(products) || !reflect.DeepEqual(p2[5], products[5]) {
 		t.Errorf("termékek: %+v", p2)
 	}
 }

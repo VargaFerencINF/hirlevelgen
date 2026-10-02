@@ -30,7 +30,7 @@ Windowsos asztali program, amely egy Excel-partnerlistából **partnerenként le
 |---|---|
 | **1. Adatok** | Húzd be az Excelt az ablakba, vagy *Excel kiválasztása…*. Nincs még Excel? *Minta Excel mentése* – kész, kitöltött példa. A program kiírja, melyik oszlopot minek ismerte fel, és jelzi a hibás sorokat. A partnerek egyenként ki-be kapcsolhatók; egy sorra kattintva az előnézet arra a partnerre vált. |
 | **2. Tartalom** | A közös szövegek, blokkonként (Alapadatok, Borító, Személyes levél, Ajánlat, Egy kérdés, Képviselő-blokk, Lábléc, Termék-linkek). A karakterszámláló a tervezői hosszkorlátokat figyeli. |
-| **3. Termékek** | Az Excelből betöltött termékek: ki-be kapcsolás, sorrend, szövegjavítás, új termék. (Az Excel-fájlt nem módosítja.) |
+| **3. Termékek** | Az Excelből betöltött termékek: ki-be kapcsolás, sorrend, szövegjavítás. *Új termék:* keresés a friss cikktörzsben cikkszámra vagy névre, a mezők kitöltésével (lásd lent). Az Excel-fájlt nem módosítja. |
 | **4. Ellenőrzés** | Hibák és figyelmeztetések „Ugrás” gombbal a hibás mezőhöz; *Képek ellenőrzése* – letölti és méri a képeket. |
 | **5. Generálás** | Sablon, kimeneti mappa, fájlnév-minta, EML-piszkozatok. Egy gomb, és kész. |
 
@@ -75,6 +75,20 @@ Tetszőleges oszlopsorrend, a program a **fejléc szövegéből** ismeri fel az 
 
 A rács asztali nézetben 3 oszlopos (480 px alatti mobilon 2), ezért **3, 6 vagy 9 termék** mutat a legjobban; 1–12 termék bármikor működik.
 Linkeknél a cellához rendelt hivatkozás (Ctrl+K) és a `HYPERLINK()` képlet is működik.
+
+### Termék a cikktörzsből (1.2)
+
+A *Termékek* lépés **Új termék** gombja a webshop friss cikktörzsében keres
+(`https://energofish.hu/listak/feeds/wholesale/termekadatok_hu.xml`, kb. 12 400 cikk):
+
+- **Keresés cikkszámra vagy névre** – kötőjel nélkül is (`10000327`), ékezet és kis-nagybetű nélkül, több szóval (`wizard crab`). A találatnál látszik a kép, a márka, a kategória, a kisker- és nagyker ár (akcióval), a készlet és a kifutó/kiárusítás jelölés; a már felvett cikkeket a lista jelzi.
+- **Hozzáadás** gombbal, dupla kattintással vagy **Enterrel** kerül a termékek közé – egymás után több cikkszám is beírható, az ablak nyitva marad.
+- **Kitöltött mezők:** cikkszám, cikknév, rövid leírás (a paraméterekből, pl. „12 cm · Red · Crab”, 30 karakterig), ár, akció („−23%, kifutó”), kép és gomb link. A beszúrás után **minden mező szabadon átírható**.
+- **Beállítások az ablakban** (megjegyzi őket): ár – *kisker bruttó* (alap) / *nagyker nettó „+ áfa”* / üresen; előnyben részesített kép – *cikkkép* / nagy / kis / bélyegkép; gomb link – a *webshop termékoldala* vagy a *Haladó beállítások* mintája.
+- **Képméret-váltó:** a termékkártyán a cikk összes kitöltött képe (bélyeg-, cikk-, kis, nagy és galériaképek) kis előnézettel és pixelmérettel látszik; egy kattintással cserélhető. Ha az előnyben részesített méret üres, a program a következő kitöltöttet választja. (A *cikkkép* és a *nagy kép* a változat saját képe, a többi a főtermék közös képe.)
+- **Excelből jött vagy kézzel felvett termékeknél** is működik: ha a cikkszám szerepel a cikktörzsben, megjelenik a képváltó és a *Kitöltés a cikktörzsből* gomb (az üres mezőket tölti ki).
+
+A cikktörzs a gépre mentődik (`%APPDATA%\EnergofishHirlevel\cikktorzs\`, tömörítve): induláskor onnan azonnal kereshető, az ablak megnyitásakor pedig a program a szerverről csak akkor tölti le újra, ha ott változott. Ha a szerver épp nem érhető el, a legutóbb letöltött változatból keres. A cím az ablak alján (*Cikktörzs címe*) módosítható.
 
 ---
 
@@ -151,6 +165,8 @@ A program ellenőrzi a sablont: ismeretlen `{{mezőt}}` használó fájlt nem ve
 
 ## Változások
 
+**1.2** – „Új termék” a friss cikktörzsből: keresés cikkszámra vagy névre, a mezők kitöltése (ár, leírás, akció, kép, link), képméret-váltó a termékkártyán, kitöltés cikkszám alapján; a cikktörzs helyi tárolása és feltételes frissítése.
+
 **1.1** – reszponzív sablonok (mobil + tablet); új sablonok hozzáadása és mentése (.html vagy .zip), a beépítettek frissítése fájlból; tablet előnézet; élő bélyegképek a sablonválasztóban; több e-mail cím egy partnercellában.
 
 **1.0** – első kiadás.
@@ -166,6 +182,7 @@ A program ellenőrzi a sablont: ismeretlen `{{mezőt}}` használó fájlt nem ve
 | Az Excel módosítása nem látszik | Mentsd a fájlt Excelben, majd *Újratöltés*. |
 | „A régi .xls formátum nem támogatott” | Excelben *Mentés másként → Excel-munkafüzet (.xlsx)*. |
 | A termékképek nem látszanak | Az *Ellenőrzés → Képek ellenőrzése* megmutatja, melyik link rossz. |
+| „A cikktörzs nem érhető el” | Internetkapcsolat vagy tűzfal/proxy; a hibaüzenet megmondja az okát. Ha korábban már letöltődött, a mentett változatból lehet keresni; terméket kézzel is fel lehet venni. |
 
 Beállítások és napló: `%APPDATA%\EnergofishHirlevel\` (`beallitasok.json`, `naplo.txt`) – a program menüjéből is megnyitható.
 
@@ -177,7 +194,7 @@ Beállítások és napló: `%APPDATA%\EnergofishHirlevel\` (`beallitasok.json`, 
 EnergofishHirlevel.exe -batch -excel partnerek.xlsx -sablon v4 -kimenet D:\Hirlevel [-tartalom tartalom.json] [-eml] [-felado "Energofish <hirlevel@energofish.hu>"]
 ```
 
-Felület nélkül generál (pl. ütemezett feladatból); a közös tartalom a mentett beállításokból vagy a `-tartalom` JSON-ból jön, az eredmény a naplóba kerül. `-bongeszo`: saját ablak helyett böngészőben nyílik meg.
+Felület nélkül generál (pl. ütemezett feladatból); a közös tartalom a mentett beállításokból vagy a `-tartalom` JSON-ból jön, az eredmény a naplóba kerül. `-bongeszo`: saját ablak helyett böngészőben nyílik meg. `-feedteszt [-feed <cím>]`: letölti és feldolgozza a cikktörzset, statisztikát és mintákat ír (a CI is ezzel ellenőrzi az élő feedet).
 
 ---
 
@@ -186,7 +203,7 @@ Felület nélkül generál (pl. ütemezett feladatból); a közös tartalom a me
 Go 1.25+, külső futtatókörnyezet nélkül; a felület beágyazott HTML/CSS/JS (Open Sans betűkészlettel), Windowson WebView2 ablakban.
 
 ```
-./build.sh 1.0.0        # tesztek + dist/EnergofishHirlevel.exe (Linuxról is fordítható)
+./build.sh 1.2.0        # tesztek + dist/EnergofishHirlevel.exe (Linuxról is fordítható)
 go test ./...           # egység- és API-tesztek
 go run . -bongeszo      # fejlesztői futtatás böngészőben
 ```
@@ -195,7 +212,7 @@ go run . -bongeszo      # fejlesztői futtatás böngészőben
 |---|---|
 | `main.go`, `app.go` | indítás, helyi HTTP API (csak 127.0.0.1, tokennel védve) |
 | `platform_windows.go` | WebView2 ablak, natív fájlválasztók, DPI-kezelés |
-| `internal/hirlevel/` | sablonmotor és -átalakító, sablontár, Excel-olvasó, validálás, generálás (HTML, EML, CSV) |
+| `internal/hirlevel/` | sablonmotor és -átalakító, sablontár, Excel-olvasó, cikktörzs (feed) feldolgozó és keresés, validálás, generálás (HTML, EML, CSV) |
 | `web/` | a felület |
 | `sablonok/`, `assets/` | a tervező nyers (reszponzív) sablonjai és képeik; átalakítás betöltéskor |
 | `demo/`, `tools/minta_excel.py` | minta Excel és előállító szkriptje |

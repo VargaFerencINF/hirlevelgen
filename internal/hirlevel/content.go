@@ -27,6 +27,8 @@ type Product struct {
 	Alt   string `json:"alt,omitempty"`
 	CTA   string `json:"cta,omitempty"`
 	Row   int    `json:"row,omitempty"` // Excel sor (tájékoztató)
+	// Images a cikktörzsben talált képváltozatok (a termékkártyán ezek közül lehet váltani).
+	Images []FeedImage `json:"images,omitempty"`
 }
 
 // Partner egy címzett az Excel első munkalapjáról.

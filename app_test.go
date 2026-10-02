@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	h "energofish/hirlevel/internal/hirlevel"
 )
 
 func newTestServer(t *testing.T) (*App, *httptest.Server) {
@@ -145,6 +147,8 @@ func TestSettingsPersist(t *testing.T) {
 	app.state.Content["meta.subject"] = "Mentett tárgy"
 	app.state.Products[0].Name = "Módosított név"
 	app.state.Template = "v2-waterside"
+	app.state.Feed = h.FeedOptions{URL: "https://példa.hu/feed.xml", Price: "wholesale", Image: "large"}
+	app.state.Products[0].Images = []h.FeedImage{{ID: "code", URL: "https://kep/c.jpg"}}
 	app.mu.Unlock()
 	app.saveNow()
 
@@ -157,6 +161,9 @@ func TestSettingsPersist(t *testing.T) {
 	}
 	if app2.excel == nil || len(app2.excel.Partners) != 21 {
 		t.Fatal("az Excel nem töltődött újra")
+	}
+	if app2.state.Feed.URL != "https://példa.hu/feed.xml" || app2.state.Feed.Image != "large" || len(app2.state.Products[0].Images) != 1 {
+		t.Errorf("a cikktörzs-beállítás nem töltődött vissza: %+v %+v", app2.state.Feed, app2.state.Products[0].Images)
 	}
 	if app2.state.Products[0].Name != "Módosított név" {
 		t.Errorf("a változatlan Excel felülírta a termék-módosítást: %q", app2.state.Products[0].Name)
@@ -239,5 +246,59 @@ func TestAPITemplates(t *testing.T) {
 	}
 	if code, _ := call(t, srv, app.token, "/api/templates/delete", map[string]string{"id": "v2-waterside"}); code != 400 {
 		t.Errorf("beépített törlése: %d", code)
+	}
+}
+
+func TestAPIFeed(t *testing.T) {
+	app, srv := newTestServer(t)
+	data, _ := os.ReadFile("internal/hirlevel/testdata/feed-minta.xml")
+	feed := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/rossz" {
+			http.Error(w, "nincs", http.StatusNotFound)
+			return
+		}
+		_, _ = w.Write(data)
+	}))
+	defer feed.Close()
+
+	// hibás cím: a hibaüzenet nem „error” kulcson jön (azt a felület API-hibának venné)
+	if code, st := call(t, srv, app.token, "/api/feed/refresh", map[string]any{"url": "ftp://x"}); code != 400 || st["error"] == nil {
+		t.Errorf("ftp cím: %d %v", code, st)
+	}
+	call(t, srv, app.token, "/api/feed/refresh", map[string]any{"url": feed.URL + "/rossz"})
+	app.feed.Wait(10 * time.Second)
+	code, st := call(t, srv, app.token, "/api/feed/status", nil)
+	if code != 200 || st["error"] != nil || !strings.Contains(st["lastError"].(string), "404") || st["ready"] != false {
+		t.Fatalf("hibás feed: %d %v", code, st)
+	}
+
+	app.mu.Lock()
+	app.state.Feed.URL = feed.URL
+	app.state.Products = []h.Product{{On: true, Code: "10000327", Name: "Excelből"}, {On: true, Code: "NINCS-1"}}
+	app.mu.Unlock()
+	call(t, srv, app.token, "/api/feed/refresh", map[string]any{"force": true})
+	app.feed.Wait(10 * time.Second)
+	_, st = call(t, srv, app.token, "/api/feed/status", nil)
+	if st["ready"] != true || st["count"].(float64) != 3 {
+		t.Fatalf("feed: %v", st)
+	}
+	_, res := call(t, srv, app.token, "/api/feed/search", map[string]any{"q": "kamasaki", "limit": 5})
+	list := res["results"].([]any)
+	if len(list) != 1 || list[0].(map[string]any)["code"] != "10729-300" || list[0].(map[string]any)["added"] != false {
+		t.Errorf("keresés: %v", res)
+	}
+	_, res = call(t, srv, app.token, "/api/feed/search", map[string]any{"q": "10000-327"})
+	if r0 := res["results"].([]any)[0].(map[string]any); r0["added"] != true || len(r0["images"].([]any)) != 7 {
+		t.Errorf("a már felvett cikk jelölése: %v", r0)
+	}
+	_, res = call(t, srv, app.token, "/api/feed/products", map[string]any{"codes": []string{"10729-300", "nincs"}, "options": map[string]string{"price": "wholesale"}})
+	prods := res["products"].([]any)
+	if len(prods) != 1 || prods[0].(map[string]any)["price"] != "4\u00a0970\u00a0Ft + áfa" || res["missing"].([]any)[0] != "nincs" {
+		t.Errorf("átvétel: %v", res)
+	}
+	_, res = call(t, srv, app.token, "/api/feed/images", map[string]any{"codes": []string{"10000327", "NINCS-1"}})
+	imgs := res["images"].(map[string]any)
+	if res["ready"] != true || len(imgs) != 1 || len(imgs["10000327"].([]any)) != 7 {
+		t.Errorf("képek: %v", res)
 	}
 }

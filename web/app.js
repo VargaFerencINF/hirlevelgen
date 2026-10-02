@@ -14,6 +14,7 @@ const S = {
   sel: new Set(), pv: -1, device: 'desktop', tab: 'adatok', search: '',
   lastResult: null, imgResults: null, imgBusy: false, genBusy: false,
   mode: 'webview', config: '', pvSeq: 0, syncTimer: null, syncing: null,
+  feed: null, feedURL: '',
 };
 
 /* ------------------------------------------------------------------ segédek */
@@ -787,6 +788,7 @@ async function exportContent() {
 
 function applyState(r) {
   S.state = r.state;
+  if (!S.state.feed) S.state.feed = {};
   setIssues(r.issues);
   renderContent(); renderProducts(); renderTemplateSeg();
   if (S.tab === 'generalas') renderGenerate();
@@ -832,11 +834,12 @@ function renderProducts() {
       h('div', { class: 'count-big' }, `${sel} termék a levélben `, h('small', { text: `/ ${list.length} betöltve` })),
       h('div', { class: 'grow' }),
       exN ? h('button', { class: 'btn btn-outline btn-sm', onclick: e => busy(e.currentTarget, reloadProducts) }, icon('refresh', 16), 'Újratöltés az Excelből') : null,
-      h('button', { class: 'btn btn-primary btn-sm', onclick: addProduct }, icon('plus', 16), 'Új termék')),
+      h('button', { class: 'btn btn-primary btn-sm', onclick: openPicker }, icon('plus', 16), 'Új termék')),
     h('div', { id: 'pGeneral' }),
-    h('div', { id: 'plist' }, list.length ? list.map(productCard) : h('div', { class: 'card empty' }, 'Még nincs termék. Tölts be Excelt Termékek munkalappal, vagy vegyél fel egyet kézzel.')));
+    h('div', { id: 'plist' }, list.length ? list.map(productCard) : h('div', { class: 'card empty' }, 'Még nincs termék. Tölts be Excelt Termékek munkalappal, vagy az „Új termék” gombbal keress a cikktörzsben.')));
   updateProductIssues();
   renderSteps();
+  lookupImages();
 }
 
 function productPos(i) {
@@ -875,10 +878,12 @@ function productCard(pr, i) {
       syncSoon();
     });
     if (f.k === 'price') inp.addEventListener('blur', () => { const v = formatPrice(inp.value); if (v !== inp.value) { inp.value = v; pr.price = v; syncSoon(0); } });
+    if (f.k === 'code') inp.addEventListener('input', () => { if (pr.images) { delete pr.images; const fn = swRender.get(pr); if (fn) fn(); } lookupSoon(); });
+    if (f.k === 'image') inp.addEventListener('input', () => { const fn = swRender.get(pr); if (fn) fn(); });
     upd();
     return h('div', { class: 'field' + (f.half ? ' half' : ''), dataset: { k: f.k } },
       h('div', { class: 'field-top' }, h('label', null, f.label, f.req ? h('span', { class: 'req', text: '*' }) : null), counter),
-      inp, h('div', { class: 'msg' }));
+      inp, f.k === 'image' ? imageSwitcher(pr, inp, updThumb) : null, h('div', { class: 'msg' }));
   });
   const toggle = h('input', { type: 'checkbox', checked: pr.on, onchange: e => { pr.on = e.target.checked; renderProducts(); syncSoon(0); } });
   card.append(
@@ -910,12 +915,344 @@ function removeProduct(i) {
   toast(`Törölve: ${removed.name || removed.code || 'termék'}`, 'info', { actions: [{ label: 'Visszavonás', fn: () => { S.state.products.splice(i, 0, removed); renderProducts(); syncSoon(0); } }] });
 }
 
-function addProduct() {
+function addEmptyProduct() {
   S.state.products.push({ on: true, code: '', name: '', desc: '', price: '', deal: '', image: '', url: '', alt: '', cta: '' });
   renderProducts();
   syncSoon(0);
   const last = $('#plist').lastElementChild;
   if (last) { last.scrollIntoView({ block: 'center' }); $('input.inp', last).focus(); }
+}
+
+/* ------------------------------------------------------------------ cikktörzs (termékfeed) */
+
+const IMG_LABEL = { thumb: 'Bélyegkép', code: 'Cikkkép', small: 'Kis kép', large: 'Nagy kép' };
+const IMG_ORDER = {
+  code: ['code', 'large', 'small', 'thumb'], large: ['large', 'code', 'small', 'thumb'],
+  small: ['small', 'code', 'large', 'thumb'], thumb: ['thumb', 'small', 'code', 'large'],
+};
+
+function imgLabel(id) {
+  const m = /^gallery(\d+)$/.exec(id || '');
+  return m ? 'Galéria ' + m[1] : (IMG_LABEL[id] || id);
+}
+
+function imgLevel(id) {
+  return id === 'code' || id === 'large'
+    ? 'ennek a cikknek (változatnak) a saját képe'
+    : 'a főtermék közös képe – szín- vagy méretváltozatnál eltérhet ettől a cikktől';
+}
+
+function pickImg(images, pref) {
+  const list = images || [];
+  for (const id of IMG_ORDER[pref] || IMG_ORDER.code) {
+    const im = list.find(x => x.id === id);
+    if (im) return im.url;
+  }
+  return list.length ? list[0].url : '';
+}
+
+function codeKey(c) { return norm(c).replace(/-/g, '').trim(); }
+
+function fmtFt(n) { return n > 0 ? formatPrice(String(n)) : ''; }
+
+function fmtMB(b) { return (b / 1e6).toLocaleString('hu-HU', { maximumFractionDigits: 1, minimumFractionDigits: 1 }) + ' MB'; }
+
+function feedOpts() {
+  if (!S.state.feed) S.state.feed = {};
+  return S.state.feed;
+}
+
+// A cikktörzs állapotának figyelése, amíg betöltés fut; a változásra feliratkozók értesülnek.
+const feedListeners = new Set();
+let feedPollTimer = null;
+
+function setFeedStatus(st) {
+  const wasReady = S.feed && S.feed.ready && S.feed.dataTime === st.dataTime && S.feed.count === st.count;
+  S.feed = st;
+  for (const fn of feedListeners) fn(st, !wasReady && st.ready);
+  if (st.ready && !wasReady) { lookupDone.clear(); lookupImages(); }
+  clearTimeout(feedPollTimer);
+  if (st.loading) feedPollTimer = setTimeout(pollFeed, 450);
+}
+
+async function pollFeed() {
+  try { setFeedStatus(await api('/api/feed/status')); } catch (e) { feedPollTimer = setTimeout(pollFeed, 2000); }
+}
+
+async function refreshFeed(force, url) {
+  try { setFeedStatus(await api('/api/feed/refresh', { force: !!force, url: url || '' })); } catch (e) { toast(e.message, 'err'); }
+}
+
+// Az Excelből vagy korábbról származó termékek képváltozatai a cikktörzsből (cikkszám alapján).
+const lookupDone = new Set();
+let lookupBusy = false;
+
+async function lookupImages() {
+  if (lookupBusy || !S.feed || !S.feed.ready) return;
+  const want = S.state.products.filter(p => p.code && !(p.images && p.images.length) && !lookupDone.has(codeKey(p.code)));
+  if (!want.length) return;
+  lookupBusy = true;
+  try {
+    const codes = [...new Set(want.map(p => p.code.trim()))];
+    const r = await api('/api/feed/images', { codes });
+    if (!r.ready) return;
+    codes.forEach(c => { if (!r.images[c]) lookupDone.add(codeKey(c)); }); // a nem találtakat nem kérdezi újra
+    let changed = false;
+    for (const p of want) {
+      const imgs = r.images[p.code.trim()];
+      if (!imgs || !imgs.length) continue;
+      p.images = imgs;
+      // kézzel felvett termék üres képmezője: az előnyben részesített kép (az Excel-sorokét nem írja felül)
+      if (!String(p.image || '').trim() && !p.row) p.image = pickImg(imgs, feedOpts().image);
+      changed = true;
+      const fn = swRender.get(p);
+      if (fn) fn();
+    }
+    if (changed) syncSoon();
+  } catch (e) { /* csendben: a képváltó enélkül is működik */ } finally { lookupBusy = false; }
+}
+const lookupSoon = debounce(lookupImages, 700);
+
+// Egy (pl. kézzel felvett) termék üres mezőinek kitöltése a cikktörzsből.
+async function fillFromFeed(pr) {
+  try {
+    const r = await api('/api/feed/products', { codes: [String(pr.code || '').trim()], options: feedOpts() });
+    const f = r.products[0];
+    if (!f) { toast('Ez a cikkszám nincs a cikktörzsben.', 'warn'); return; }
+    const keys = ['name', 'desc', 'price', 'deal', 'image', 'url', 'alt'];
+    let take = keys.filter(k => !String(pr[k] || '').trim() && f[k]);
+    if (!take.filter(k => k !== 'alt').length) {
+      if (!await confirmBox('Kitöltés a cikktörzsből', 'Minden mező ki van töltve. Felülírod őket a cikktörzs adataival (név, rövid leírás, ár, akció, kép, gomb link)?', 'Felülírás')) return;
+      take = keys.filter(k => f[k]);
+    }
+    for (const k of take) pr[k] = f[k];
+    pr.images = f.images;
+    renderProducts();
+    syncSoon(0);
+    toast(`${take.filter(k => k !== 'alt').length} mező kitöltve a cikktörzsből – utána is szabadon átírható.`, 'ok');
+  } catch (e) { toast(e.message, 'err'); }
+}
+
+// Képváltó a termékkártyán: a cikktörzsben kitöltött képméretek közül lehet választani.
+const swRender = new WeakMap();
+
+function imageSwitcher(pr, inp, onPick) {
+  const box = h('div', { class: 'imgsw' });
+  let expanded = false;
+  const render = () => {
+    const imgs = pr.images || [];
+    if (inp.value !== (pr.image || '')) { inp.value = pr.image || ''; onPick(); }
+    box.replaceChildren();
+    if (!imgs.length) return;
+    const gal = imgs.filter(x => /^gallery/.test(x.id));
+    const shown = expanded ? imgs : imgs.filter(x => !/^gallery/.test(x.id)).concat(gal.slice(0, 3));
+    const cur = String(pr.image || '').trim();
+    box.append(h('span', { class: 'sw-label', text: 'Képméret:' }),
+      shown.map(im => {
+        const dims = h('small', { text: '' });
+        const pic = h('img', { src: im.url, alt: '', loading: 'lazy' });
+        pic.onload = () => { dims.textContent = pic.naturalWidth + '×' + pic.naturalHeight; };
+        pic.onerror = () => { b.classList.add('broken'); dims.textContent = 'nem tölthető be'; };
+        const b = h('button', { type: 'button', class: 'sw' + (cur === im.url ? ' on' : ''), title: imgLabel(im.id) + ' – ' + imgLevel(im.id) + '\n' + im.url,
+          onclick: () => { pr.image = im.url; inp.value = im.url; onPick(); render(); syncSoon(0); } },
+          pic, h('span', null, h('b', { text: imgLabel(im.id) }), dims));
+        return b;
+      }),
+      !expanded && gal.length > 3 ? h('button', { type: 'button', class: 'sw more', text: `+${gal.length - 3} galériakép`, onclick: () => { expanded = true; render(); } }) : null,
+      h('button', { type: 'button', class: 'sw fill', title: 'A termék üres mezőit (név, leírás, ár, akció, kép, link) kitölti a cikktörzs adataival', onclick: () => fillFromFeed(pr) },
+        icon('download', 14), 'Kitöltés a cikktörzsből'));
+  };
+  swRender.set(pr, render);
+  render();
+  return box;
+}
+
+// „Új termék”: keresés a cikktörzsben és átvétel a meglévő mezőkbe.
+function openPicker() {
+  const o = feedOpts();
+  let results = [], sel = 0, added = 0, seq = 0, lastQ = null;
+  const statusBox = h('div', { class: 'pk-status' });
+  const list = h('div', { class: 'pk-list', role: 'listbox' });
+  const search = h('input', { class: 'inp pk-q', type: 'search', placeholder: 'Cikkszám vagy név, pl. 10000-327 vagy wizard crab', spellcheck: false, autocomplete: 'off' });
+  const addedInfo = h('div', { class: 'pk-added' });
+  const urlRow = h('div', { class: 'pk-url', hidden: true });
+
+  const seg = (label, key, opts, def) => h('div', { class: 'pk-opt' }, h('span', { class: 'label-caps', text: label }),
+    h('div', { class: 'seg' }, opts.map(([v, t, tip]) => h('button', { type: 'button', class: (o[key] || def) === v ? 'on' : '', title: tip || null, text: t,
+      onclick: e => { o[key] = v; $$('button', e.currentTarget.parentNode).forEach(b => b.classList.toggle('on', b === e.currentTarget)); syncSoon(); drawList(); } }))));
+  const optsBar = h('div', { class: 'pk-opts' },
+    seg('Ár', 'price', [['retail', 'Kisker bruttó', 'Kisker_brutto (akció esetén az akciós ár)'], ['wholesale', 'Nagyker nettó', 'Nagyker_netto „+ áfa” jelöléssel'], ['none', 'Ne töltse ki']], 'retail'),
+    seg('Kép', 'image', [['code', 'Cikkkép', 'a változat saját képe (ha nincs: nagy, kis, bélyegkép)'], ['large', 'Nagy'], ['small', 'Kis'], ['thumb', 'Bélyeg']], 'code'),
+    seg('Gomb link', 'link', [['webshop', 'Webshop oldal', 'a cikktörzsben megadott termékoldal'], ['pattern', 'Haladó minta', 'a Tartalom › Haladó beállítások termékoldal-mintája']], 'webshop'));
+
+  const done = () => {
+    feedListeners.delete(onFeed);
+    document.removeEventListener('keydown', key);
+    bg.remove();
+    if (added) {
+      const last = $('#plist') && $('#plist').lastElementChild;
+      if (last) last.scrollIntoView({ block: 'center' });
+    }
+  };
+  const key = e => { if (e.key === 'Escape') done(); };
+
+  function statusLine(st) {
+    const parts = [];
+    if (st.loading && !st.ready) {
+      const pct = st.total > 0 ? Math.min(100, Math.round(st.bytes / st.total * 100)) : null;
+      parts.push(h('div', { class: 'pk-load' }, h('span', { class: 'spin dark' }),
+        h('span', { text: st.phase === 'cache' ? 'A gépre mentett cikktörzs betöltése…' : `A cikktörzs letöltése… ${fmtMB(st.bytes)}${st.total > 0 ? ' / ' + fmtMB(st.total) : ''}` })),
+        pct != null ? h('div', { class: 'bar' }, h('i', { style: { width: pct + '%' } })) : null);
+    } else if (!st.ready) {
+      parts.push(h('div', { class: 'note err' }, icon('error'), h('div', null, h('b', { text: 'A cikktörzs nem érhető el. ' }), st.lastError || 'Ismeretlen hiba.',
+        h('div', { class: 'help', text: 'Ellenőrizd az internetkapcsolatot, vagy a lenti „Cikktörzs címe” beállítást. Addig a terméket kézzel is felveheted.' }))));
+    } else {
+      parts.push(h('div', { class: 'pk-ok' },
+        h('span', { class: 'dot' + (st.lastError ? ' warn' : '') }),
+        h('span', null, h('b', { text: st.count.toLocaleString('hu-HU') + ' cikk' }), ' a cikktörzsben',
+          st.dataTime ? ` · letöltve: ${fmtTime(st.dataTime)}` : '',
+          st.loading ? ' · frissítés keresése…' : ''),
+        st.loading ? h('span', { class: 'spin dark' }) : null,
+        h('button', { class: 'btn btn-ghost btn-sm', title: 'A cikktörzs újraletöltése most', disabled: st.loading, onclick: () => refreshFeed(true) }, icon('refresh', 15), 'Frissítés')));
+      if (st.lastError) parts.push(h('div', { class: 'note warn' }, icon('alert'), h('div', { text: 'A frissítés nem sikerült (' + st.lastError + '). A legutóbb letöltött cikktörzsből keresel.' })));
+    }
+    statusBox.replaceChildren(...parts);
+  }
+
+  function onFeed(st, becameReady) {
+    statusLine(st);
+    if (becameReady) { lastQ = null; doSearch(); }
+  }
+
+  const priceBlock = p => {
+    const rows = [];
+    const row = (label, list, sale, suffix) => {
+      if (!list && !sale) return null;
+      const on = sale > 0 && (sale < list || !list);
+      return h('div', { class: 'pk-price' }, h('span', { class: 'lbl', text: label }),
+        h('b', { text: fmtFt(on ? sale : list) + (suffix || '') }),
+        on && list ? h('s', { text: fmtFt(list) }) : null);
+    };
+    rows.push(row('kisker', p.retail, p.retailSale), row('nagyker', p.wholesale, p.wholesaleSale, ' + áfa'));
+    return h('div', { class: 'pk-prices' }, rows);
+  };
+
+  function drawList() {
+    const q = search.value.trim();
+    if (!S.feed || !S.feed.ready) { list.replaceChildren(); return; }
+    if (!q) {
+      list.replaceChildren(h('div', { class: 'pk-empty' }, icon('search', 28),
+        h('div', { text: 'Kezdd el beírni a cikkszámot vagy a termék nevét.' }),
+        h('div', { class: 'help', text: 'Kötőjel nélkül is megtalálja (10000327), az ékezet és a kis-nagybetű mindegy. Enterrel a kijelölt találat bekerül a termékek közé, így egymás után több cikkszámot is felvehetsz.' })));
+      return;
+    }
+    if (!results.length) { list.replaceChildren(h('div', { class: 'pk-empty' }, h('div', { text: `Nincs találat erre: „${q}”.` }))); return; }
+    list.replaceChildren(results.map((p, i) => {
+      const thumb = pickImg(p.images, 'thumb');
+      const img = thumb ? h('img', { src: thumb, alt: '', loading: 'lazy' }) : h('div', { class: 'ph' }, icon('image', 18));
+      if (thumb) img.onerror = () => img.replaceWith(h('div', { class: 'ph' }, icon('image', 18)));
+      const stock = p.stock === 1 ? h('span', { class: 'pill ok', text: 'készleten' }) : p.stock === 0 ? h('span', { class: 'pill err', text: 'nincs készleten' }) : h('span', { class: 'pill muted', text: 'készlet: ?' });
+      const sale = (p.retailSale > 0 && p.retailSale < p.retail) || (p.wholesaleSale > 0 && p.wholesaleSale < p.wholesale);
+      const row = h('div', { class: 'pk-row' + (i === sel ? ' sel' : ''), role: 'option', onmouseenter: () => { sel = i; mark(); }, ondblclick: () => addCodes([p.code], row) },
+        h('div', { class: 'pk-img' }, img),
+        h('div', { class: 'pk-main' },
+          h('div', { class: 'pk-code' }, h('b', { text: p.code }), p.added ? h('span', { class: 'pill dark', text: 'már a listában' }) : null),
+          h('div', { class: 'pk-name', text: p.name }),
+          h('div', { class: 'pk-meta', text: [p.brand, [p.category, p.subcategory].filter(Boolean).join(' › ')].filter(Boolean).join(' · ') }),
+          h('div', { class: 'pk-tags' }, stock, sale ? h('span', { class: 'pill warn', text: 'akciós' }) : null,
+            p.badge ? h('span', { class: 'pill ' + (p.badge === 'EFTTEX díjas' ? 'ok' : 'warn'), text: p.badge }) : null,
+            h('span', { class: 'pk-imgs', title: (p.images || []).map(x => imgLabel(x.id)).join(', ') || 'nincs kép', text: (p.images || []).length + ' kép' }))),
+        priceBlock(p),
+        h('button', { class: 'btn btn-primary btn-sm', onclick: e => addCodes([p.code], e.currentTarget) }, icon('plus', 15), 'Hozzáadás'));
+      return row;
+    }), moreNote);
+  }
+  let moreNote = null;
+
+  function mark() {
+    $$('.pk-row', list).forEach((r, i) => r.classList.toggle('sel', i === sel));
+  }
+
+  async function doSearch() {
+    const q = search.value.trim();
+    if (q === lastQ) return;
+    lastQ = q;
+    const my = ++seq;
+    if (!q || !S.feed || !S.feed.ready) { results = []; moreNote = null; drawList(); return; }
+    try {
+      const r = await api('/api/feed/search', { q, limit: 60 });
+      if (my !== seq) return;
+      results = r.results || [];
+      sel = 0;
+      moreNote = r.more ? h('div', { class: 'pk-more', text: 'Csak az első 60 találat látszik – pontosítsd a keresést.' }) : null;
+      drawList();
+    } catch (e) { toast(e.message, 'err'); }
+  }
+  const searchSoon = debounce(doSearch, 140);
+
+  async function addCodes(codes, btn) {
+    try {
+      const r = await api('/api/feed/products', { codes, options: feedOpts() });
+      S.state.products.push(...r.products);
+      added += r.products.length;
+      for (const p of results) if (codes.includes(p.code)) p.added = true;
+      renderProducts();
+      syncSoon(0);
+      drawList();
+      addedInfo.replaceChildren(icon('check', 16), h('span', { text: `${added} termék hozzáadva – a termékek listájában bármelyik mezőjük átírható.` }));
+      addedInfo.classList.add('on');
+      if (btn && btn.closest) { const row = btn.closest('.pk-row'); if (row) flash(row); }
+    } catch (e) { toast(e.message, 'err'); }
+  }
+
+  search.addEventListener('input', searchSoon);
+  search.addEventListener('keydown', async e => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!results.length) return;
+      sel = (sel + (e.key === 'ArrowDown' ? 1 : -1) + results.length) % results.length;
+      mark();
+      const r = $$('.pk-row', list)[sel];
+      if (r) r.scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      await doSearch();
+      if (results[sel]) { await addCodes([results[sel].code]); search.select(); }
+    }
+  });
+
+  const urlInp = h('input', { class: 'inp', type: 'url', value: o.url || '', placeholder: S.feedURL || '', spellcheck: false });
+  urlRow.append(h('label', { class: 'label-caps', text: 'Cikktörzs címe (XML)' }),
+    h('div', { class: 'pk-url-row' }, urlInp,
+      h('button', { class: 'btn btn-outline btn-sm', text: 'Mentés és letöltés', onclick: () => {
+        o.url = urlInp.value.trim();
+        syncSoon(0);
+        refreshFeed(true, o.url);
+      } }),
+      h('button', { class: 'btn btn-ghost btn-sm', text: 'Alapértelmezett', onclick: () => { urlInp.value = ''; o.url = ''; syncSoon(0); refreshFeed(true, ''); } })),
+    h('div', { class: 'help', text: 'Üresen az Energofish nagyker termékfeedje. A letöltött cikktörzs a gépre mentődik; legközelebb csak akkor töltődik le újra, ha a szerveren változott.' }));
+
+  const bg = h('div', { class: 'modal-bg', onclick: e => { if (e.target === bg) done(); } },
+    h('div', { class: 'modal picker', role: 'dialog', 'aria-label': 'Termék hozzáadása a cikktörzsből' },
+      h('div', { class: 'mh' }, h('span', { text: 'Termék hozzáadása a cikktörzsből' }),
+        h('button', { class: 'x', title: 'Bezárás', onclick: done }, icon('x', 18))),
+      h('div', { class: 'pk-top' },
+        statusBox,
+        h('div', { class: 'pk-search' }, icon('search', 18), search),
+        optsBar),
+      list,
+      urlRow,
+      h('div', { class: 'mf pk-foot' }, addedInfo, h('div', { class: 'grow' }),
+        h('button', { class: 'btn btn-ghost btn-sm', onclick: () => { urlRow.hidden = !urlRow.hidden; } }, icon('link', 15), 'Cikktörzs címe'),
+        h('button', { class: 'btn btn-outline btn-sm', onclick: () => { done(); addEmptyProduct(); } }, icon('pen', 15), 'Üres termék kézzel'),
+        h('button', { class: 'btn btn-primary', text: 'Kész', onclick: done }))));
+  document.body.append(bg);
+  document.addEventListener('keydown', key);
+  feedListeners.add(onFeed);
+  statusLine(S.feed || { loading: true, ready: false, bytes: 0, total: 0, phase: 'download' });
+  drawList();
+  search.focus();
+  refreshFeed(false, o.url); // friss cikktörzs: csak akkor töltődik le, ha a szerveren változott
 }
 
 async function reloadProducts() {
@@ -1543,9 +1880,11 @@ async function init() {
   }
   Object.assign(S, {
     fields: d.fields, groups: d.groups, templates: d.templates, tokens: d.tokens, defaults: d.defaults,
-    sample: d.sample, state: d.state, excel: d.excel, mode: d.mode, config: d.config,
+    sample: d.sample, state: d.state, excel: d.excel, mode: d.mode, config: d.config, feedURL: d.feedURL,
   });
   if (!S.state.output) S.state.output = {};
+  if (!S.state.feed) S.state.feed = {};
+  if (d.feed) setFeedStatus(d.feed);
   setIssues(d.issues);
   S.sel = new Set(S.excel ? S.excel.partners.map((_, i) => i) : []);
   S.pv = S.excel && S.excel.partners.length ? 0 : -1;
