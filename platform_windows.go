@@ -73,6 +73,26 @@ func windowSize() (w, h, minW, minH int, maximize bool) {
 	return
 }
 
+// webviewDataDir a WebView2 felhasználói adatmappája: mindig a felhasználó saját,
+// rendszergazdai jog nélkül írható helyén (%LOCALAPPDATA%), soha nem a program mappájában.
+func webviewDataDir() string {
+	base := os.Getenv("LOCALAPPDATA")
+	if base == "" || !filepath.IsAbs(base) {
+		if d, err := os.UserCacheDir(); err == nil {
+			base = d
+		} else {
+			base = os.TempDir()
+		}
+	}
+	dir := filepath.Join(base, "EnergofishHirlevel", "WebView2")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		log.Printf("a WebView2 adatmappa nem hozható létre (%v), ideiglenes mappa lesz", err)
+		dir = filepath.Join(os.TempDir(), "EnergofishHirlevel-WebView2")
+		_ = os.MkdirAll(dir, 0o700)
+	}
+	return dir
+}
+
 // runWindow saját ablakban (WebView2) futtatja a felületet. Ha a WebView2
 // futtatókörnyezet hiányzik, false-t ad, és a program a böngészőben nyílik meg.
 func runWindow(a *App, url string, debug bool) bool {
@@ -82,7 +102,10 @@ func runWindow(a *App, url string, debug bool) bool {
 	}
 	runtime.LockOSThread()
 	w, h, minW, minH, maximize := windowSize()
-	dataDir := filepath.Join(os.Getenv("LOCALAPPDATA"), "EnergofishHirlevel", "WebView2")
+	dataDir := webviewDataDir()
+	// A WebView2 a környezeti változót is figyeli (és az elsőbbséget élvez a paraméterrel szemben):
+	// így az adatmappa akkor is helyes, ha a paraméter átadása elromlana.
+	_ = os.Setenv("WEBVIEW2_USER_DATA_FOLDER", dataDir)
 	wv := webview2.NewWithOptions(webview2.WebViewOptions{
 		Debug:     debug,
 		AutoFocus: true,

@@ -208,6 +208,7 @@ A program ellenőrzi a sablont: ismeretlen `{{mezőt}}` használó fájlt nem ve
 | Jelenség | Megoldás |
 |---|---|
 | SmartScreen figyelmeztetés | *További információ → Futtatás mindenképp.* |
+| „Nem sikerült létrehozni az adatkönyvtárat” (Microsoft Edge), értelmetlen nevű mappák a program mellett, csak rendszergazdaként indul | Az 1.3.8 előtti változatok hibája volt (a WebView2 adatmappa útvonala sérülhetett). Töltsd le a legfrissebb kiadást, a program mellett keletkezett furcsa nevű mappákat pedig nyugodtan töröld. Rendszergazdai jog nem kell. |
 | Böngészőben nyílik meg ablak helyett | Hiányzik a WebView2: [telepíthető a Microsofttól](https://developer.microsoft.com/microsoft-edge/webview2/), de böngészőben is minden működik. Kilépés: jobb felső menü → *Kilépés a programból*. |
 | Az Excel módosítása nem látszik | Mentsd a fájlt Excelben, majd *Újratöltés*. |
 | „A régi .xls formátum nem támogatott” | Excelben *Mentés másként → Excel-munkafüzet (.xlsx)*. |

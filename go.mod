@@ -25,3 +25,6 @@ require (
 	golang.org/x/crypto v0.53.0 // indirect
 	golang.org/x/net v0.56.0 // indirect
 )
+
+// a WebView2 adatmappa-útvonal javítása (lásd third_party/go-webview2/README.md)
+replace github.com/jchv/go-webview2 => ./third_party/go-webview2
