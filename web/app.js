@@ -156,6 +156,7 @@ function expandPreview(text) {
     kepviselotelefon: p.repPhone, terulet: p.repRegion, termekszam: String(S.state.products.filter(x => x.on).length),
   };
   for (const [k, v] of Object.entries(p.extra || {})) if (!(k in map)) map[k] = v;
+  for (const t of (S.excel && S.excel.tokens) || []) { const k = t.token.slice(1, -1); if (!(k in map)) map[k] = ''; }
   return String(text || '').replace(/\{([^{}\n]{1,40})\}/g, (m, k) => {
     const n = norm(k).replace(/[^a-z0-9]/g, '');
     return n in map ? (map[n] || '') : m;
@@ -529,7 +530,7 @@ function renderPartnerRows() {
     const tr = h('tr', { class: 'row' + (i === S.pv ? ' current' : '') + (S.sel.has(i) ? '' : ' off'), dataset: { i }, onclick: () => setPreviewPartner(i) },
       h('td', { class: 'c-chk' }, chk),
       h('td', { class: 'c-row', text: p.row }),
-      h('td', null, h('div', { class: 'p-name', text: p.name || p.company || '(név nélkül)' }), h('div', { class: 'p-sub', text: (p.email || '– nincs e-mail –') + (p.extra && p.extra.nazon ? ' · ' + p.extra.nazon : '') }), p.company && p.name ? h('div', { class: 'p-sub', text: p.company }) : null),
+      h('td', null, h('div', { class: 'p-name', text: p.name || p.company || '(név nélkül)' }), h('div', { class: 'p-sub', text: (p.email || '– nincs e-mail –') + (p.extra && p.extra.nazon ? ' · ' + p.extra.nazon : '') }), p.company && p.name && p.company !== p.name ? h('div', { class: 'p-sub', text: p.company }) : null),
       h('td', null, p.repName ? h('div', { class: 'rep' }, avatar(p.repName, p.repPhoto), h('div', { style: { minWidth: 0 } }, h('div', { class: 'rep-name', text: p.repName }), h('div', { class: 'rep-sub', text: p.repRegion || p.repEmail || '' }))) : h('span', { class: 'p-sub', text: '–' })),
       h('td', { class: 'c-st' }, stEl));
     return tr;
@@ -581,6 +582,7 @@ function applyExcel(r, quiet) {
   S.search = '';
   renderData();
   renderProducts();
+  refreshTokenNote();
   renderPreviewSelect();
   refreshPreview();
   if (S.tab === 'generalas') renderGenerate();
@@ -610,7 +612,7 @@ async function closeExcel() {
     S.excel = null;
     setIssues(r.issues);
     S.sel = new Set(); S.pv = -1;
-    renderData(); renderPreviewSelect(); refreshPreview();
+    renderData(); refreshTokenNote(); renderPreviewSelect(); refreshPreview();
   } catch (e) { toast(e.message, 'err'); }
 }
 
@@ -660,16 +662,28 @@ function setupDrop() {
 
 /* ------------------------------------------------------------------ 2. Tartalom */
 
+// A Tartalom fülön a változók listája (a betöltött partnerlista saját mezőivel együtt).
+function tokenNote() {
+  const b2b = S.excel && S.excel.source === 'b2b';
+  return h('div', { class: 'note cream tok-note' }, icon('users'),
+    h('div', null, h('b', { text: 'Partnerenként cserélődő változók: ' }),
+      S.tokens.slice(0, 7).concat((S.excel && S.excel.tokens) || []).map((t, i) => [i ? ' ' : '', h('span', { class: 'tok', title: t.desc, text: t.token })]),
+      '. Pl. a megszólítás „Kedves {nev}!” – a {nev} helyére minden levélben a partner neve kerül.',
+      b2b ? ' A B2B partnertörzsből a {nev} és a {ceg} is a partner neve, a {terulet} a partner megyéje.' : ''));
+}
+
+function refreshTokenNote() {
+  const n = $('.tok-note');
+  if (n) n.replaceWith(tokenNote());
+}
+
 function renderContent() {
   const p = pane('tartalom');
   const open = new Set(ls('groups') || ['alap', 'level']);
   p.replaceChildren(
     secHead('02 / Közös tartalom', 'Ami minden partnernél ugyanaz',
       'A mezők a hírlevél blokkjait követik, fentről lefelé. A jobb oldali előnézet gépelés közben frissül.'),
-    h('div', { class: 'note cream' }, icon('users'),
-      h('div', null, h('b', { text: 'Partnerenként cserélődő változók: ' }),
-        S.tokens.slice(0, 7).map((t, i) => [i ? ' ' : '', h('span', { class: 'tok', title: t.desc, text: t.token })]),
-        '. Pl. a megszólítás „Kedves {nev}!” – a {nev} helyére minden levélben a partner neve kerül.')));
+    tokenNote());
   for (const g of S.groups) {
     const fields = S.fields.filter(f => f.group === g.id);
     const card = h('div', { class: 'card group' + (open.has(g.id) ? ' open' : ''), dataset: { group: g.id } });
@@ -746,11 +760,16 @@ function fieldRow(f) {
   return wrap;
 }
 
+// A beszúrható változók: a beépítettek és a betöltött partnerlista saját mezői (Excel-oszlopok, B2B).
+function allTokens() {
+  return S.tokens.concat((S.excel && S.excel.tokens) || []);
+}
+
 function showTokenBar(wrap, input) {
   $$('.tokenbar').forEach(t => { if (t.parentElement !== wrap) t.remove(); });
   if ($('.tokenbar', wrap)) return;
   const isUrl = input.dataset.key && /url|Pattern$/i.test(input.dataset.key);
-  const tokens = S.tokens.filter(t => t.token !== '{assets}' || isUrl);
+  const tokens = allTokens().filter(t => t.token !== '{assets}' || isUrl);
   const bar = h('div', { class: 'tokenbar' }, h('span', { class: 't-label', text: 'Változó beszúrása' }),
     tokens.map(t => h('button', { class: 'chip', type: 'button', title: t.desc, text: t.token,
       onmousedown: e => e.preventDefault(),
@@ -1941,8 +1960,9 @@ async function quitApp() {
 
 const B2B = { state: null, busy: false };
 const B2B_TRI = [['', 'Mind'], ['only', 'Csak ők'], ['exclude', 'Nélkülük']];
-const B2B_GREET = [['auto', 'Automatikus', 'Csupa nagybetűs név (cégnév) → „Kedves Partnerünk!”, személynév → „Kedves Kiss Péter!”'],
-  ['name', 'Mindig a név', 'A Nev mező a megszólításba kerül'], ['fallback', 'Mindenkinek a tartalék', 'Mindenki a Tartalom › tartalék megszólítást kapja']];
+const B2B_GREET = [['name', 'A partner nevével', '„Kedves JDB Hungary Zrt.!”, „Kedves Kiss Péter!” – a Tartalom › Megszólítás mezője szerint'],
+  ['auto', 'Cégeknek tartalék', 'Cégnévnél (csupa nagybetű vagy Kft., Bt., Zrt. …) „Kedves Partnerünk!”, személynévnél a név'],
+  ['fallback', 'Mindenkinek tartalék', 'Mindenki a Tartalom › tartalék megszólítást kapja']];
 
 async function b2bLoadState() {
   B2B.state = await api('/api/b2b/state');
@@ -2242,11 +2262,16 @@ async function openPartnerSet(groupId, loaded) {
         h('tbody', null, rows.length ? rows : h('tr', null, h('td', { colspan: 6, class: 'empty', text: tab === '' ? 'A feltételeknek egy partner sem felel meg.' : 'Nincs ilyen partner.' })))),
         last.more ? h('div', { class: 'pk-more', text: 'Csak az első 400 partner látszik – a betöltés mindet tartalmazza.' }) : null),
       h('details', { class: 'ps-opts' },
-        h('summary', null, icon('pen', 15), 'A levélbe kerülő adatok', h('span', { class: 'p-sub', text: ' – megszólítás, képviselő neve és fotója' })),
+        h('summary', null, icon('pen', 15), 'A levélbe kerülő adatok', h('span', { class: 'p-sub', text: ' – megszólítás, nevek írásmódja, képviselő neve és fotója' })),
         h('div', { class: 'ps-opts-body' },
+          h('div', { class: 'ps-map' }, 'A partner adatai a Tartalom változóiba kerülnek: ',
+            ['{nev}', '{ceg}', '{email}', '{kepviselo}', '{terulet}', '{megye}', '{nazon}', '{besorolas}'].map((t, i) => [i ? ' ' : '', h('span', { class: 'tok', text: t })]),
+            ' … (a {nev} és a {ceg} is a partner neve, a {terulet} a partner megyéje).'),
           h('div', { class: 'ps-tri' }, h('div', { class: 'ps-tri-t', text: 'Megszólítás' }),
-            h('div', { class: 'seg' }, B2B_GREET.map(([v, t, tip]) => h('button', { type: 'button', title: tip, class: (options.greeting || 'auto') === v ? 'on' : '', text: t,
+            h('div', { class: 'seg' }, B2B_GREET.map(([v, t, tip]) => h('button', { type: 'button', title: tip, class: (options.greeting || 'name') === v ? 'on' : '', text: t,
               onclick: () => { options.greeting = v; renderRight(); } })))),
+          h('label', { class: 'ps-check' }, h('input', { type: 'checkbox', checked: !options.keepCaps, onchange: e => { options.keepCaps = !e.target.checked; } }),
+            'Csupa nagybetűs nevek olvasható írásmóddal (JDB HUNGARY ZRT. → JDB Hungary Zrt.)'),
           h('label', { class: 'ps-check' }, h('input', { type: 'checkbox', checked: !options.keepRepSuffix, onchange: e => { options.keepRepSuffix = !e.target.checked; } }),
             'A képviselő nevéből a „ - Energofish Kft.” utótag elhagyása'),
           h('button', { class: 'btn btn-outline btn-sm', onclick: () => openRepPhotos(group, o => { options = o; }) }, icon('user', 15), 'Képviselő-fotók…'))));
@@ -2397,6 +2422,7 @@ async function resetData(products, partners) {
       S.excel = null;
       setIssues(r.issues);
       S.sel = new Set(); S.pv = -1;
+      refreshTokenNote();
       renderPreviewSelect();
     }
     renderData();
@@ -2586,7 +2612,7 @@ function showRecovery(err) {
 // A betöltött Excel/partnerhalmaz adatainak egységesítése (null helyett üres lista).
 function normalizeExcel(ex) {
   if (!ex) return null;
-  for (const k of ['partners', 'products', 'partnerColumns', 'productColumns', 'issues', 'sheets']) if (!Array.isArray(ex[k])) ex[k] = [];
+  for (const k of ['partners', 'products', 'partnerColumns', 'productColumns', 'issues', 'sheets', 'tokens']) if (!Array.isArray(ex[k])) ex[k] = [];
   return ex;
 }
 

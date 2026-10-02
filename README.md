@@ -56,7 +56,19 @@ Az *Adatok* lépés **B2B partnertörzs** kártyáján:
    A partnertörzs a böngészőben letöltött exportból (JSON) is betölthető: húzd be a fájlt az ablakba (a program megkérdezi, melyik célcsoporté), vagy a halmazválasztó **JSON-fájl…** gombja. Ugyanazok a szabályok érvényesek, mint a letöltésnél; régi fájlnál figyelmeztet (az azóta leiratkozottak újra aktívvá válnának).
 3. **Betöltés a hírlevélhez** – a halmaz partnerlistaként töltődik be, a program többi része (tartalom, termékek, ellenőrzés, előnézet, generálás) ugyanúgy működik, mint Excellel.
 
-**Mi kerül a levélbe:** e-mail cím; megszólítás (*automatikus*: a csupa nagybetűs cégnév helyett a tartalék „Kedves Partnerünk!”, személynévnél a név – átállítható); a területi képviselő neve (a „ - Energofish Kft.” utótag nélkül – átállítható), telefonja, e-mailje; a **képviselő fotója** (a partnertörzsben nincs: monogramonként a *Képviselő-fotók…* gombnál adható meg, nélküle monogram); a lábléc leiratkozó linkje helyén **a partner saját leiratkozó linkje**. Változóként használható még: `{nazon}`, `{megye}`, `{besorolas}`, `{partnerbolt}`, `{telefon}`, `{feliratkozas}`, `{ceg}`, és az export esetleges új mezői.
+**Mi kerül a levélbe:** ugyanazok a változók, mint az Excelből – a partnertörzs mezői így kerülnek a helyükre:
+
+| Partnertörzs mező | Változó / levélrész |
+|---|---|
+| `Email_cim` | `{email}`, a címzett |
+| `Nev` | `{nev}` **és** `{ceg}` (a csupa nagybetűs nevek olvasható írásmóddal: „JDB HUNGARY ZRT.” → „JDB Hungary Zrt.” – kikapcsolható); eredeti írásmóddal `{partnernev}` |
+| `Teruleti_kepviselo_nev` / `_telefonszam` / `_email_cim` | `{kepviselo}` (a „ - Energofish Kft.” utótag nélkül – átállítható), `{kepviselo_telefon}`, `{kepviselo_email}`, a képviselő-blokk |
+| `Megye` | `{terulet}` és a képviselő-blokk területe („Pest megye”, „Budapest”), valamint `{megye}` |
+| `Teruleti_kepviselo_monogram` | a **képviselő fotója** (a partnertörzsben nincs: monogramonként a *Képviselő-fotók…* gombnál adható meg, nélküle monogram), `{tkmonogram}` |
+| `Leiratkozas_link` | a lábléc leiratkozó linkje helyén **a partner saját leiratkozó linkje** |
+| `Nazon`, `Besor`, `Partnerbolt_statusz`, `Telefonszam`, `Feliratkozas_datum` | `{nazon}`, `{besorolas}`, `{partnerbolt}`, `{telefon}`, `{feliratkozas}`; továbbá `{bizomanyos}`, `{celcsoport}` és az export esetleges új mezői |
+
+A **megszólítás** a *Tartalom › Megszólítás* mező szerint („Kedves {nev}!”) a partner nevével készül; a halmaz-ablak *A levélbe kerülő adatok* részében átállítható, hogy a cégek (csupa nagybetű vagy Kft., Bt., Zrt. …) vagy mindenki a tartalék „Kedves Partnerünk!” megszólítást kapja – a többi változó ettől kitöltve marad. A betöltött lista saját változói a *Tartalom* fülön a változó-listában és a „Változó beszúrása” sávban is megjelennek.
 
 **Szinkron (a partnertörzs saját, helyi adatbázisa):**
 

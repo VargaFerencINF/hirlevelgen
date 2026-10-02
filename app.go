@@ -438,6 +438,66 @@ func decode(r *http.Request, v any) error {
 type excelView struct {
 	*h.ExcelData
 	Reps int `json:"reps"`
+	// Tokens a betöltött partnerlista további változói (Excel-oszlopok, B2B mezők) a felület
+	// változó-listájához.
+	Tokens []h.TokenInfo `json:"tokens"`
+}
+
+// extraTokens a partnerlista további (nem beépített) változói, leírással.
+func extraTokens(ex *h.ExcelData) []h.TokenInfo {
+	out := []h.TokenInfo{}
+	if ex == nil {
+		return out
+	}
+	seen := map[string]bool{}
+	for _, t := range h.Tokens {
+		seen[strings.Trim(h.Norm(t.Token), "{}")] = true
+	}
+	add := func(key, desc string) {
+		if key == "" || seen[key] {
+			return
+		}
+		seen[key] = true
+		out = append(out, h.TokenInfo{Token: "{" + key + "}", Desc: desc})
+	}
+	if ex.Source == "b2b" {
+		for _, t := range h.B2BTokens {
+			add(h.Norm(t.Token), t.Desc)
+		}
+	}
+	for _, c := range ex.PartnerColumns {
+		if c.Field == "extra" {
+			add(c.Target, "Oszlop: "+c.Header)
+		}
+	}
+	// a partnertörzs új, a listában még nem szereplő mezői is
+	keys := []string{}
+	for i, p := range ex.Partners {
+		if i >= 200 {
+			break
+		}
+		for k := range p.Extra {
+			if !seen[k] {
+				keys = append(keys, k)
+			}
+		}
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		add(k, "Partnertörzs mező")
+	}
+	return out
+}
+
+func (a *App) knownTokensLocked() map[string]bool {
+	if a.excel == nil {
+		return nil
+	}
+	m := map[string]bool{}
+	for _, t := range extraTokens(a.excel) {
+		m[strings.Trim(t.Token, "{}")] = true
+	}
+	return m
 }
 
 func (a *App) excelViewLocked() *excelView {
@@ -470,12 +530,12 @@ func (a *App) excelViewLocked() *excelView {
 	if cp.Sheets == nil {
 		cp.Sheets = []string{}
 	}
-	return &excelView{ExcelData: &cp, Reps: len(reps)}
+	return &excelView{ExcelData: &cp, Reps: len(reps), Tokens: extraTokens(&cp)}
 }
 
 func (a *App) contentIssuesLocked() []h.Issue {
 	tpl := a.template()
-	out := h.ValidateContent(a.state.Content, a.state.Products, tpl)
+	out := h.ValidateContentFor(a.state.Content, a.state.Products, tpl, a.knownTokensLocked())
 	return append(out, h.ValidateProducts(a.state.Content, a.state.Products)...)
 }
 

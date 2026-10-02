@@ -45,6 +45,8 @@ type Partner struct {
 	Extra     map[string]string `json:"extra,omitempty"`     // normalizált oszlopnév → érték (változóként használható)
 	Overrides map[string]string `json:"overrides,omitempty"` // sablonkulcs → érték (partnerenkénti felülírás)
 	Source    string            `json:"source,omitempty"`    // B2B partnertörzsből: a célcsoport (pl. B2B_HU)
+	// FallbackGreeting: a partner a tartalék megszólítást kapja (B2B: cégnévnél, ha így állították be).
+	FallbackGreeting bool `json:"fallbackGreeting,omitempty"`
 	// Unsubscribe a partner saját leiratkozó linkje (B2B partnertörzs): változatlanul a láblécbe
 	// kerül. SOHA nem hívható meg, ezért a felület sem kapja meg.
 	Unsubscribe string `json:"-"`

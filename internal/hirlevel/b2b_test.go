@@ -231,10 +231,13 @@ func TestB2BFilterAndFacets(t *testing.T) {
 func TestB2BToPartner(t *testing.T) {
 	list, _ := loadB2BFixture(t)
 	opts := B2BMapOptions{RepPhotos: map[string]string{"GAB": "https://kep.example.com/gab.jpg"}}
-	// csupa nagybetűs cégnév → tartalék megszólítás (a név a {ceg} változóba kerül)
+	// a név a {nev} és a {ceg} változóba is bekerül (csupa nagybetűsből olvasható alakban),
+	// a képviselő területe a partner megyéje
 	p := B2BToPartner(findB2B(list, "nagy.betu@example.com"), 3, "B2B_HU", opts)
-	if p.Name != "" || p.Company != "NAGY BETŰ BT." || p.RepName != "Gábor Bence" || p.RepPhoto != "https://kep.example.com/gab.jpg" ||
-		p.Extra["besorolas"] != "Gyémánt" || p.Extra["nazon"] != "10003" || p.Extra["feliratkozas"] != "2025.06.01." || p.Source != "B2B_HU" || p.Row != 3 {
+	if p.Name != "Nagy Betű Bt." || p.Company != "Nagy Betű Bt." || p.FallbackGreeting || p.RepName != "Gábor Bence" ||
+		p.RepPhoto != "https://kep.example.com/gab.jpg" || p.RepRegion != "Bács-Kiskun megye" ||
+		p.Extra["besorolas"] != "Gyémánt" || p.Extra["nazon"] != "10003" || p.Extra["feliratkozas"] != "2025.06.01." ||
+		p.Extra["partnernev"] != "NAGY BETŰ BT." || p.Extra["megye"] != "Bács-Kiskun" || p.Source != "B2B_HU" || p.Row != 3 {
 		t.Errorf("cég: %+v", p)
 	}
 	if p.Unsubscribe == "" || len(p.Token) != 32 {
@@ -245,31 +248,92 @@ func TestB2BToPartner(t *testing.T) {
 	if strings.Contains(string(b), p.Token) || strings.Contains(string(b), "leiratkozas") {
 		t.Errorf("titkos adat a JSON-ban: %s", b)
 	}
-	q := B2BToPartner(findB2B(list, "bolt2@example.com"), 1, "B2B_HU", B2BMapOptions{KeepRepSuffix: true})
-	if q.Name != "Kiss Péter" || q.Company != "" {
+	q := B2BToPartner(findB2B(list, "bolt2@example.com"), 1, "B2B_HU", B2BMapOptions{KeepRepSuffix: true, Greeting: "auto"})
+	if q.Name != "Kiss Péter" || q.Company != "Kiss Péter" || q.FallbackGreeting || q.RepRegion != "Budapest" {
 		t.Errorf("személynév: %+v", q)
 	}
-	if r := B2BToPartner(findB2B(list, "nagy.betu@example.com"), 1, "B2B_HU", B2BMapOptions{KeepRepSuffix: true, Greeting: "name"}); r.RepName != "Gábor Bence - Energofish Kft." || r.Name != "NAGY BETŰ BT." {
-		t.Errorf("utótag és név: %+v", r)
+	if r := B2BToPartner(findB2B(list, "nagy.betu@example.com"), 1, "B2B_HU", B2BMapOptions{KeepRepSuffix: true, KeepCaps: true, Greeting: "auto"}); r.RepName != "Gábor Bence - Energofish Kft." ||
+		r.Name != "NAGY BETŰ BT." || !r.FallbackGreeting {
+		t.Errorf("utótag, nagybetű, automatikus megszólítás: %+v", r)
 	}
-	if r := B2BToPartner(findB2B(list, "bolt2@example.com"), 1, "B2B_HU", B2BMapOptions{Greeting: "fallback"}); r.Name != "" {
+	if r := B2BToPartner(findB2B(list, "bolt2@example.com"), 1, "B2B_HU", B2BMapOptions{Greeting: "fallback"}); r.Name != "Kiss Péter" || !r.FallbackGreeting {
 		t.Errorf("tartalék: %+v", r)
 	}
 	if r := B2BToPartner(findB2B(list, "ujmezo@example.com"), 1, "B2B_HU", opts); r.Extra["ujmezo"] != "valami" || r.Extra["nyelv"] != "hu" {
 		t.Errorf("új mező változóként: %+v", r.Extra)
 	}
-	// a levélben a partner saját leiratkozó linkje szerepel, változatlanul
+
+	// a levélben: a partner saját leiratkozó linkje változatlanul, és minden változó kitöltve
 	c, _ := testContent(t)
+	c["note.body"] = "{nev} | {ceg} | {kepviselo} | {terulet} | {megye} | {nazon} | {besorolas} | {partnernev}"
 	tpls, err := LoadTemplates(os.DirFS("../.."), "sablonok")
 	if err != nil {
 		t.Fatal(err)
 	}
 	rd := Build(c, nil, &p, FindTemplate(tpls, "v4"), "")
-	if rd.Values["footer.unsubscribe.url"] != p.Unsubscribe || rd.Values["note.greeting"] != strings.TrimSpace(c["note.greetingFallback"]) {
-		t.Errorf("levél: %q %q", rd.Values["footer.unsubscribe.url"], rd.Values["note.greeting"])
+	if rd.Values["footer.unsubscribe.url"] != p.Unsubscribe || rd.Values["note.greeting"] != "Kedves Nagy Betű Bt.!" ||
+		rd.Values["note.body"] != "Nagy Betű Bt. | Nagy Betű Bt. | Gábor Bence | Bács-Kiskun megye | Bács-Kiskun | 10003 | Gyémánt | NAGY BETŰ BT." ||
+		rd.Values["rep.region"] != "Bács-Kiskun megye" || rd.Values["rep.name"] != "Gábor Bence" {
+		t.Errorf("levél: %q %q %q %q", rd.Values["footer.unsubscribe.url"], rd.Values["note.greeting"], rd.Values["note.body"], rd.Values["rep.region"])
+	}
+	// „cégeknek tartalék” beállítással a cég a tartalék megszólítást kapja, a változók maradnak
+	pa := B2BToPartner(findB2B(list, "nagy.betu@example.com"), 3, "B2B_HU", B2BMapOptions{Greeting: "auto"})
+	rd = Build(c, nil, &pa, FindTemplate(tpls, "v4"), "")
+	if rd.Values["note.greeting"] != strings.TrimSpace(c["note.greetingFallback"]) || !strings.HasPrefix(rd.Values["note.body"], "Nagy Betű Bt. |") {
+		t.Errorf("tartalék megszólítás: %q %q", rd.Values["note.greeting"], rd.Values["note.body"])
 	}
 	if iss := ValidatePartners([]Partner{p}); len(iss) != 0 {
 		t.Errorf("a cégnév miatt nem kell megjegyzés: %+v", iss)
+	}
+	// ismert B2B változók nem „ismeretlenek” a tartalom ellenőrzésében
+	known := map[string]bool{}
+	for k := range p.Extra {
+		known[k] = true
+	}
+	for _, is := range ValidateContentFor(c, nil, FindTemplate(tpls, "v4"), known) {
+		if strings.Contains(is.Message, "ismeretlen változó") {
+			t.Errorf("ismert változó ismeretlennek jelölve: %s", is.Message)
+		}
+	}
+	unk := 0
+	for _, is := range ValidateContent(c, nil, FindTemplate(tpls, "v4")) {
+		if strings.Contains(is.Message, "ismeretlen változó") {
+			unk++
+		}
+	}
+	if unk == 0 {
+		t.Error("partnertörzs nélkül a {megye} ismeretlen változó")
+	}
+}
+
+func TestReadableName(t *testing.T) {
+	for in, want := range map[string]string{
+		"JDB HUNGARY ZRT.":          "JDB Hungary Zrt.",
+		"HORGÁSZ CENTRUM KFT.":      "Horgász Centrum Kft.",
+		"KISS PÉTER E.V.":           "Kiss Péter e.v.",
+		"KOVÁCS ÉS TÁRSA BT":        "Kovács és Társa Bt.",
+		"ZÖLD ÁG HORGÁSZBOLT":       "Zöld Ág Horgászbolt",
+		"BALATON-PART 2000 KFT.":    "Balaton-Part 2000 Kft.",
+		"  HALAS   TÓ  ":            "Halas Tó",
+		"Kapitány Horgászbolt, Vác": "Kapitány Horgászbolt, Vác",
+		"Kiss Péter":                "Kiss Péter",
+		"RYBÁRSTVO SRO":             "Rybárstvo s.r.o.",
+	} {
+		if got := ReadableName(in); got != want {
+			t.Errorf("ReadableName(%q) = %q, várt: %q", in, got, want)
+		}
+	}
+	for in, want := range map[string]bool{"HORGÁSZ BT.": true, "Horgász Kft.": true, "Kiss Péter e.v.": true,
+		"Kiss Péter": false, "Zöld Ág Horgászbolt": false, "Kft Horgászbolt": false} {
+		if LooksLikeCompany(in) != want {
+			t.Errorf("LooksLikeCompany(%q) != %v", in, want)
+		}
+	}
+	for _, c := range [][3]string{{"B2B_HU", "Pest", "Pest megye"}, {"B2B_HU", "Budapest", "Budapest"}, {"B2B_HU", "Pest megye", "Pest megye"},
+		{"B2B_HU", "", ""}, {"B2B_SK", "Bratislavský kraj", "Bratislavský kraj"}} {
+		if got := B2BRegion(c[0], c[1]); got != c[2] {
+			t.Errorf("B2BRegion(%q, %q) = %q", c[0], c[1], got)
+		}
 	}
 }
 

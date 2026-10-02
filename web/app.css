@@ -535,6 +535,8 @@ input[type=checkbox]{width:17px;height:17px;accent-color:var(--orange);cursor:po
 .ps-val .lbl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ps-val .cnt{font-size:11px;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums}
 .ps-tri,.ps-dates{display:flex;flex-direction:column;gap:6px;padding:4px 2px}
+.ps-map{font-size:12.5px;line-height:1.7;color:var(--muted);padding:2px 2px 4px}
+.ps-map .tok{font-size:11.5px}
 .ps-tri-t{font-size:13px;font-weight:700}
 .ps-tri .seg button{padding:4px 10px;font-size:12px}
 .ps-daterow{display:flex;align-items:center;gap:6px}

@@ -50,8 +50,9 @@ func Build(c Content, products []Product, p *Partner, tpl *Template, assetsFallb
 	}
 	values["assets.base"] = assets
 
-	// megszólítás: ha a benne szereplő változó üres (pl. nincs név), a tartalék szöveg
-	if g, _, empty := Expand(c["note.greeting"], tokens, false); len(empty) > 0 || strings.TrimSpace(g) == "" {
+	// megszólítás: ha a benne szereplő változó üres (pl. nincs név), vagy a partner a tartalék
+	// megszólítást kapja (B2B cégnév), a tartalék szöveg
+	if g, _, empty := Expand(c["note.greeting"], tokens, false); p.FallbackGreeting || len(empty) > 0 || strings.TrimSpace(g) == "" {
 		fb, _, _ := Expand(c["note.greetingFallback"], tokens, false)
 		values["note.greeting"] = strings.TrimSpace(fb)
 	}

@@ -673,3 +673,57 @@ func TestBadExcelAndFactoryReset(t *testing.T) {
 		t.Error("a beállításfájl megmaradt")
 	}
 }
+
+// A B2B partnertörzsből betöltött partnerek adatai a levél változóiba kerülnek.
+func TestB2BVariablesInPreview(t *testing.T) {
+	data, _ := os.ReadFile("internal/hirlevel/testdata/b2b-minta.json")
+	app, err := NewApp(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	app.state.Output.Dir = filepath.Join(t.TempDir(), "kimenet")
+	if _, err := app.b2b.ImportData("B2B_HU", data, "minta.json", false); err != nil {
+		t.Fatal(err)
+	}
+	app.state.Content["note.body"] = "Partner: {nev} · cég: {ceg} · megye: {megye} · azonosító: {nazon} · képviselő: {kepviselo}, {terulet}"
+	srv := httptest.NewServer(app.routes())
+	defer srv.Close()
+	_, ld := call(t, srv, app.token, "/api/b2b/load", map[string]any{"group": "B2B_HU", "filter": map[string]any{"reps": []string{"GAB"}}})
+	ex := ld["excel"].(map[string]any)
+	idx := -1
+	for i, p := range ex["partners"].([]any) {
+		if p.(map[string]any)["email"] == "nagy.betu@example.com" {
+			idx = i
+		}
+	}
+	if idx < 0 {
+		t.Fatalf("a partner nincs a halmazban: %v", ex["partners"])
+	}
+	toks, _ := json.Marshal(ex["tokens"])
+	if !strings.Contains(string(toks), "{megye}") || !strings.Contains(string(toks), "{nazon}") || strings.Contains(string(toks), "{nev}") {
+		t.Errorf("a változó-lista: %s", toks)
+	}
+	// a tartalom ellenőrzése nem jelöli ismeretlennek a B2B változókat
+	b, _ := json.Marshal(ld["issues"])
+	if strings.Contains(string(b), "ismeretlen változó") {
+		t.Errorf("ismeretlen változó: %s", b)
+	}
+	req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/api/preview?p=%d", srv.URL, idx), nil)
+	req.Header.Set("X-Token", app.token)
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(res.Body)
+	res.Body.Close()
+	html := string(body)
+	for _, want := range []string{"Kedves Nagy Betű Bt.!", "Partner: Nagy Betű Bt. · cég: Nagy Betű Bt. · megye: Bács-Kiskun · azonosító: 10003 · képviselő: Gábor Bence, Bács-Kiskun megye",
+		"Bács-Kiskun megye", "gabor.bence@example.com"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("az előnézetből hiányzik: %q", want)
+		}
+	}
+	if strings.Contains(html, "{nev}") || strings.Contains(html, "{megye}") || strings.Contains(html, "leiratkozas.html?&amp;c=3130") {
+		t.Error("kitöltetlen változó vagy valódi leiratkozó link az előnézetben")
+	}
+}

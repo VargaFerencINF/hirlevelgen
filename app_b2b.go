@@ -585,16 +585,18 @@ func (a *App) buildB2BData(group string, f h.PartnerFilter, name string, o h.B2B
 	col := func(hdr, field, label, target string) h.Column {
 		return h.Column{Index: len(ex.PartnerColumns), Letter: "·", Header: hdr, Field: field, Label: label, Target: target}
 	}
-	greet := map[string]string{"": "Partner neve (csupa nagybetűs cégnévnél tartalék megszólítás)", "auto": "Partner neve (csupa nagybetűs cégnévnél tartalék megszólítás)",
-		"name": "Partner neve (megszólítás)", "fallback": "Cégnév (mindenkinek a tartalék megszólítás)"}[o.Greeting]
+	greet := map[string]string{"": "megszólítás a névvel", "name": "megszólítás a névvel",
+		"auto": "cégnévnél tartalék megszólítás", "fallback": "mindenkinek tartalék megszólítás"}[o.Greeting]
 	ex.PartnerColumns = []h.Column{
-		col("Email_cim", "email", "Partner e-mail", ""),
-		col("Nev", "name", greet, ""),
-		col("Teruleti_kepviselo_nev", "repName", "Területi képviselő neve", ""),
-		col("Teruleti_kepviselo_telefonszam", "repPhone", "Képviselő telefon", ""),
-		col("Teruleti_kepviselo_email_cim", "repEmail", "Képviselő e-mail", ""),
+		col("Email_cim", "email", "Partner e-mail {email}", ""),
+		col("Nev", "name", "Partner neve {nev} és cégneve {ceg} ("+greet+")", ""),
+		col("Teruleti_kepviselo_nev", "repName", "Területi képviselő {kepviselo}", ""),
+		col("Teruleti_kepviselo_telefonszam", "repPhone", "Képviselő telefon {kepviselo_telefon}", ""),
+		col("Teruleti_kepviselo_email_cim", "repEmail", "Képviselő e-mail {kepviselo_email}", ""),
 		col("Teruleti_kepviselo_monogram", "repPhoto", "Képviselő fotó (a monogramhoz megadott kép)", ""),
+		col("Megye", "repRegion", "Képviselő területe {terulet} (a partner megyéje)", ""),
 		col("Leiratkozas_link", "override", "Leiratkozás linkje – partnerenként (soha nem nyitjuk meg)", "footer.unsubscribe.url"),
+		col("Nev", "extra", "Változó: {partnernev} (eredeti írásmóddal)", "partnernev"),
 		col("Nazon", "extra", "Változó: {nazon}", "nazon"),
 		col("Megye", "extra", "Változó: {megye}", "megye"),
 		col("Besor", "extra", "Változó: {besorolas}", "besorolas"),

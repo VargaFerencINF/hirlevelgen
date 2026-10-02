@@ -93,11 +93,22 @@ func IsLocalAsset(v string) bool {
 
 // ValidateContent a közös tartalmat ellenőrzi az adott sablonhoz.
 func ValidateContent(c Content, products []Product, tpl *Template) []Issue {
+	return ValidateContentFor(c, products, tpl, nil)
+}
+
+// ValidateContentFor mint a ValidateContent; a known a betöltött partnerlista további
+// változói (Excel-oszlopok, B2B partnertörzs mezői), ezek nem számítanak ismeretlennek.
+func ValidateContentFor(c Content, products []Product, tpl *Template, known map[string]bool) []Issue {
 	var out []Issue
 	add := func(level, key, msg string) {
 		out = append(out, Issue{Level: level, Scope: ScopeContent, Key: key, Index: -1, Message: msg})
 	}
 	sample := PartnerTokens(&SamplePartner)
+	for k := range known {
+		if _, ok := sample[k]; !ok {
+			sample[k] = "minta"
+		}
+	}
 	sample["termekszam"] = fmt.Sprint(len(SelectedProducts(products)))
 	sample["assets"] = "https://pelda.hu/assets"
 	sample["cikkszam"] = "T00000"

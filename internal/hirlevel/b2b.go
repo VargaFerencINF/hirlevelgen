@@ -720,7 +720,11 @@ func B2BFacets(db *B2BDB, f PartnerFilter) Facets {
 
 // B2BMapOptions a partnerek levélbe kerülő adatainak beállításai.
 type B2BMapOptions struct {
-	Greeting      string            `json:"greeting,omitempty"`      // auto (alap): csupa nagybetűs név = cégnév → tartalék megszólítás; name; fallback
+	// Greeting a megszólítás: name (alap) – mindenki a nevével; auto – cégnévnél (csupa nagybetű
+	// vagy cégforma) a tartalék megszólítás; fallback – mindenkinek a tartalék megszólítás.
+	// A {nev} és {ceg} változó mindhárom esetben ki van töltve.
+	Greeting      string            `json:"greeting,omitempty"`
+	KeepCaps      bool              `json:"keepCaps,omitempty"`      // a csupa nagybetűs nevek változatlanul (nem „JDB Hungary Zrt.”)
 	KeepRepSuffix bool              `json:"keepRepSuffix,omitempty"` // a „ - Energofish Kft.” utótag megtartása a képviselő nevében
 	RepPhotos     map[string]string `json:"repPhotos,omitempty"`     // TK monogram → fotó URL
 }
@@ -739,21 +743,139 @@ func IsCompanyName(s string) bool {
 	return letters > 1
 }
 
-// B2BToPartner a hírlevél-partner (az Excel-oszlopokkal azonos mezőkkel).
+// legalForms cégformák olvasható alakja (a pont és a kötőjel nélküli, kisbetűs alakból).
+var legalForms = map[string]string{
+	"kft": "Kft.", "bt": "Bt.", "zrt": "Zrt.", "nyrt": "Nyrt.", "rt": "Rt.", "kkt": "Kkt.", "ev": "e.v.",
+	"kht": "Kht.", "szov": "Szöv.",
+	"sro": "s.r.o.", "as": "a.s.", "gmbh": "GmbH", "ag": "AG", "kg": "KG", "og": "OG", "ug": "UG",
+	"srl": "SRL", "sa": "SA", "sl": "S.L.", "doo": "d.o.o.", "ltd": "Ltd.", "llc": "LLC", "spzoo": "Sp. z o.o.",
+}
+
+// LooksLikeCompany igaz, ha a név cégnek látszik (csupa nagybetűs, vagy cégformát tartalmaz).
+func LooksLikeCompany(s string) bool {
+	if IsCompanyName(s) {
+		return true
+	}
+	words := strings.Fields(s)
+	for i, w := range words {
+		if _, ok := legalForm(w, i, len(words)); ok {
+			return true
+		}
+	}
+	return false
+}
+
+// legalForm a szó cégforma-alakja, ha a név végén áll vagy pont van benne („Kft.”, „KFT”, „e.v.”).
+func legalForm(w string, i, n int) (string, bool) {
+	if i == 0 || (i != n-1 && !strings.Contains(w, ".")) {
+		return "", false
+	}
+	lf, ok := legalForms[strings.ToLower(strings.NewReplacer(".", "", "-", "", ",", "").Replace(w))]
+	return lf, ok
+}
+
+// ReadableName a csupa nagybetűs név olvasható alakja („JDB HUNGARY ZRT.” → „JDB Hungary Zrt.”).
+// A vegyes írású neveket nem bántja. A rövid, magánhangzó nélküli szavak (JDB) nagybetűsek maradnak.
+func ReadableName(s string) string {
+	s = strings.Join(strings.Fields(s), " ")
+	if !IsCompanyName(s) {
+		return s
+	}
+	words := strings.Split(s, " ")
+	for i, w := range words {
+		trail := ""
+		if strings.HasSuffix(w, ",") {
+			trail = ","
+		}
+		switch lf, ok := legalForm(w, i, len(words)); {
+		case ok:
+			words[i] = lf + trail
+		case i > 0 && w == "ÉS":
+			words[i] = "és"
+		default:
+			words[i] = readableWord(w)
+		}
+	}
+	return strings.Join(words, " ")
+}
+
+func readableWord(w string) string {
+	letters, vowels, digits := 0, 0, 0
+	for _, r := range w {
+		switch {
+		case unicode.IsLetter(r):
+			letters++
+			if strings.ContainsRune("AÁEÉIÍOÓÖŐUÚÜŰYaáeéiíoóöőuúüűy", r) {
+				vowels++
+			}
+		case unicode.IsDigit(r):
+			digits++
+		}
+	}
+	if letters == 0 || digits > 0 || (letters <= 4 && vowels == 0) {
+		return w // rövidítés (JDB, HMS), szám vagy jel
+	}
+	// minden betűcsoport (kötőjel, perjel, pont után is) nagy kezdőbetűvel
+	var b strings.Builder
+	start := true
+	for _, r := range w {
+		if unicode.IsLetter(r) {
+			if start {
+				b.WriteRune(unicode.ToUpper(r))
+			} else {
+				b.WriteRune(unicode.ToLower(r))
+			}
+			start = false
+			continue
+		}
+		b.WriteRune(r)
+		start = r == '-' || r == '/' || r == '.' || r == '('
+	}
+	return b.String()
+}
+
+// B2BRegion a „Képviselő területe” mező (a partner megyéje; magyar célcsoportnál „Pest megye”).
+func B2BRegion(group, county string) string {
+	c := strings.TrimSpace(county)
+	if c == "" || group != "B2B_HU" {
+		return c
+	}
+	l := strings.ToLower(c)
+	if l == "budapest" || strings.Contains(l, "megye") || strings.Contains(l, "külföld") || strings.Contains(l, "kulfold") {
+		return c
+	}
+	return c + " megye"
+}
+
+// B2BTokens a B2B partnertörzsből érkező további változók (a felület változó-listájához).
+var B2BTokens = []TokenInfo{
+	{"{partnernev}", "Partner neve az exportban szereplő írásmóddal"},
+	{"{megye}", "Partner megyéje"},
+	{"{nazon}", "Partner azonosítója (Nazon)"},
+	{"{besorolas}", "Besorolás (Gyémánt, Arany, Ezüst…)"},
+	{"{partnerbolt}", "Partnerbolt-státusz"},
+	{"{telefon}", "Partner telefonszáma"},
+	{"{feliratkozas}", "Feliratkozás dátuma"},
+	{"{bizomanyos}", "Bizományos partner (igen / nem)"},
+	{"{tkmonogram}", "Képviselő monogramja"},
+	{"{celcsoport}", "Célcsoport (pl. B2B HU)"},
+}
+
+// B2BToPartner a hírlevél-partner (az Excel-oszlopokkal azonos mezőkkel). A Nev mező a
+// {nev} és a {ceg} változóba is bekerül, a képviselő területe a partner megyéje.
 func B2BToPartner(p *B2BPartner, row int, group string, o B2BMapOptions) Partner {
 	out := Partner{Row: row, Email: p.Email, RepPhone: p.RepPhone, RepEmail: p.RepEmail,
 		Unsubscribe: p.Unsubscribe, Token: p.Token, Source: group}
+	name := strings.Join(strings.Fields(p.Name), " ")
+	if !o.KeepCaps {
+		name = ReadableName(name)
+	}
+	out.Name, out.Company = name, name
 	switch o.Greeting {
-	case "name":
-		out.Name = p.Name
 	case "fallback":
-		out.Company = p.Name
-	default:
-		if IsCompanyName(p.Name) {
-			out.Company = p.Name
-		} else {
-			out.Name = p.Name
-		}
+		out.FallbackGreeting = true
+	case "auto":
+		out.FallbackGreeting = LooksLikeCompany(p.Name)
 	}
 	out.RepName = p.RepName
 	if !o.KeepRepSuffix {
@@ -762,10 +884,12 @@ func B2BToPartner(p *B2BPartner, row int, group string, o B2BMapOptions) Partner
 	if ph := strings.TrimSpace(o.RepPhotos[p.RepMono]); ph != "" {
 		out.RepPhoto = ph
 	}
+	out.RepRegion = B2BRegion(group, p.County)
 	extra := map[string]string{
 		"nazon": p.Nazon, "megye": p.County, "besorolas": b2bLevelLabel[p.Level], "partnerbolt": p.Shop,
 		"telefon": p.Phone, "tkmonogram": p.RepMono, "celcsoport": strings.ReplaceAll(group, "_", " "),
 		"bizomanyos": map[bool]string{true: "igen", false: "nem"}[p.Commission], "partnernev": p.Name,
+		"feliratkozas": "",
 	}
 	if extra["besorolas"] == "" {
 		extra["besorolas"] = p.Level
