@@ -186,10 +186,20 @@ func setupLog(dir string, console bool) {
 		return
 	}
 	if console {
-		log.SetOutput(io.MultiWriter(os.Stderr, f))
+		// a fájl az első: ablakos (windowsgui) exe-nél a stderr érvénytelen, és a
+		// MultiWriter az első hibánál abbahagyná az írást
+		log.SetOutput(io.MultiWriter(f, quietWriter{os.Stderr}))
 	} else {
 		log.SetOutput(f)
 	}
+}
+
+// quietWriter a hibát elnyeli (konzol nélküli futásnál a stderr nem írható).
+type quietWriter struct{ w io.Writer }
+
+func (q quietWriter) Write(p []byte) (int, error) {
+	_, _ = q.w.Write(p)
+	return len(p), nil
 }
 
 func fatal(err error) {
