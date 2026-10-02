@@ -22,7 +22,7 @@ import (
 	h "energofish/hirlevel/internal/hirlevel"
 )
 
-var version = "1.2.0"
+var version = "1.3.0"
 
 const appTitle = "Energofish Partnerhírlevél-generátor"
 
@@ -44,6 +44,7 @@ func main() {
 		smoke    = flag.Bool("fustteszt", false, "ablak-teszt: megnyitja a felületet, majd kilép (CI)")
 		feedtest = flag.Bool("feedteszt", false, "az élő cikktörzs letöltése és feldolgozása, statisztikával (CI)")
 		feedURL  = flag.String("feed", "", "feedteszt: a cikktörzs címe (üresen az alapértelmezett)")
+		ptest    = flag.String("partnerteszt", "", "a B2B partnertörzs élő exportjának ellenőrzése (pl. B2B_HU; a token a WEBGALAMB_TOKEN_B2B_HU változóból)")
 	)
 	flag.Parse()
 
@@ -53,7 +54,16 @@ func main() {
 			configDir = filepath.Join(d, "EnergofishHirlevel")
 		}
 	}
-	setupLog(configDir, *batch || *selftest || *noOpen || *feedtest)
+	setupLog(configDir, *batch || *selftest || *noOpen || *feedtest || *ptest != "")
+
+	if *ptest != "" {
+		if err := runPartnerTest(*ptest); err != nil {
+			log.Printf("PARTNERTÖRZS-TESZT HIBA: %v", err)
+			os.Exit(1)
+		}
+		log.Printf("partnertörzs-teszt rendben")
+		return
+	}
 
 	if *feedtest {
 		if err := runFeedTest(*feedURL); err != nil {

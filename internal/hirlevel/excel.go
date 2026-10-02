@@ -37,6 +37,9 @@ type ExcelData struct {
 	Partners       []Partner `json:"partners"`
 	Products       []Product `json:"products"`
 	Issues         []Issue   `json:"issues"`
+	// Source: "" = Excel-fájl, "b2b" = a B2B partnertörzsből összeállított halmaz
+	Source string      `json:"source,omitempty"`
+	B2B    *B2BSetInfo `json:"b2b,omitempty"`
 }
 
 var partnerFieldLabels = map[string]string{

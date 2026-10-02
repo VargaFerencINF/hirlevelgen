@@ -46,6 +46,7 @@ type Saved struct {
 	State     ClientState `json:"state"`
 	ExcelPath string      `json:"excelPath"`
 	ExcelMod  time.Time   `json:"excelMod"`
+	B2B       B2BSettings `json:"b2b"`
 }
 
 const savedVersion = 1
@@ -56,6 +57,9 @@ type App struct {
 	token      string
 	lib        *h.Library
 	feed       *h.FeedStore
+	b2b        *h.B2BStore
+	b2bSet     B2BSettings
+	configDir  string
 	defaults   h.Content
 	defProds   []h.Product
 	state      ClientState
@@ -112,6 +116,9 @@ func NewApp(configDir string) (*App, error) {
 		feedDir = filepath.Join(configDir, "cikktorzs")
 	}
 	a.feed = h.NewFeedStore(feedDir)
+	a.configDir = configDir
+	a.b2b = h.NewB2BStore(configDir)
+	a.b2b.Protect, a.b2b.Unprotect = protectSecret, unprotectSecret
 	a.state = ClientState{
 		Content: cloneContent(defs), Products: append([]h.Product{}, defProds...), Template: "v4-partnerjelentes",
 		Output: OutputSettings{Dir: defaultOutputDir(), FilePattern: h.DefaultFilePattern},
@@ -157,6 +164,8 @@ func (a *App) loadSaved() {
 		a.state.Output.FilePattern = h.DefaultFilePattern
 	}
 	a.state.Feed = s.State.Feed
+	a.b2bSet = s.B2B
+	b2bLoaded := s.B2B.Loaded
 	// az utoljára használt Excel újraolvasása; ha közben módosult, a termékeket is onnan vesszük
 	if s.ExcelPath != "" {
 		if st, err := os.Stat(s.ExcelPath); err == nil {
@@ -164,6 +173,13 @@ func (a *App) loadSaved() {
 			if err := a.loadExcelPath(s.ExcelPath, changed || len(a.state.Products) == 0); err != nil {
 				log.Printf("az Excel nem tölthető be újra: %v", err)
 			}
+		}
+	}
+	// a B2B partnertörzsből betöltött halmaz a helyi adatbázisból épül újra (hálózat nélkül;
+	// küldés előtt a generálás úgyis frissít)
+	if a.excel == nil && b2bLoaded != nil {
+		if err := a.loadB2BSet(b2bLoaded.Group, b2bLoaded.Filter, b2bLoaded.Name, nil); err != nil {
+			log.Printf("a partnerhalmaz nem állítható vissza: %v", h.MaskSecrets(err.Error()))
 		}
 	}
 }
@@ -181,7 +197,7 @@ func (a *App) scheduleSave() {
 
 func (a *App) saveNow() {
 	a.mu.Lock()
-	s := Saved{Version: savedVersion, State: a.state}
+	s := Saved{Version: savedVersion, State: a.state, B2B: a.b2bSet}
 	if a.excel != nil {
 		s.ExcelPath, s.ExcelMod = a.excel.Path, a.excel.ModTime
 	}
@@ -247,6 +263,7 @@ func (a *App) loadExcelData(data []byte, path string, mod time.Time, takeProduct
 	defer a.mu.Unlock()
 	a.excel = ex
 	a.excelIssue = issues
+	a.b2bSet.Loaded = nil // a partnerek mostantól az Excelből jönnek
 	if takeProducts && len(ex.Products) > 0 {
 		a.state.Products = ex.Products
 	}
@@ -294,6 +311,14 @@ func (a *App) routes() http.Handler {
 		"/api/feed/search":      a.apiFeedSearch,
 		"/api/feed/products":    a.apiFeedProducts,
 		"/api/feed/images":      a.apiFeedImages,
+		"/api/b2b/state":        a.apiB2BState,
+		"/api/b2b/sources":      a.apiB2BSources,
+		"/api/b2b/sync":         a.apiB2BSync,
+		"/api/b2b/query":        a.apiB2BQuery,
+		"/api/b2b/reps":         a.apiB2BReps,
+		"/api/b2b/options":      a.apiB2BOptions,
+		"/api/b2b/presets":      a.apiB2BPresets,
+		"/api/b2b/load":         a.apiB2BLoad,
 		"/api/heartbeat":        a.apiHeartbeat,
 		"/api/quit":             a.apiQuit,
 	}
@@ -577,6 +602,7 @@ func (a *App) apiExcelClose(w http.ResponseWriter, r *http.Request) (any, error)
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.excel, a.excelIssue = nil, nil
+	a.b2bSet.Loaded = nil
 	a.scheduleSave()
 	return map[string]any{"issues": a.issuesLocked()}, nil
 }
@@ -645,9 +671,22 @@ func (a *App) apiOutputBrowse(w http.ResponseWriter, r *http.Request) (any, erro
 
 func (a *App) apiGenerate(w http.ResponseWriter, r *http.Request) (any, error) {
 	var req struct {
-		Only []int `json:"only"`
+		Only     []int `json:"only"`
+		SkipSync bool  `json:"skipSync"` // a partnertörzs frissítése sikertelen volt, a felhasználó mégis kéri
 	}
 	_ = decode(r, &req)
+	// B2B partnertörzs: küldés előtt kötelező frissítés (a leiratkozottak kimaradnak)
+	var syncInfo map[string]any
+	if a.excelIsB2B() && !req.SkipSync && len(req.Only) > 0 {
+		only, info, err := a.refreshB2BBeforeSend(req.Only)
+		if err != nil {
+			if info != nil {
+				return info, nil
+			}
+			return nil, err
+		}
+		req.Only, syncInfo = only, info
+	}
 	a.mu.Lock()
 	if a.excel == nil || len(a.excel.Partners) == 0 {
 		a.mu.Unlock()
@@ -662,9 +701,15 @@ func (a *App) apiGenerate(w http.ResponseWriter, r *http.Request) (any, error) {
 	if len(req.Only) == 0 {
 		return nil, errors.New("nincs kiválasztott partner")
 	}
-	return h.Generate(a.assets, tpl, content, products, partners, h.GenerateOptions{
+	res, err := h.Generate(a.assets, tpl, content, products, partners, h.GenerateOptions{
 		OutputDir: out.Dir, EML: out.EML, From: out.From, FilePattern: out.FilePattern, Only: req.Only,
 	})
+	if err != nil || syncInfo == nil {
+		return res, err
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return map[string]any{"result": res, "sync": syncInfo, "excel": a.excelViewLocked(), "issues": a.issuesLocked()}, nil
 }
 
 func (a *App) apiOpen(w http.ResponseWriter, r *http.Request) (any, error) {
@@ -699,7 +744,19 @@ func (a *App) apiOpenURL(w http.ResponseWriter, r *http.Request) (any, error) {
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https" && u.Scheme != "mailto" && u.Scheme != "tel") {
 		return nil, errors.New("csak http(s), mailto: vagy tel: link nyitható meg")
 	}
+	if isUnsubscribeURL(u.String()) {
+		return nil, errors.New("leiratkozó linket a program nem nyit meg: a megnyitás azonnal leiratkoztathatja a partnert")
+	}
 	return map[string]any{"ok": true}, openURL(u.String())
+}
+
+// previewUnsubscribe a partner leiratkozó linkjének helyettesítője az előnézetben.
+const previewUnsubscribe = "#leiratkozo-link-az-elonezetben-letiltva"
+
+// isUnsubscribeURL igaz, ha a link leiratkozásnak tűnik (ilyet a program soha nem hív meg).
+func isUnsubscribeURL(s string) bool {
+	l := strings.ToLower(s)
+	return strings.Contains(l, "leiratkoz") || strings.Contains(l, "unsubscribe") || strings.Contains(l, "odhlas") || strings.Contains(l, "abmeld")
 }
 
 func (a *App) apiContentExport(w http.ResponseWriter, r *http.Request) (any, error) {
@@ -796,6 +853,11 @@ func (a *App) renderPreview(pIdx int, tplID string, assetsBase string) (string, 
 	p := h.SamplePartner
 	if parts := a.partners(); pIdx >= 0 && pIdx < len(parts) {
 		p = parts[pIdx]
+	}
+	if p.Unsubscribe != "" {
+		// a partner valódi leiratkozó linkje az előnézetben nem szerepelhet: egy kattintás
+		// (vagy megnyitás a böngészőben) azonnal leiratkoztatná
+		p.Unsubscribe = previewUnsubscribe
 	}
 	d := h.Build(a.state.Content, a.state.Products, &p, tpl, assetsBase)
 	html, missing := tpl.Render(d)

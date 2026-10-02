@@ -239,6 +239,14 @@ func Generate(assets fs.FS, tpl *Template, c Content, products []Product, partne
 	var ib strings.Builder
 	ib.WriteString(overviewHead(tpl, res, len(rows), logo))
 	for _, r := range rows {
+		if r.p.Unsubscribe != "" {
+			ib.WriteString(`<p style="background:#FBEAE8;color:#6B1712;border-radius:10px;padding:12px 16px;font-size:14px;line-height:20px;margin:0 0 16px">` +
+				`<strong>Figyelem:</strong> a levelekben a partnerek valódi, egyedi leiratkozó linkjei szerepelnek. A megnyitott levélben ne kattints a ` +
+				`Leiratkozás linkre – azonnal leiratkoztatja a partnert.</p>`)
+			break
+		}
+	}
+	for _, r := range rows {
 		company := ""
 		if r.p.Company != "" {
 			company = `<div class="sub">` + EscapeHTML(r.p.Company) + `</div>`

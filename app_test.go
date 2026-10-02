@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -300,5 +301,171 @@ func TestAPIFeed(t *testing.T) {
 	imgs := res["images"].(map[string]any)
 	if res["ready"] != true || len(imgs) != 1 || len(imgs["10000327"].([]any)) != 7 {
 		t.Errorf("képek: %v", res)
+	}
+}
+
+func TestAPIB2B(t *testing.T) {
+	const tok = "0123456789abcdef0123456789abcdef" // kitalált
+	data, _ := os.ReadFile("internal/hirlevel/testdata/b2b-minta.json")
+	var list []map[string]any
+	_ = json.Unmarshal(data, &list)
+	export := list
+	fail := false
+	srv0 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("token") != tok {
+			http.Error(w, "forbidden", 403)
+			return
+		}
+		if fail {
+			http.Error(w, "hiba", 500)
+			return
+		}
+		if strings.Contains(r.URL.Path, "leiratkozas") {
+			t.Error("a leiratkozó linket meghívták!")
+		}
+		_ = json.NewEncoder(w).Encode(export)
+	}))
+	defer srv0.Close()
+	dir := t.TempDir()
+	app, err := NewApp(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	app.state.Output.Dir = filepath.Join(t.TempDir(), "kimenet")
+	app.b2b.RetryDelay = time.Millisecond
+	srv := httptest.NewServer(app.routes())
+	defer srv.Close()
+	noSecret := func(where string, v any) {
+		t.Helper()
+		b, _ := json.Marshal(v)
+		if strings.Contains(string(b), tok) || strings.Contains(string(b), "leiratkozas.html") {
+			t.Errorf("%s: titkos adat a válaszban", where)
+		}
+	}
+
+	// forrás beillesztése (több soros szövegből)
+	_, st := call(t, srv, app.token, "/api/b2b/sources", map[string]any{"text": "B2B HU: " + srv0.URL + "/export?action=export&token=" + tok + "\nB2B XX: valami"})
+	noSecret("sources", st)
+	g0 := st["groups"].([]any)[0].(map[string]any)
+	if st["saved"].([]any)[0] != "B2B HU" || g0["configured"] != true || !strings.Contains(g0["masked"].(string), "0123…cdef") {
+		t.Fatalf("források: %v", st)
+	}
+	if raw, _ := os.ReadFile(filepath.Join(dir, "partnerforrasok.dat")); secretsProtected && strings.Contains(string(raw), tok) {
+		t.Error("a forrás nincs titkosítva")
+	}
+
+	// szinkron
+	_, st = call(t, srv, app.token, "/api/b2b/sync", map[string]any{"group": "B2B_HU"})
+	noSecret("sync", st)
+	if st["failed"] != nil || st["result"].(map[string]any)["log"].(map[string]any)["new"].(float64) != 9 {
+		t.Fatalf("szinkron: %v", st)
+	}
+
+	// halmaz lekérdezése
+	_, q := call(t, srv, app.token, "/api/b2b/query", map[string]any{"group": "B2B_HU", "filter": map[string]any{"reps": []string{"ZSO"}}})
+	noSecret("query", q)
+	if q["count"].(float64) != 3 || q["mailable"].(float64) != 8 || q["noMail"].(float64) != 1 || len(q["rows"].([]any)) != 3 || !strings.Contains(q["summary"].(string), "Szél Zsófia") {
+		t.Fatalf("lekérdezés: %v", q)
+	}
+
+	// betöltés partnerlistaként
+	_, ld := call(t, srv, app.token, "/api/b2b/load", map[string]any{"group": "B2B_HU", "filter": map[string]any{"internal": "exclude"}, "name": "Teszt halmaz",
+		"options": map[string]any{"repPhotos": map[string]string{"ZSO": "https://kep.example.com/zso.jpg"}}})
+	noSecret("load", ld)
+	ex := ld["excel"].(map[string]any)
+	parts := ex["partners"].([]any)
+	if ex["source"] != "b2b" || len(parts) != 7 || ex["b2b"].(map[string]any)["selected"].(float64) != 7 || !strings.HasPrefix(ex["fileName"].(string), "Teszt halmaz") {
+		t.Fatalf("betöltés: %v", ex)
+	}
+
+	// az előnézetben a valódi leiratkozó link nem szerepel
+	for i := range parts {
+		req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/api/preview?p=%d", srv.URL, i), nil)
+		req.Header.Set("X-Token", app.token)
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		body, _ := io.ReadAll(res.Body)
+		res.Body.Close()
+		if strings.Contains(string(body), "leiratkozas.html") || !strings.Contains(string(body), previewUnsubscribe) {
+			t.Fatalf("előnézet %d: a valódi leiratkozó link látszik", i)
+		}
+	}
+	if code, r := call(t, srv, app.token, "/api/openurl", map[string]any{"url": "https://energofish.hu/leiratkozas.html?&c=0123456789abcdef0123"}); code != 400 || !strings.Contains(r["error"].(string), "leiratkoz") {
+		t.Errorf("leiratkozó link megnyitása: %d %v", code, r)
+	}
+
+	// küldés előtt kötelező frissítés: egy partner leiratkozott, egy új jött
+	var next []map[string]any
+	for _, p := range list {
+		if p["Email_cim"] != "bolt2@example.com" {
+			next = append(next, p)
+		}
+	}
+	nw := map[string]any{}
+	for k, v := range list[0] {
+		nw[k] = v
+	}
+	nw["Email_cim"], nw["Nazon"], nw["Token"] = "uj@example.com", "10099", "fedcba9876543210fedcba9876543210"
+	nw["Leiratkozas_link"] = "https://energofish.hu/leiratkozas.html?&c=fedcba9876543210fedc"
+	export = append(next, nw)
+	all := []int{}
+	for i := range parts {
+		all = append(all, i)
+	}
+	_, gen := call(t, srv, app.token, "/api/generate", map[string]any{"only": all})
+	noSecret("generate", map[string]any{"sync": gen["sync"], "excel": gen["excel"]})
+	sync := gen["sync"].(map[string]any)
+	res := gen["result"].(map[string]any)
+	if sync["dropped"].(float64) != 1 || sync["added"].(float64) != 1 || res["generated"].(float64) != 7 {
+		t.Fatalf("generálás frissítéssel: %v", gen)
+	}
+	// a kész levélben a partner saját leiratkozó linkje van
+	files, _ := filepath.Glob(filepath.Join(res["folder"].(string), "html", "*uj@example.com*.html"))
+	if len(files) != 1 {
+		t.Fatalf("az új partner levele: %v", files)
+	}
+	html, _ := os.ReadFile(files[0])
+	if !strings.Contains(string(html), "leiratkozas.html?&amp;c=fedcba9876543210fedc") {
+		t.Error("a levélben nincs a partner saját leiratkozó linkje")
+	}
+	if idx, _ := os.ReadFile(filepath.Join(res["folder"].(string), "attekinto.html")); !strings.Contains(string(idx), "valódi, egyedi leiratkozó linkjei") {
+		t.Error("az áttekintőben nincs figyelmeztetés a leiratkozó linkekről")
+	}
+	if fs, _ := filepath.Glob(filepath.Join(res["folder"].(string), "html", "*bolt2@example.com*")); len(fs) != 0 {
+		t.Error("a leiratkozott partner levelet kapott")
+	}
+
+	// sikertelen frissítés: a felület dönthet (nem „error”), skipSync-kel generál
+	fail = true
+	code, gen := call(t, srv, app.token, "/api/generate", map[string]any{"only": []int{0}})
+	if code != 200 || gen["syncFailed"] == nil || gen["error"] != nil {
+		t.Fatalf("sikertelen frissítés: %d %v", code, gen)
+	}
+	if _, gen = call(t, srv, app.token, "/api/generate", map[string]any{"only": []int{0}, "skipSync": true}); gen["generated"].(float64) != 1 {
+		t.Errorf("skipSync: %v", gen)
+	}
+	fail = false
+
+	// mentett halmaz
+	_, pr := call(t, srv, app.token, "/api/b2b/presets", map[string]any{"action": "save", "name": "ZSO boltjai", "group": "B2B_HU", "filter": map[string]any{"reps": []string{"ZSO"}}})
+	if len(pr["presets"].([]any)) != 1 {
+		t.Errorf("mentés: %v", pr)
+	}
+	app.saveNow()
+
+	// újraindítás: a halmaz a helyi adatbázisból visszaépül
+	app2, err := NewApp(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if app2.excel == nil || app2.excel.Source != "b2b" || len(app2.excel.Partners) != 7 || len(app2.b2bSet.Presets) != 1 || app2.excel.Partners[0].Unsubscribe == "" {
+		t.Fatalf("visszaállítás: %+v", app2.excel)
+	}
+	// Excel betöltése után a partnerek onnan jönnek
+	xlsx, _ := filepath.Abs("demo/Energofish_partner_hirlevel_minta.xlsx")
+	if err := app2.loadExcelPath(xlsx, false); err != nil || app2.b2bSet.Loaded != nil {
+		t.Errorf("Excel: %v", err)
 	}
 }

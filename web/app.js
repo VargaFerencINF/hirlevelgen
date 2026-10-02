@@ -381,13 +381,13 @@ async function openPath(path, reveal) {
 
 function renderData() {
   const p = pane('adatok');
-  p.replaceChildren(secHead('01 / Adatforrás', 'Partnerlista Excelből',
-    'Az Excel első munkalapján soronként egy partner (e-mail, név, területi képviselő), a másodikon az ajánlat termékei. Ami minden partnernél ugyanaz, azt a Tartalom lépésben adod meg.'));
+  p.replaceChildren(secHead('01 / Adatforrás', 'Partnerek',
+    'A partnerek jöhetnek a B2B partnertörzsből (célcsoport, képviselő, megye, besorolás és más tulajdonságok szerint összeállított halmaz) vagy Excel-fájlból. Ami minden partnernél ugyanaz, azt a Tartalom lépésben adod meg.'));
   if (!S.excel) {
-    p.append(dropZone(), formatCard());
+    p.append(b2bCard(), h('div', { class: 'or-sep' }, h('span', { text: 'vagy Excel-fájlból' })), dropZone(), formatCard());
     return;
   }
-  p.append(fileCard(), statsRow());
+  p.append(S.excel.source === 'b2b' ? b2bFileCard() : fileCard(), statsRow());
   for (const i of S.issues.partners.filter(i => i.scope === 'excel')) p.append(noteFor(i));
   p.append(partnerCard());
 }
@@ -445,7 +445,7 @@ function statsRow() {
   return h('div', { class: 'stats' },
     h('div', { class: 'stat accent' }, h('b', { text: ex.partners.length }), h('span', { text: 'partner' })),
     h('div', { class: 'stat' }, h('b', { text: reps }), h('span', { text: 'képviselő' })),
-    h('div', { class: 'stat' }, h('b', { text: (ex.products || []).length }), h('span', { text: 'termék' })),
+    h('div', { class: 'stat' }, h('b', { text: ex.source === 'b2b' ? S.state.products.filter(x => x.on).length : (ex.products || []).length }), h('span', { text: 'termék' })),
     h('div', { class: 'stat' + (blocked ? ' err' : '') }, h('b', { text: blocked }), h('span', { text: 'hibás, kimarad' })));
 }
 
@@ -478,7 +478,7 @@ function visiblePartners() {
   const q = norm(S.search).trim();
   const out = [];
   S.excel.partners.forEach((p, i) => {
-    if (!q || norm([p.name, p.email, p.company, p.repName, p.repRegion].join(' ')).includes(q)) out.push(i);
+    if (!q || norm([p.name, p.email, p.company, p.repName, p.repRegion, ...Object.values(p.extra || {})].join(' ')).includes(q)) out.push(i);
   });
   return out;
 }
@@ -509,7 +509,7 @@ function renderPartnerRows() {
     const tr = h('tr', { class: 'row' + (i === S.pv ? ' current' : '') + (S.sel.has(i) ? '' : ' off'), dataset: { i }, onclick: () => setPreviewPartner(i) },
       h('td', { class: 'c-chk' }, chk),
       h('td', { class: 'c-row', text: p.row }),
-      h('td', null, h('div', { class: 'p-name', text: p.name || '(név nélkül)' }), h('div', { class: 'p-sub', text: p.email || '– nincs e-mail –' }), p.company ? h('div', { class: 'p-sub', text: p.company }) : null),
+      h('td', null, h('div', { class: 'p-name', text: p.name || p.company || '(név nélkül)' }), h('div', { class: 'p-sub', text: (p.email || '– nincs e-mail –') + (p.extra && p.extra.nazon ? ' · ' + p.extra.nazon : '') }), p.company && p.name ? h('div', { class: 'p-sub', text: p.company }) : null),
       h('td', null, p.repName ? h('div', { class: 'rep' }, avatar(p.repName, p.repPhoto), h('div', { style: { minWidth: 0 } }, h('div', { class: 'rep-name', text: p.repName }), h('div', { class: 'rep-sub', text: p.repRegion || p.repEmail || '' }))) : h('span', { class: 'p-sub', text: '–' })),
       h('td', { class: 'c-st' }, stEl));
     return tr;
@@ -581,7 +581,8 @@ async function reloadExcel() {
 }
 
 async function closeExcel() {
-  if (!await confirmBox('Lista bezárása', 'A partnerlista kikerül a programból (az Excel-fájl nem változik). A termékek megmaradnak.', 'Bezárás')) return;
+  const b2b = S.excel && S.excel.source === 'b2b';
+  if (!await confirmBox('Lista bezárása', b2b ? 'A partnerhalmaz kikerül a hírlevélből (a partnertörzs és a mentett halmazok megmaradnak). A termékek is megmaradnak.' : 'A partnerlista kikerül a programból (az Excel-fájl nem változik). A termékek megmaradnak.', 'Bezárás')) return;
   try {
     const r = await api('/api/excel/close');
     S.excel = null;
@@ -1496,7 +1497,23 @@ async function doGenerate() {
   try {
     await syncNow();
     const only = Array.from(S.sel).sort((a, b) => a - b);
-    const r = await api('/api/generate', { only });
+    let r = await api('/api/generate', { only });
+    if (r.syncFailed) {
+      // B2B partnertörzs: a küldés előtti frissítés nem sikerült
+      const when = S.excel.b2b ? fmtTime(S.excel.b2b.syncedAt) : '';
+      if (!await confirmBox('A partnertörzs nem frissíthető', `${r.syncFailed}\n\nGenerálod a legutóbb (${when}) letöltött adatokkal? Aki azóta leiratkozott, még szerepelhet – ilyenkor küldés előtt mindenképp frissíts.`, 'Generálás a régi adatokkal', true)) return;
+      r = await api('/api/generate', { only, skipSync: true });
+    } else if (r.sync) {
+      const sy = r.sync;
+      applyExcel(r, true);
+      S.sel = new Set(sy.only || []);
+      renderData();
+      const parts = [];
+      if (sy.dropped) parts.push(`${sy.dropped} leiratkozott partner kimaradt`);
+      if (sy.added) parts.push(`${sy.added} új partner bekerült`);
+      toast('Partnertörzs frissítve a generálás előtt' + (parts.length ? ': ' + parts.join(', ') : ' – nem változott a címzettlista.'), parts.length ? 'warn' : 'ok', { timeout: 9000 });
+      r = r.result;
+    }
     S.lastResult = r;
     toast(`${r.generated} hírlevél elkészült.`, 'ok', { actions: [{ label: 'Mappa megnyitása', fn: () => openPath(r.folder) }, { label: 'Áttekintő', fn: () => openPath(r.index) }] });
   } catch (e) {
@@ -1729,7 +1746,7 @@ function renderPreviewSelect() {
     sel.value = -1;
     return;
   }
-  sel.replaceChildren(...S.excel.partners.map((p, i) => h('option', { value: i, text: `${i + 1}. ${p.name || '(név nélkül)'} – ${p.email || 'nincs e-mail'}${isBlocked(i) ? '  ⚠' : ''}` })));
+  sel.replaceChildren(...S.excel.partners.map((p, i) => h('option', { value: i, text: `${i + 1}. ${p.name || p.company || '(név nélkül)'} – ${p.email || 'nincs e-mail'}${isBlocked(i) ? '  ⚠' : ''}` })));
   sel.value = S.pv;
 }
 
@@ -1820,6 +1837,10 @@ function wireFrame(frame) {
     if (!a) return;
     e.preventDefault();
     const href = a.getAttribute('href') || '';
+    if (href.startsWith('#leiratkozo')) {
+      toast('A partner saját leiratkozó linkje – az előnézetben letiltva, mert a megnyitása azonnal leiratkoztatná. A kész levélben a valódi link szerepel.', 'info', { timeout: 8000 });
+      return;
+    }
     const acts = [];
     if (/^(https?:|mailto:|tel:)/i.test(href)) acts.push({ label: 'Megnyitás', fn: () => api('/api/openurl', { url: href }).catch(err => toast(err.message, 'err')) });
     acts.push({ label: 'Másolás', fn: () => navigator.clipboard && navigator.clipboard.writeText(href) });
@@ -1876,6 +1897,411 @@ async function quitApp() {
   try { await api('/api/quit'); } catch (e) { /* már leállt */ }
   document.body.replaceChildren(h('div', { style: { display: 'grid', placeItems: 'center', height: '100vh', background: '#1A171E', color: '#fff', textAlign: 'center' } },
     h('div', null, h('img', { src: '/static/img/energofish-mark-light.png', alt: '', width: 63, height: 52 }), h('h2', { text: 'A program leállt.' }), h('p', { style: { color: '#ccc' }, text: 'Ez a böngészőlap bezárható.' }))));
+}
+
+/* ------------------------------------------------------------------ B2B partnertörzs (1.3) */
+
+const B2B = { state: null, busy: false };
+const B2B_TRI = [['', 'Mind'], ['only', 'Csak ők'], ['exclude', 'Nélkülük']];
+const B2B_GREET = [['auto', 'Automatikus', 'Csupa nagybetűs név (cégnév) → „Kedves Partnerünk!”, személynév → „Kedves Kiss Péter!”'],
+  ['name', 'Mindig a név', 'A Nev mező a megszólításba kerül'], ['fallback', 'Mindenkinek a tartalék', 'Mindenki a Tartalom › tartalék megszólítást kapja']];
+
+async function b2bLoadState() {
+  B2B.state = await api('/api/b2b/state');
+  return B2B.state;
+}
+
+function b2bGroup(id) {
+  const st = B2B.state;
+  return st && st.groups.find(g => g.id === id);
+}
+
+function b2bSyncText(g) {
+  if (!g) return '';
+  if (!g.syncedAt) return g.configured ? 'még nem volt letöltve' : 'nincs megadva forrás';
+  return `${g.mailable} levelezhető partner · szinkron: ${fmtTime(g.syncedAt)}`;
+}
+
+function b2bLogText(l) {
+  if (!l) return '';
+  if (!l.ok) return 'Az utolsó frissítés megszakadt: ' + l.result.replace(/^megszakítva: /, '');
+  const parts = [`${l.records} rekord`];
+  if (l.new) parts.push(`+${l.new} új`);
+  if (l.changed) parts.push(`${l.changed} adata változott`);
+  if (l.reactivated) parts.push(`${l.reactivated} újra feliratkozott`);
+  if (l.inactivated) parts.push(`${l.inactivated} leiratkozott / törölt → inaktív`);
+  return parts.join(' · ');
+}
+
+// Az Adatok lépés kártyája (ha még nincs betöltött partnerlista).
+function b2bCard() {
+  const card = h('div', { class: 'card card-pad b2b-card' });
+  const body = h('div', { class: 'b2b-card-body' }, h('div', { class: 'p-sub', text: 'Partnertörzs betöltése…' }));
+  card.append(
+    h('div', { class: 'b2b-card-head' },
+      h('div', { class: 'file-ic' }, icon('users', 26)),
+      h('div', { style: { flex: 1, minWidth: 0 } },
+        h('div', { class: 'card-title', style: { margin: 0 } }, 'B2B partnertörzs'),
+        h('div', { class: 'p-sub', text: 'A webshop feliratkozói célcsoportonként (ország). Képviselő, megye, besorolás és más tulajdonságok alapján állíthatsz össze partnerhalmazt.' }))),
+    body);
+  b2bLoadState().then(st => {
+    const g = b2bGroup(st.settings.group) || st.groups[0];
+    const configured = st.groups.filter(x => x.configured);
+    body.replaceChildren(
+      h('div', { class: 'b2b-groups' }, st.groups.filter(x => x.configured || x.syncedAt).map(x =>
+        h('span', { class: 'pill ' + (x.syncedAt ? 'ok' : 'muted'), title: b2bSyncText(x), text: `${x.label}${x.syncedAt ? ' · ' + x.mailable : ''}` }))),
+      !configured.length ? h('div', { class: 'note cream' }, icon('info'), h('div', null, 'Még nincs megadva forrás. A ', h('b', { text: 'Források' }), ' gombnál illeszd be a célcsoportok linkjeit (pl. „B2B HU: https://…&token=…”). A tokeneket a program titkosítva tárolja ezen a gépen.')) : null,
+      h('div', { class: 'btn-row' },
+        h('button', { class: 'btn btn-primary', onclick: () => openPartnerSet(g && g.id) }, icon('users'), 'Partnerhalmaz összeállítása…'),
+        h('button', { class: 'btn btn-ghost', onclick: () => openSources() }, icon('link', 16), 'Források…')));
+  }).catch(e => body.replaceChildren(h('div', { class: 'note err' }, icon('error'), h('div', { text: e.message }))));
+  return card;
+}
+
+// A betöltött halmaz kártyája (a fájlkártya helyett).
+function b2bFileCard() {
+  const ex = S.excel, info = ex.b2b || {};
+  return h('div', { class: 'card card-pad' },
+    h('div', { class: 'file-card' },
+      h('div', { class: 'file-ic' }, icon('users', 26)),
+      h('div', { style: { minWidth: 0, flex: 1 } },
+        h('div', { class: 'file-name', text: ex.fileName }),
+        h('div', { class: 'file-sum', text: info.summary || '' }),
+        h('div', { class: 'file-meta', text: `${info.selected} partner a halmazban (${info.active} aktívból) · partnertörzs szinkron: ${fmtTime(info.syncedAt)}` })),
+      h('button', { class: 'btn btn-ghost btn-sm', title: 'Lista bezárása', onclick: closeExcel, style: { alignSelf: 'flex-start' } }, icon('x', 16))),
+    h('div', { class: 'note info', style: { margin: '12px 0 0' } }, icon('shield'),
+      h('div', { text: 'Generáláskor a program előbb automatikusan frissíti a partnertörzset: aki közben leiratkozott, kimarad, az új feliratkozók (ha illenek a feltételekre) bekerülnek. A leiratkozó linkeket soha nem nyitja meg.' })),
+    h('div', { class: 'file-actions' },
+      h('button', { class: 'btn btn-primary btn-sm', onclick: () => openPartnerSet(info.group, info) }, icon('pen', 16), 'Halmaz módosítása…'),
+      h('button', { class: 'btn btn-outline btn-sm', dataset: { busy: 'Frissítés…' }, onclick: e => busy(e.currentTarget, () => b2bRefreshLoaded(info)) }, icon('refresh', 16), 'Frissítés most'),
+      h('button', { class: 'btn btn-ghost btn-sm', onclick: () => openRepPhotos(info.group) }, icon('user', 16), 'Képviselő-fotók…'),
+      h('button', { class: 'btn btn-ghost btn-sm', onclick: e => busy(e.currentTarget, browseExcel) }, icon('open', 16), 'Excel helyette…')));
+}
+
+async function b2bRefreshLoaded(info) {
+  const r = await api('/api/b2b/sync', { group: info.group });
+  if (r.failed) { b2bSyncFailed(r, info.group, () => b2bRefreshLoaded(info)); return; }
+  toast('Partnertörzs frissítve: ' + b2bLogText(r.result.log), 'ok');
+  applyExcel(await api('/api/b2b/load', { group: info.group, filter: info.filter, name: info.name }), true);
+}
+
+async function b2bSyncFailed(r, group, retry) {
+  if (r.suspicious) {
+    if (await confirmBox('Gyanúsan kevés partner', r.failed + '\n\nHa biztos vagy benne, hogy ennyien maradtak (pl. tömeges leiratkozás vagy tisztítás), a frissítés kényszeríthető: a hiányzók inaktívak lesznek.', 'Mégis frissítem', true)) {
+      const f = await api('/api/b2b/sync', { group, force: true });
+      if (f.failed) toast(f.failed, 'err');
+      else { toast('Partnertörzs frissítve: ' + b2bLogText(f.result.log), 'ok'); if (retry) retry(); }
+    }
+    return;
+  }
+  toast(r.failed, 'err', { timeout: 12000 });
+}
+
+// Partnerhalmaz-választó.
+async function openPartnerSet(groupId, loaded) {
+  let st;
+  try { st = await b2bLoadState(); } catch (e) { toast(e.message, 'err'); return; }
+  const set = st.settings;
+  let group = groupId || set.group || 'B2B_HU';
+  let filter = JSON.parse(JSON.stringify(loaded && loaded.filter ? loaded.filter : (set.filter || {})));
+  let options = JSON.parse(JSON.stringify(set.options || {}));
+  let presetName = (loaded && loaded.name) || '';
+  let tab = '', last = null, seq = 0;
+  const open = {};
+
+  const groupSel = h('select', { class: 'inp ps-group' });
+  const syncInfo = h('div', { class: 'ps-sync' });
+  const left = h('div', { class: 'ps-left' });
+  const right = h('div', { class: 'ps-right' });
+  const loadBtn = h('button', { class: 'btn btn-primary', onclick: e => busy(e.currentTarget, doLoad) }, icon('check'), 'Betöltés');
+  const done = () => { document.removeEventListener('keydown', key); bg.remove(); };
+  const key = e => { if (e.key === 'Escape' && !document.querySelector('.modal-bg + .modal-bg')) done(); };
+
+  function renderGroups() {
+    groupSel.replaceChildren(...B2B.state.groups.map(g => h('option', { value: g.id, selected: g.id === group, text: `${g.label} – ${g.country}${g.configured ? '' : ' (nincs forrás)'}` })));
+    const g = b2bGroup(group);
+    syncInfo.replaceChildren(
+      h('span', { class: 'dot ' + (g && g.syncedAt ? 'ok' : 'off') }),
+      h('span', { text: b2bSyncText(g) }),
+      g && g.lastLog ? h('span', { class: 'p-sub', title: (g.lastLog.warnings || []).join('\n'), text: ' · ' + b2bLogText(g.lastLog) }) : null);
+  }
+
+  const query = debounce(runQuery, 120);
+
+  async function runQuery() {
+    const my = ++seq;
+    try {
+      const r = await api('/api/b2b/query', { group, filter, options, list: tab, limit: 400 });
+      if (my !== seq) return;
+      last = r;
+      renderLeft();
+      renderRight();
+    } catch (e) { toast(e.message, 'err'); }
+  }
+
+  function facet(title, key, notKey, values, opts = {}) {
+    const sel = new Set(filter[key] || []);
+    const isOpen = open[key] != null ? open[key] : (sel.size > 0 || opts.open);
+    const head = h('button', { type: 'button', class: 'ps-fh', onclick: () => { open[key] = !isOpen; renderLeft(); } },
+      icon('chev', 15), h('span', { text: title }),
+      sel.size ? h('span', { class: 'pill dark', text: (filter[notKey] ? 'kivéve ' : '') + sel.size }) : null);
+    const box = h('div', { class: 'ps-facet' + (isOpen ? ' open' : '') }, head);
+    if (!isOpen) return box;
+    box.append(h('div', { class: 'ps-fopts' },
+      h('label', { class: 'ps-not', title: 'A kijelöltek kivételével mindenki' }, h('input', { type: 'checkbox', checked: !!filter[notKey], onchange: e => { filter[notKey] = e.target.checked || undefined; query(); } }), 'kivéve'),
+      sel.size ? h('button', { type: 'button', class: 'linkbtn', text: 'törlés', onclick: () => { delete filter[key]; delete filter[notKey]; query(); } }) : null));
+    box.append(h('div', { class: 'ps-vals' + (values.length > 8 ? ' many' : '') }, values.map(v => {
+      const on = sel.has(v.value);
+      return h('label', { class: 'ps-val' + (on ? ' on' : '') + (v.count ? '' : ' zero') },
+        h('input', { type: 'checkbox', checked: on, onchange: e => {
+          const s = new Set(filter[key] || []);
+          e.target.checked ? s.add(v.value) : s.delete(v.value);
+          filter[key] = Array.from(s);
+          if (!filter[key].length) { delete filter[key]; delete filter[notKey]; }
+          query();
+        } }),
+        h('span', { class: 'lbl', text: v.label, title: v.value && v.value !== v.label ? v.value + ' · ' + v.label : v.label }),
+        h('span', { class: 'cnt', title: `${v.count} a többi feltétellel / ${v.total} összesen`, text: v.count === v.total ? v.total : `${v.count}/${v.total}` }));
+    })));
+    return box;
+  }
+
+  function tri(title, key, counts, help) {
+    return h('div', { class: 'ps-tri' }, h('div', { class: 'ps-tri-t', title: help || '' }, title, h('span', { class: 'p-sub', text: ` (igen: ${counts.yes || 0})` })),
+      h('div', { class: 'seg' }, B2B_TRI.map(([v, t]) => h('button', { type: 'button', class: (filter[key] || '') === v ? 'on' : '', text: t,
+        onclick: () => { if (v) filter[key] = v; else delete filter[key]; query(); } }))));
+  }
+
+  function renderLeft() {
+    if (!last) return;
+    const f = last.facets;
+    const presets = (B2B.state.settings.presets || []);
+    const presetSel = h('select', { class: 'inp', onchange: e => {
+      const p = presets.find(x => x.name === e.target.value);
+      if (!p) return;
+      presetName = p.name;
+      filter = JSON.parse(JSON.stringify(p.filter || {}));
+      if (p.group !== group) { group = p.group; renderGroups(); }
+      query();
+    } }, h('option', { value: '', text: presets.length ? '— mentett halmazok —' : 'nincs mentett halmaz' }), presets.map(p => h('option', { value: p.name, selected: p.name === presetName, text: `${p.name} (${p.group.replace('_', ' ')})` })));
+    const search = h('input', { class: 'inp', type: 'search', placeholder: 'Név, e-mail vagy Nazon…', value: filter.query || '', spellcheck: false });
+    search.addEventListener('input', debounce(() => { if (search.value.trim()) filter.query = search.value; else delete filter.query; query(); }, 250));
+    const from = h('input', { class: 'inp', type: 'date', value: filter.subFrom || '', onchange: e => { if (e.target.value) filter.subFrom = e.target.value; else delete filter.subFrom; query(); } });
+    const to = h('input', { class: 'inp', type: 'date', value: filter.subTo || '', onchange: e => { if (e.target.value) filter.subTo = e.target.value; else delete filter.subTo; query(); } });
+    const active = left.contains(document.activeElement) && document.activeElement.type === 'search';
+    left.replaceChildren(
+      h('div', { class: 'ps-presets' }, presetSel,
+        h('button', { class: 'btn btn-ghost btn-sm', title: 'A jelenlegi feltételek mentése névvel', onclick: savePreset }, icon('save', 15)),
+        presetName ? h('button', { class: 'btn btn-ghost btn-sm btn-danger', title: 'A mentett halmaz törlése', onclick: deletePreset }, icon('trash', 15)) : null),
+      h('div', { class: 'ps-searchrow' }, search),
+      facet('Területi képviselő', 'reps', 'repsNot', f.reps, { open: true }),
+      facet('Besorolás', 'levels', 'levelsNot', f.levels, { open: true }),
+      facet('Partnerbolt / horgászbolt', 'shops', 'shopsNot', f.shops),
+      facet('Megye', 'counties', 'countiesNot', f.counties),
+      tri('Bizományosok', 'commission', f.commission, 'Bizományos profil (Bizomanyos = igen)'),
+      tri('Belső másolati címek', 'internal', f.internal, 'Az Energofish saját címei (Fix = igen), hogy a cég is megkapja a levelet'),
+      h('div', { class: 'ps-dates' }, h('div', { class: 'ps-tri-t', text: 'Feliratkozás dátuma' }), h('div', { class: 'ps-daterow' }, from, h('span', { text: '–' }), to)),
+      facet('Tulajdonság 6 (régi szűrő)', 'props', 'propsNot', f.props),
+      h('button', { class: 'btn btn-ghost btn-sm ps-reset', onclick: () => { filter = {}; presetName = ''; query(); } }, icon('reset', 15), 'Minden feltétel törlése'));
+    if (active) { search.focus(); search.setSelectionRange(search.value.length, search.value.length); }
+  }
+
+  function renderRight() {
+    const g = b2bGroup(group);
+    if (!last || !last.synced) {
+      right.replaceChildren(h('div', { class: 'ps-empty' }, icon('users', 34),
+        h('h3', { text: g && g.configured ? 'Még nincs letöltött partnertörzs' : 'Ehhez a célcsoporthoz nincs forrás' }),
+        h('p', { text: g && g.configured ? 'Töltsd le a friss címtörzset – utána itt állíthatod össze a partnerhalmazt.' : 'Add meg a célcsoport tokenes linkjét a Források között.' }),
+        g && g.configured
+          ? h('button', { class: 'btn btn-primary', dataset: { busy: 'Letöltés…' }, onclick: e => busy(e.currentTarget, doSync) }, icon('download'), 'Partnertörzs letöltése')
+          : h('button', { class: 'btn btn-primary', onclick: () => openSources(group, () => { b2bLoadState().then(() => { renderGroups(); query(); }); }) }, icon('link'), 'Források…')));
+      loadBtn.disabled = true;
+      loadBtn.replaceChildren(icon('check'), 'Betöltés');
+      return;
+    }
+    const tabs = [['', `Halmaz (${last.count})`], ['excluded', `Egyenként kizárva (${last.excluded})`], ['inactive', `Leiratkozott / inaktív (${last.inactive})`]];
+    if (last.noMail) tabs.push(['nomail', `Nem kaphat levelet (${last.noMail})`]);
+    const rows = last.rows.map(r => {
+      const ex = new Set(filter.exclude || []);
+      const act = tab === '' ? h('button', { class: 'btn btn-ghost btn-sm', title: 'Kizárás ebből a halmazból', onclick: () => { ex.add(r.email); filter.exclude = Array.from(ex); query(); } }, icon('x', 15))
+        : tab === 'excluded' ? h('button', { class: 'btn btn-ghost btn-sm', title: 'Visszavétel a halmazba', onclick: () => { ex.delete(r.email); filter.exclude = Array.from(ex); if (!filter.exclude.length) delete filter.exclude; query(); } }, icon('plus', 15))
+          : null;
+      const tags = [];
+      if (r.fix) tags.push(h('span', { class: 'pill dark', text: 'belső' }));
+      if (r.commission) tags.push(h('span', { class: 'pill warn', text: 'bizományos' }));
+      if (r.noToken) tags.push(h('span', { class: 'pill muted', title: 'Nincs érvényes partner-token („Torolt”)', text: 'token nélkül' }));
+      return h('tr', null,
+        h('td', null, h('div', { class: 'p-name', text: r.name }), h('div', { class: 'p-sub', text: `${r.email} · ${r.nazon}` })),
+        h('td', null, h('div', { text: r.rep || '–' }), h('div', { class: 'p-sub', text: r.repMono })),
+        h('td', null, h('div', { text: r.level }), h('div', { class: 'p-sub', text: r.shop || '' })),
+        h('td', null, h('div', { text: r.county }), h('div', { class: 'p-sub', text: r.subscribed ? r.subscribed.slice(0, 10).replace(/-/g, '.') + '.' : '' })),
+        h('td', null, tab === 'inactive' ? h('div', { class: 'p-sub', text: r.inactivated ? 'inaktív: ' + fmtTime(r.inactivated) : '' }) : tab === 'nomail' ? h('div', { class: 'p-sub err', text: r.noMail }) : tags),
+        h('td', { class: 'c-act' }, act));
+    });
+    loadBtn.disabled = !last.count;
+    loadBtn.replaceChildren(icon('check'), `Betöltés a hírlevélhez (${last.count} partner)`);
+    right.replaceChildren(
+      h('div', { class: 'ps-count' },
+        h('div', null, h('b', { text: last.count }), h('span', { text: ` partner a halmazban · ${last.mailable} levelezhetőből · ${last.reps} képviselő` })),
+        h('div', { class: 'ps-summary', text: last.summary })),
+      h('div', { class: 'ps-tabs' }, tabs.map(([v, t]) => h('button', { type: 'button', class: tab === v ? 'on' : '', text: t, onclick: () => { tab = v; query(); } }))),
+      h('div', { class: 'ps-table' }, h('table', { class: 'pt' },
+        h('thead', null, h('tr', null, h('th', { text: 'Partner' }), h('th', { text: 'Képviselő' }), h('th', { text: 'Besorolás' }), h('th', { text: 'Megye · feliratkozás' }), h('th'), h('th'))),
+        h('tbody', null, rows.length ? rows : h('tr', null, h('td', { colspan: 6, class: 'empty', text: tab === '' ? 'A feltételeknek egy partner sem felel meg.' : 'Nincs ilyen partner.' })))),
+        last.more ? h('div', { class: 'pk-more', text: 'Csak az első 400 partner látszik – a betöltés mindet tartalmazza.' }) : null),
+      h('details', { class: 'ps-opts' },
+        h('summary', null, icon('pen', 15), 'A levélbe kerülő adatok', h('span', { class: 'p-sub', text: ' – megszólítás, képviselő neve és fotója' })),
+        h('div', { class: 'ps-opts-body' },
+          h('div', { class: 'ps-tri' }, h('div', { class: 'ps-tri-t', text: 'Megszólítás' }),
+            h('div', { class: 'seg' }, B2B_GREET.map(([v, t, tip]) => h('button', { type: 'button', title: tip, class: (options.greeting || 'auto') === v ? 'on' : '', text: t,
+              onclick: () => { options.greeting = v; renderRight(); } })))),
+          h('label', { class: 'ps-check' }, h('input', { type: 'checkbox', checked: !options.keepRepSuffix, onchange: e => { options.keepRepSuffix = !e.target.checked; } }),
+            'A képviselő nevéből a „ - Energofish Kft.” utótag elhagyása'),
+          h('button', { class: 'btn btn-outline btn-sm', onclick: () => openRepPhotos(group, o => { options = o; }) }, icon('user', 15), 'Képviselő-fotók…'))));
+  }
+
+  async function doSync(force) {
+    const r = await api('/api/b2b/sync', { group, force: !!force });
+    B2B.state = r;
+    renderGroups();
+    if (r.failed) { b2bSyncFailed(r, group, () => { b2bLoadState().then(() => { renderGroups(); query(); }); }); return; }
+    toast('Partnertörzs letöltve: ' + b2bLogText(r.result.log), 'ok', { timeout: 8000 });
+    query();
+  }
+
+  async function savePreset() {
+    const v = await formModal('Partnerhalmaz mentése', [{ k: 'name', label: 'A halmaz neve (pl. „Szél Zsófia boltjai – bizományosok nélkül”)', value: presetName }], 'Mentés');
+    if (!v || !v.name.trim()) return;
+    try {
+      const r = await api('/api/b2b/presets', { action: 'save', name: v.name.trim(), group, filter });
+      B2B.state.settings.presets = r.presets;
+      presetName = v.name.trim();
+      renderLeft();
+      toast('A halmaz elmentve.', 'ok');
+    } catch (e) { toast(e.message, 'err'); }
+  }
+
+  async function deletePreset() {
+    if (!await confirmBox('Mentett halmaz törlése', `A(z) „${presetName}” mentett halmaz törlődik (a partnerek nem).`, 'Törlés', true)) return;
+    try {
+      const r = await api('/api/b2b/presets', { action: 'delete', name: presetName });
+      B2B.state.settings.presets = r.presets;
+      presetName = '';
+      renderLeft();
+    } catch (e) { toast(e.message, 'err'); }
+  }
+
+  async function doLoad() {
+    const r = await api('/api/b2b/load', { group, filter, name: presetName, options });
+    done();
+    applyExcel(r, true);
+    const errs = S.issues.partners.filter(i => i.level === 'error').length;
+    toast(`Betöltve: ${S.excel.partners.length} partner a(z) ${group.replace('_', ' ')} partnertörzsből` + (errs ? ` · ${errs} hiba` : ''), errs ? 'warn' : 'ok');
+  }
+
+  groupSel.addEventListener('change', () => { group = groupSel.value; filter = {}; presetName = ''; tab = ''; renderGroups(); query(); });
+  const bg = h('div', { class: 'modal-bg' },
+    h('div', { class: 'modal pset', role: 'dialog', 'aria-label': 'Partnerhalmaz összeállítása' },
+      h('div', { class: 'mh' }, h('span', { text: 'Partnerhalmaz a B2B partnertörzsből' }), h('button', { class: 'x', title: 'Bezárás', onclick: done }, icon('x', 18))),
+      h('div', { class: 'ps-top' },
+        h('div', { class: 'ps-gwrap' }, h('span', { class: 'label-caps', text: 'Célcsoport' }), groupSel),
+        syncInfo, h('div', { class: 'grow' }),
+        h('button', { class: 'btn btn-outline btn-sm', dataset: { busy: 'Letöltés…' }, onclick: e => busy(e.currentTarget, () => doSync(false)) }, icon('refresh', 15), 'Frissítés most'),
+        h('button', { class: 'btn btn-ghost btn-sm', onclick: () => openSources(group, () => { b2bLoadState().then(() => { renderGroups(); query(); }); }) }, icon('link', 15), 'Források…')),
+      h('div', { class: 'ps-body' }, left, right),
+      h('div', { class: 'mf pk-foot' },
+        h('div', { class: 'p-sub', text: 'Csak az aktív (feliratkozott) partnerek választhatók. Egy szemponton belül bármelyik, a szempontok között mindegyik feltételnek teljesülnie kell.' }),
+        h('div', { class: 'grow' }),
+        h('button', { class: 'btn btn-ghost', text: 'Mégse', onclick: done }), loadBtn)));
+  document.body.append(bg);
+  document.addEventListener('keydown', key);
+  renderGroups();
+  runQuery();
+}
+
+// Források (tokenes linkek) – a tokenek nem látszanak, csak kitakarva.
+async function openSources(focusGroup, after) {
+  let st;
+  try { st = await b2bLoadState(); } catch (e) { toast(e.message, 'err'); return; }
+  const list = h('div', { class: 'src-list' });
+  const paste = h('textarea', { class: 'inp', rows: 4, spellcheck: false, placeholder: 'B2B HU: https://energofish.hu/admintool/webgalamb_mod.php?action=export&token=…\nB2B SK: https://…' });
+  const render = () => {
+    list.replaceChildren(...B2B.state.groups.map(g => {
+      const inp = h('input', { class: 'inp', type: 'password', autocomplete: 'off', spellcheck: false, placeholder: g.configured ? 'új token vagy link (felülírja)' : 'token vagy tokenes link' });
+      const save = async () => {
+        if (!inp.value.trim()) return;
+        try { B2B.state = await api('/api/b2b/sources', { group: g.id, value: inp.value }); inp.value = ''; render(); toast(`${g.label}: forrás mentve.`, 'ok'); } catch (e) { toast(e.message, 'err'); }
+      };
+      inp.addEventListener('keydown', e => { if (e.key === 'Enter') save(); });
+      return h('div', { class: 'src-row' + (g.id === focusGroup ? ' focus' : '') },
+        h('div', { class: 'src-g' }, h('b', { text: g.label }), h('span', { class: 'p-sub', text: g.country })),
+        h('div', { class: 'src-st' }, g.configured
+          ? h('span', { class: 'pill ok', title: g.origin === 'env' ? `Környezeti változóból: ${g.env}` : 'Titkosítva mentve ezen a gépen', text: (g.origin === 'env' ? 'környezeti változó · ' : '') + g.masked })
+          : h('span', { class: 'pill muted', text: 'nincs megadva' })),
+        h('div', { class: 'src-in' }, inp, h('button', { class: 'btn btn-outline btn-sm', text: 'Mentés', onclick: save }),
+          g.configured && g.origin !== 'env' ? h('button', { class: 'btn btn-ghost btn-sm btn-danger', title: 'A mentett forrás törlése', onclick: async () => {
+            if (!await confirmBox('Forrás törlése', `A(z) ${g.label} tokenje törlődik erről a gépről. A már letöltött partnertörzs megmarad.`, 'Törlés', true)) return;
+            try { B2B.state = await api('/api/b2b/sources', { group: g.id, remove: true }); render(); } catch (e) { toast(e.message, 'err'); }
+          } }, icon('trash', 15)) : null));
+    }));
+  };
+  const done = () => { bg.remove(); if (after) after(); };
+  const bg = h('div', { class: 'modal-bg' },
+    h('div', { class: 'modal wide src', role: 'dialog' },
+      h('div', { class: 'mh', text: 'Partnertörzs-források' }),
+      h('div', { class: 'mb' },
+        h('div', { class: 'note ' + (st.protected ? 'ok' : 'warn') }, icon('shield'),
+          h('div', { text: st.protected
+            ? 'A tokenek titkosan, a Windows-felhasználódhoz kötve (DPAPI) tárolódnak ezen a gépen; a program sehol nem írja ki őket – itt is csak az első és utolsó 4 karakter látszik. Környezeti változóból (pl. WEBGALAMB_TOKEN_B2B_HU) is megadhatók.'
+            : 'Ezen a rendszeren nincs Windows-titkosítás: a tokenek csak a felhasználó által olvasható fájlba kerülnek. Környezeti változóból (pl. WEBGALAMB_TOKEN_B2B_HU) is megadhatók.' })),
+        h('div', { class: 'label-caps', style: { margin: '12px 0 6px' }, text: 'Több forrás egyszerre (beillesztés)' }),
+        paste,
+        h('div', { class: 'btn-row', style: { margin: '8px 0 16px' } }, h('button', { class: 'btn btn-outline btn-sm', onclick: async () => {
+          try {
+            B2B.state = await api('/api/b2b/sources', { text: paste.value });
+            paste.value = '';
+            render();
+            toast('Mentve: ' + (B2B.state.saved || []).join(', '), 'ok');
+          } catch (e) { toast(e.message, 'err'); }
+        } }, icon('save', 15), 'Felismerés és mentés')),
+        list),
+      h('div', { class: 'mf' }, h('button', { class: 'btn btn-primary', text: 'Kész', onclick: done }))));
+  document.body.append(bg);
+  render();
+  paste.focus();
+}
+
+// Képviselő-fotók (a partnertörzsben nincs kép): monogramonként egy kép link.
+async function openRepPhotos(group, after) {
+  let reps, st;
+  try { [reps, st] = await Promise.all([api('/api/b2b/reps', { group }), b2bLoadState()]); } catch (e) { toast(e.message, 'err'); return; }
+  const options = JSON.parse(JSON.stringify(st.settings.options || {}));
+  options.repPhotos = options.repPhotos || {};
+  const rows = reps.reps.map(r => {
+    const prev = avatar(r.name, r.photo, 40);
+    const inp = h('input', { class: 'inp', type: 'url', value: options.repPhotos[r.mono] || '', placeholder: 'https://… (négyzetes, min. 128×128)', spellcheck: false });
+    inp.addEventListener('input', debounce(() => { options.repPhotos[r.mono] = inp.value.trim(); prev.replaceWith(Object.assign(avatar(r.name, inp.value.trim(), 40), {})); }, 400));
+    return h('div', { class: 'rep-row' }, prev,
+      h('div', { class: 'rep-who' }, h('b', { text: r.name || r.mono }), h('div', { class: 'p-sub', text: `${r.mono} · ${r.partners} partner · ${r.email || ''}` })), inp);
+  });
+  const done = () => bg.remove();
+  const save = async () => {
+    try {
+      const r = await api('/api/b2b/options', options);
+      if (r.excel) applyExcel(r, true);
+      toast('A képviselő-fotók mentve.', 'ok');
+      done();
+      if (after) after(options);
+    } catch (e) { toast(e.message, 'err'); }
+  };
+  const bg = h('div', { class: 'modal-bg' },
+    h('div', { class: 'modal wide', role: 'dialog' },
+      h('div', { class: 'mh', text: 'Képviselő-fotók' }),
+      h('div', { class: 'mb' },
+        h('p', { class: 'card-sub', text: 'A partnertörzsben nincs képviselő-fotó: itt adhatod meg monogramonként (https:// kép link). Fotó nélkül a levélben a monogram jelenik meg.' }),
+        rows.length ? h('div', { class: 'rep-list' }, rows) : h('div', { class: 'note info' }, icon('info'), h('div', { text: 'Előbb töltsd le a partnertörzset.' }))),
+      h('div', { class: 'mf' }, h('button', { class: 'btn btn-ghost', text: 'Mégse', onclick: done }), h('button', { class: 'btn btn-primary', text: 'Mentés', onclick: save }))));
+  document.body.append(bg);
 }
 
 async function init() {

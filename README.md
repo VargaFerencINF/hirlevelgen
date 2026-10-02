@@ -1,8 +1,8 @@
 # Energofish Partnerhírlevél-generátor
 
-Windowsos asztali program, amely egy Excel-partnerlistából **partnerenként legenerálja a hírlevelet** a tervezett Energofish-sablonok (v1 Sötét lemez, v2 Waterside, v4 Partnerjelentés) valamelyikével.
+Windowsos asztali program, amely egy partnerlistából **partnerenként legenerálja a hírlevelet** a tervezett Energofish-sablonok (v1 Sötét lemez, v2 Waterside, v4 Partnerjelentés) valamelyikével.
 
-- Ami partnerenként más (e-mail, név, területi képviselő és a fotója, elérhetőségei), az az **Excelből** jön.
+- Ami partnerenként más (e-mail, név, területi képviselő és a fotója, elérhetőségei), az a **B2B partnertörzsből** (célcsoport, képviselő, megye, besorolás… szerint összeállított halmaz, 1.3) vagy **Excelből** jön.
 - A termékek az Excel **második munkalapjáról** jönnek (cikkszám, cikknév, kép link, gomb link…).
 - Minden más, ami minden partnernél ugyanaz (tárgy, borító, levél, ajánlat szövegei, kérdés, lábléc…), a **programban** adható meg.
 - Gépelés közben **élő előnézet** mutatja a levelet bármelyik partnerre, asztali és mobil nézetben.
@@ -28,7 +28,7 @@ Windowsos asztali program, amely egy Excel-partnerlistából **partnerenként le
 
 | Lépés | Mit csinálsz |
 |---|---|
-| **1. Adatok** | Húzd be az Excelt az ablakba, vagy *Excel kiválasztása…*. Nincs még Excel? *Minta Excel mentése* – kész, kitöltött példa. A program kiírja, melyik oszlopot minek ismerte fel, és jelzi a hibás sorokat. A partnerek egyenként ki-be kapcsolhatók; egy sorra kattintva az előnézet arra a partnerre vált. |
+| **1. Adatok** | *Partnerhalmaz összeállítása…* a B2B partnertörzsből (lásd lent), vagy húzd be az Excelt az ablakba / *Excel kiválasztása…*. Nincs még Excel? *Minta Excel mentése* – kész, kitöltött példa. A program kiírja, melyik oszlopot minek ismerte fel, és jelzi a hibás sorokat. A partnerek egyenként ki-be kapcsolhatók; egy sorra kattintva az előnézet arra a partnerre vált. |
 | **2. Tartalom** | A közös szövegek, blokkonként (Alapadatok, Borító, Személyes levél, Ajánlat, Egy kérdés, Képviselő-blokk, Lábléc, Termék-linkek). A karakterszámláló a tervezői hosszkorlátokat figyeli. |
 | **3. Termékek** | Az Excelből betöltött termékek: ki-be kapcsolás, sorrend, szövegjavítás. *Új termék:* keresés a friss cikktörzsben cikkszámra vagy névre, a mezők kitöltésével (lásd lent). Az Excel-fájlt nem módosítja. |
 | **4. Ellenőrzés** | Hibák és figyelmeztetések „Ugrás” gombbal a hibás mezőhöz; *Képek ellenőrzése* – letölti és méri a képeket. |
@@ -37,6 +37,34 @@ Windowsos asztali program, amely egy Excel-partnerlistából **partnerenként le
 Minden beállítás automatikusan mentődik; a program a következő indításkor ugyanonnan folytatja (az utoljára használt Excelt is újraolvassa).
 
 ---
+
+## Partnerek a B2B partnertörzsből (1.3)
+
+A webshop feliratkozói célcsoportonként (B2B HU, SK, CZ, COM, AT, DE, RO, ES, RS) külön JSON-exportból jönnek.
+Az *Adatok* lépés **B2B partnertörzs** kártyáján:
+
+1. **Források…** – illeszd be a célcsoportok tokenes linkjeit (pl. több sor `B2B HU: https://…&token=…` alakban; a program felismeri, melyik melyik), vagy célcsoportonként a tokent. A tokenek titkosan, a Windows-felhasználóhoz kötve (DPAPI) tárolódnak `%APPDATA%\EnergofishHirlevel\` alatt; a program sehol nem írja ki őket (a felületen is csak az első és utolsó 4 karakterük látszik), és a naplóba sem kerülnek. Környezeti változóból is megadhatók: `WEBGALAMB_TOKEN_B2B_HU`, `WEBGALAMB_TOKEN_B2B_SK`, …
+2. **Partnerhalmaz összeállítása…** – célcsoport (ország) választás, **Frissítés most** (letöltés), majd a feltételek:
+   - **területi képviselő**, **besorolás** (Basic … Top, Bizományos), **partnerbolt / horgászbolt**, **megye**, *Tulajdonság 6* – több érték is kijelölhető, és mindegyik megfordítható (*kivéve*);
+   - **bizományosok** és **belső másolati címek** (Fix): mind / csak ők / nélkülük;
+   - **feliratkozás dátuma** (-tól, -ig), **keresés** névre, e-mailre, Nazonra;
+   - egyes partnerek **egyenként kizárhatók** a listából (és visszavehetők).
+
+   Egy szemponton belül bármelyik, a szempontok között mindegyik feltételnek teljesülnie kell. Minden érték mellett látszik, hány partner felel meg rá a többi feltétellel együtt. A halmaz **elmenthető névvel**, és később egy kattintással visszatölthető.
+3. **Betöltés a hírlevélhez** – a halmaz partnerlistaként töltődik be, a program többi része (tartalom, termékek, ellenőrzés, előnézet, generálás) ugyanúgy működik, mint Excellel.
+
+**Mi kerül a levélbe:** e-mail cím; megszólítás (*automatikus*: a csupa nagybetűs cégnév helyett a tartalék „Kedves Partnerünk!”, személynévnél a név – átállítható); a területi képviselő neve (a „ - Energofish Kft.” utótag nélkül – átállítható), telefonja, e-mailje; a **képviselő fotója** (a partnertörzsben nincs: monogramonként a *Képviselő-fotók…* gombnál adható meg, nélküle monogram); a lábléc leiratkozó linkje helyén **a partner saját leiratkozó linkje**. Változóként használható még: `{nazon}`, `{megye}`, `{besorolas}`, `{partnerbolt}`, `{telefon}`, `{feliratkozas}`, `{ceg}`, és az export esetleges új mezői.
+
+**Szinkron (a partnertörzs saját, helyi adatbázisa):**
+
+- új feliratkozó → bekerül; meglévő → frissül; aki újra feliratkozott → újra aktív; **aki kimaradt az exportból (leiratkozott vagy törölték) → inaktív**, és levelet nem kap. Partner soha nem törlődik, minden futás naplózódik (csak darabszámokkal).
+- az exporton belül többször szereplő e-mail egy partnerré vonódik össze; az érvénytelen rekordok kimaradnak; a „Torolt” tokenű partnerek token nélkül szerepelnek.
+- **biztonsági zár:** ha a letöltés hibás, üres, nem JSON, vagy az export a jelenlegi aktív partnerek 80%-ánál kevesebbet tartalmaz, **semmi nem változik** (a program figyelmeztet; tudatos döntéssel kényszeríthető).
+- **generálás előtt a program mindig frissít:** a közben leiratkozottak kimaradnak, a feltételeknek megfelelő új feliratkozók bekerülnek. Ha a frissítés nem sikerül, a program megkérdezi, generáljon-e a legutóbb letöltött adatokkal.
+
+**A leiratkozó linket a program soha nem nyitja meg** (egy megnyitás azonnal leiratkoztatná a partnert): az előnézetben helyettesítő link szerepel, a „Megnyitás” és a link-ellenőrzés tiltja, az áttekintő oldal figyelmeztet. A kész levelekben a valódi link van – ott se kattints rá.
+
+A partner **tokenje** (automatikus bejelentkezés) titkosan tárolódik, de a linkekbe még **nem** kerül: a webes oldal elkészülte és a link-szabályok (paraméternév, csak energofish.hu linkek, UTM-ek) véglegesítése után kapcsolható be.
 
 ## Az Excel felépítése
 
@@ -165,6 +193,8 @@ A program ellenőrzi a sablont: ismeretlen `{{mezőt}}` használó fájlt nem ve
 
 ## Változások
 
+**1.3** – partnerek a B2B partnertörzsből: célcsoport (ország) választás, összetett partnerhalmaz (képviselő, besorolás, partnerbolt, megye, bizományos, belső címek, feliratkozás dátuma, keresés, egyenkénti kizárás, „kivéve”), mentett halmazok, helyi adatbázis szinkronnal (új / frissített / leiratkozott → inaktív, biztonsági zár), frissítés minden generálás előtt, a partnerek saját leiratkozó linkje a láblécben, képviselő-fotók monogramonként, titkosított tokenek.
+
 **1.2** – „Új termék” a friss cikktörzsből: keresés cikkszámra vagy névre, a mezők kitöltése (ár, leírás, akció, kép, link), képméret-váltó a termékkártyán, kitöltés cikkszám alapján; a cikktörzs helyi tárolása és feltételes frissítése.
 
 **1.1** – reszponzív sablonok (mobil + tablet); új sablonok hozzáadása és mentése (.html vagy .zip), a beépítettek frissítése fájlból; tablet előnézet; élő bélyegképek a sablonválasztóban; több e-mail cím egy partnercellában.
@@ -182,6 +212,8 @@ A program ellenőrzi a sablont: ismeretlen `{{mezőt}}` használó fájlt nem ve
 | Az Excel módosítása nem látszik | Mentsd a fájlt Excelben, majd *Újratöltés*. |
 | „A régi .xls formátum nem támogatott” | Excelben *Mentés másként → Excel-munkafüzet (.xlsx)*. |
 | A termékképek nem látszanak | Az *Ellenőrzés → Képek ellenőrzése* megmutatja, melyik link rossz. |
+| „Gyanúsan kevés partner” a partnertörzs frissítésekor | Az export a jelenlegi aktívak 80%-ánál kevesebbet adott, ezért a program nem inaktivált senkit. Ha tényleg ennyien maradtak, a figyelmeztetésben kényszeríthető. |
+| „A szerver válasza HTTP 403” a partnertörzsnél | A célcsoport tokenje érvénytelen vagy lejárt: *Források…* → új token. |
 | „A cikktörzs nem érhető el” | Internetkapcsolat vagy tűzfal/proxy; a hibaüzenet megmondja az okát. Ha korábban már letöltődött, a mentett változatból lehet keresni; terméket kézzel is fel lehet venni. |
 
 Beállítások és napló: `%APPDATA%\EnergofishHirlevel\` (`beallitasok.json`, `naplo.txt`) – a program menüjéből is megnyitható.
@@ -194,7 +226,7 @@ Beállítások és napló: `%APPDATA%\EnergofishHirlevel\` (`beallitasok.json`, 
 EnergofishHirlevel.exe -batch -excel partnerek.xlsx -sablon v4 -kimenet D:\Hirlevel [-tartalom tartalom.json] [-eml] [-felado "Energofish <hirlevel@energofish.hu>"]
 ```
 
-Felület nélkül generál (pl. ütemezett feladatból); a közös tartalom a mentett beállításokból vagy a `-tartalom` JSON-ból jön, az eredmény a naplóba kerül. `-bongeszo`: saját ablak helyett böngészőben nyílik meg. `-feedteszt [-feed <cím>]`: letölti és feldolgozza a cikktörzset, statisztikát és mintákat ír (a CI is ezzel ellenőrzi az élő feedet).
+Felület nélkül generál (pl. ütemezett feladatból); a közös tartalom a mentett beállításokból vagy a `-tartalom` JSON-ból jön, az eredmény a naplóba kerül. `-bongeszo`: saját ablak helyett böngészőben nyílik meg. `-feedteszt [-feed <cím>]`: letölti és feldolgozza a cikktörzset, statisztikát és mintákat ír (a CI is ezzel ellenőrzi az élő feedet). `-partnerteszt B2B_HU`: a partnertörzs élő exportjának ellenőrzése (a token csak a `WEBGALAMB_TOKEN_B2B_HU` környezeti változóból jöhet; a kimenetben csak darabszámok vannak). A CI is lefuttatja, ha a repóban be van állítva a `WEBGALAMB_TOKEN_B2B_HU` titok (*Settings › Secrets and variables › Actions*).
 
 ---
 
@@ -203,7 +235,7 @@ Felület nélkül generál (pl. ütemezett feladatból); a közös tartalom a me
 Go 1.25+, külső futtatókörnyezet nélkül; a felület beágyazott HTML/CSS/JS (Open Sans betűkészlettel), Windowson WebView2 ablakban.
 
 ```
-./build.sh 1.2.0        # tesztek + dist/EnergofishHirlevel.exe (Linuxról is fordítható)
+./build.sh 1.3.0        # tesztek + dist/EnergofishHirlevel.exe (Linuxról is fordítható)
 go test ./...           # egység- és API-tesztek
 go run . -bongeszo      # fejlesztői futtatás böngészőben
 ```
@@ -212,7 +244,7 @@ go run . -bongeszo      # fejlesztői futtatás böngészőben
 |---|---|
 | `main.go`, `app.go` | indítás, helyi HTTP API (csak 127.0.0.1, tokennel védve) |
 | `platform_windows.go` | WebView2 ablak, natív fájlválasztók, DPI-kezelés |
-| `internal/hirlevel/` | sablonmotor és -átalakító, sablontár, Excel-olvasó, cikktörzs (feed) feldolgozó és keresés, validálás, generálás (HTML, EML, CSV) |
+| `internal/hirlevel/` | sablonmotor és -átalakító, sablontár, Excel-olvasó, cikktörzs (feed) feldolgozó és keresés, B2B partnertörzs (szinkron, szűrés), validálás, generálás (HTML, EML, CSV) |
 | `web/` | a felület |
 | `sablonok/`, `assets/` | a tervező nyers (reszponzív) sablonjai és képeik; átalakítás betöltéskor |
 | `demo/`, `tools/minta_excel.py` | minta Excel és előállító szkriptje |

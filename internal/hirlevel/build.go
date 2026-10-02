@@ -93,6 +93,11 @@ func Build(c Content, products []Product, p *Partner, tpl *Template, assetsFallb
 		values[k] = ev
 	}
 
+	// a partner saját leiratkozó linkje (B2B partnertörzs): változatlanul, paraméter nélkül
+	if u := strings.TrimSpace(p.Unsubscribe); u != "" {
+		values["footer.unsubscribe.url"] = u
+	}
+
 	items := make([]map[string]string, 0, len(sel))
 	for _, pr := range sel {
 		items = append(items, BuildItem(c, pr, tokens, params))

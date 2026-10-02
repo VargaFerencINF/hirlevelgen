@@ -284,7 +284,7 @@ func ValidatePartners(partners []Partner) []Issue {
 				seen[k] = i
 			}
 		}
-		if strings.TrimSpace(p.Name) == "" {
+		if strings.TrimSpace(p.Name) == "" && strings.TrimSpace(p.Company) == "" {
 			add(LevelInfo, "name", prefix+"nincs név, a tartalék megszólítás kerül a levélbe")
 		}
 		if strings.TrimSpace(p.RepName) == "" {
