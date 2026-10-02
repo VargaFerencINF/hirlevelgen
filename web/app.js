@@ -357,6 +357,9 @@ function toggleMenu() {
     item('open', 'Tartalom betöltése fájlból…', importContent),
     item('reset', 'Közös tartalom visszaállítása a mintára…', resetContent),
     h('hr'),
+    item('users', 'Partnerek a B2B partnertörzsből…', () => { setTab('adatok'); openPartnerSet(); }),
+    item('link', 'Partnertörzs-források (linkek)…', () => openSources()),
+    h('hr'),
     item('download', 'Minta Excel mentése…', saveDemo),
     item('plus', 'Sablon hozzáadása…', importTemplates),
     item('folder', 'Hozzáadott sablonok mappája', () => api('/api/templates/folder').catch(e => toast(e.message, 'err'))),
@@ -435,6 +438,7 @@ function fileCard() {
         abs ? h('button', { class: 'btn btn-primary btn-sm', title: 'Mentsd az Excelt, majd töltsd újra', onclick: e => busy(e.currentTarget, reloadExcel) }, icon('refresh', 16), 'Újratöltés') : null,
         abs ? h('button', { class: 'btn btn-outline btn-sm', onclick: () => api('/api/excel/open').catch(e => toast(e.message, 'err')) }, icon('external', 16), 'Megnyitás Excelben') : null,
         h('button', { class: 'btn btn-ghost btn-sm', onclick: e => busy(e.currentTarget, browseExcel) }, icon('open', 16), 'Másik fájl…'),
+        h('button', { class: 'btn btn-ghost btn-sm', title: 'Partnerek a B2B partnertörzsből (a webshop feliratkozói), Excel helyett', onclick: () => openPartnerSet() }, icon('users', 16), 'B2B partnertörzsből…'),
         abs ? h('span', { class: 'p-sub', style: { marginLeft: 'auto' }, text: 'Az Excel módosítása után mentsd a fájlt, majd Újratöltés.' }) : null));
 }
 
