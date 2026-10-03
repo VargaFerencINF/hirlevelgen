@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"net/http"
 	"net/url"
@@ -773,4 +774,63 @@ func (a *App) addNotice(kind, msg string) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.notices = append(a.notices, map[string]string{"kind": kind, "text": msg})
+}
+
+// maps a térképek (egyszer töltjük be a beágyazott webes fájlok közül).
+func (a *App) maps() (*h.MapSet, error) {
+	a.mapsOnce.Do(func() {
+		data, err := fs.ReadFile(a.web, "terkepek.json")
+		if err != nil {
+			a.mapsErr = fmt.Errorf("a térképek nem olvashatók: %v", err)
+			return
+		}
+		a.mapSet, a.mapsErr = h.LoadMaps(data)
+	})
+	return a.mapSet, a.mapsErr
+}
+
+// apiB2BMap a célcsoport térképe és a partnertörzs Megye-értékeinek párosítása a régiókkal.
+func (a *App) apiB2BMap(w http.ResponseWriter, r *http.Request) (any, error) {
+	var req struct {
+		Group string `json:"group"`
+	}
+	if err := decode(r, &req); err != nil {
+		return nil, err
+	}
+	g, err := validGroup(req.Group)
+	if err != nil {
+		return nil, err
+	}
+	ms, err := a.maps()
+	if err != nil {
+		return nil, err
+	}
+	db, err := a.b2b.DB(g)
+	if err != nil {
+		return nil, err
+	}
+	// az adatbázis egy szinkronnál egészében cserélődik, a régi példány nem változik
+	seen := map[string]bool{}
+	var values []string
+	for _, p := range db.Partners {
+		if !seen[p.County] {
+			seen[p.County] = true
+			values = append(values, p.County)
+		}
+	}
+	m, match, unmatched := ms.MapMatch(g, values)
+	if m == nil {
+		return map[string]any{"map": nil, "match": match, "unmatched": unmatched}, nil
+	}
+	// a régiók névváltozatai a felületnek nem kellenek
+	regions := make([]h.MapRegion, len(m.Regions))
+	for i, r := range m.Regions {
+		r.Keys = nil
+		regions[i] = r
+	}
+	return map[string]any{
+		"map":       map[string]any{"title": m.Title, "kind": m.Kind, "viewBox": m.ViewBox, "frame": m.Frame, "regions": regions},
+		"match":     match,
+		"unmatched": unmatched,
+	}, nil
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log"
 	"os"
 	"strings"
@@ -65,8 +66,45 @@ func runPartnerTest(group string) error {
 	log.Printf("besorolás: %s", counts(fc.Levels, true))
 	log.Printf("partnerbolt: %s", counts(fc.Shops, true))
 	log.Printf("megyék: %d; bizományos: %d; belső másolati cím: %d", len(fc.Counties), fc.Commission["yes"], fc.Internal["yes"])
+	// a megyék párosítása a partnerválasztó térképével (a megyenevek nem személyes adatok)
+	if data, err := fs.ReadFile(webFS, "web/terkepek.json"); err == nil {
+		if ms, err := h.LoadMaps(data); err == nil {
+			var values []string
+			total := map[string]int{}
+			for _, v := range fc.Counties {
+				values = append(values, v.Value)
+				total[v.Value] = v.Total
+			}
+			m, match, unmatched := ms.MapMatch(g.ID, values)
+			if m == nil {
+				log.Printf("térkép: ehhez a célcsoporthoz nincs")
+			} else {
+				var lost []string
+				for _, v := range unmatched {
+					lost = append(lost, fmt.Sprintf("%q %d", v, total[v]))
+				}
+				log.Printf("térkép (%s): %d/%d megye-érték párosítva; nincs a térképen: %s", m.Title, len(match), len(values)-boolInt(hasEmpty(values)), strings.Join(lost, ", "))
+			}
+		}
+	}
 	if l.Active == 0 {
 		return errors.New("egyetlen aktív partner sincs")
 	}
 	return nil
+}
+
+func hasEmpty(values []string) bool {
+	for _, v := range values {
+		if strings.TrimSpace(v) == "" {
+			return true
+		}
+	}
+	return false
+}
+
+func boolInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
 }

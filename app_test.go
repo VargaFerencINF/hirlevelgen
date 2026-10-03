@@ -727,3 +727,41 @@ func TestB2BVariablesInPreview(t *testing.T) {
 		t.Error("kitöltetlen változó vagy valódi leiratkozó link az előnézetben")
 	}
 }
+
+// A partnerválasztó térképe: a partnertörzs megyéi a térkép régióira esnek.
+func TestAPIB2BMap(t *testing.T) {
+	data, _ := os.ReadFile("internal/hirlevel/testdata/b2b-minta.json")
+	app, err := NewApp(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := app.b2b.ImportData("B2B_HU", data, "minta.json", false); err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(app.routes())
+	defer srv.Close()
+	_, r := call(t, srv, app.token, "/api/b2b/map", map[string]any{"group": "B2B_HU"})
+	m := r["map"].(map[string]any)
+	regions := m["regions"].([]any)
+	if len(regions) != 20 || !strings.HasPrefix(m["viewBox"].(string), "0 0 ") {
+		t.Fatalf("térkép: %d régió, %v", len(regions), m["viewBox"])
+	}
+	if _, ok := regions[0].(map[string]any)["keys"]; ok {
+		t.Error("a névváltozatok fölöslegesen mennek a felületre")
+	}
+	match := r["match"].(map[string]any)
+	for v, id := range map[string]string{"Pest": "HU-PE", "Budapest": "HU-BU", "Bács-Kiskun": "HU-BK", "Fejér": "HU-FE"} {
+		ids, _ := match[v].([]any)
+		if len(ids) != 1 || ids[0] != id {
+			t.Errorf("%s → %v", v, match[v])
+		}
+	}
+	if u := r["unmatched"].([]any); len(u) != 0 {
+		t.Errorf("nem párosított megyék: %v", u)
+	}
+	// célcsoport szinkron nélkül: a térkép megvan, párosítandó érték nincs
+	_, r = call(t, srv, app.token, "/api/b2b/map", map[string]any{"group": "B2B_DE"})
+	if r["map"].(map[string]any)["title"] != "Németország" || len(r["match"].(map[string]any)) != 0 {
+		t.Errorf("DE: %v", r["map"].(map[string]any)["title"])
+	}
+}

@@ -81,6 +81,7 @@ const ICONS = {
   up: '<path d="M12 19V5M5 12l7-7 7 7"/>',
   down: '<path d="M12 5v14M19 12l-7 7-7-7"/>',
   chev: '<path d="M6 9l6 6 6-6"/>',
+  map: '<path d="M1 6v16l7-4 8 4 7-4V2l-7 4-8-4-7 4z"/><path d="M8 2v16M16 6v16"/>',
   left: '<path d="M15 18l-6-6 6-6"/>',
   right: '<path d="M9 18l6-6-6-6"/>',
   search: '<circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/>',
@@ -1958,7 +1959,81 @@ async function quitApp() {
 
 /* ------------------------------------------------------------------ B2B partnertörzs (1.3) */
 
-const B2B = { state: null, busy: false };
+const B2B = { state: null, busy: false, maps: {} };
+
+/* ---------- Országtérkép a megyeszűrőhöz ---------- */
+
+function svgEl(tag, attrs, ...kids) {
+  const e = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v == null || v === false) continue;
+    if (k.startsWith('on') && typeof v === 'function') e.addEventListener(k.slice(2), v);
+    else e.setAttribute(k, v);
+  }
+  for (const kid of kids.flat(Infinity)) if (kid) e.append(kid);
+  return e;
+}
+
+// A célcsoport térképe és a Megye-értékek párosítása (szinkrononként egyszer kérjük le).
+async function b2bMapData(group) {
+  const g = b2bGroup(group);
+  const key = (g && g.syncedAt) || '';
+  const c = B2B.maps[group];
+  if (c && c.key === key) return c.data;
+  const data = await api('/api/b2b/map', { group });
+  B2B.maps[group] = { key, data };
+  return data;
+}
+
+// countyMap rajzolja a térképet. counts: Megye-érték → { count, total } (count: a többi feltétellel);
+// sel: a kijelölt Megye-értékek; not: „kivéve”; onToggle(értékek): kattintás egy régióra.
+function countyMap(md, counts, sel, not, onToggle, opts = {}) {
+  const m = md && md.map;
+  if (!m) return null;
+  const regs = new Map();
+  for (const [v, ids] of Object.entries(md.match || {})) {
+    const c = counts.get(v);
+    if (!c) continue;
+    for (const id of ids) {
+      const r = regs.get(id) || { vals: [], count: 0, total: 0 };
+      r.vals.push(v); r.count += c.count; r.total += c.total;
+      regs.set(id, r);
+    }
+  }
+  const max = Math.max(1, ...Array.from(regs.values(), r => r.count));
+  const filtered = sel.size > 0;
+  const top = [];
+  const paths = m.regions.map(reg => {
+    const r = regs.get(reg.id);
+    const picked = !!(r && r.vals.some(v => sel.has(v)));
+    const inSet = !filtered || (picked !== !!not);
+    let fill, cls = 'cm-r';
+    if (!r || !r.total) { fill = 'var(--cm-none)'; cls += ' none'; }
+    else if (!inSet) fill = 'var(--cm-out)';
+    else if (!r.count) fill = 'var(--cm-zero)';
+    else fill = `rgba(241,163,43,${(0.28 + 0.72 * Math.sqrt(r.count / max)).toFixed(2)})`;
+    const name = reg.label + (reg.hu ? ` (${reg.hu})` : '');
+    const tip = !r ? `${name} – nincs partner`
+      : `${name} – ${r.count} partner` + (r.count !== r.total ? ` (${r.total} összesen)` : '') +
+        (r.vals.join(', ') !== reg.label ? `\nMegye: ${r.vals.join(', ')}` : '') +
+        (onToggle ? (picked ? '\nKattintás: kivétel a szűrésből' : '\nKattintás: szűrés erre') : '');
+    const el = svgEl('path', { d: reg.d, fill, class: cls + (picked ? ' on' : '') + (onToggle && r ? ' click' : ''),
+      onclick: onToggle && r ? () => onToggle(r.vals) : null }, svgEl('title', null, document.createTextNode(tip)));
+    if (picked) { top.push(el); return null; }
+    return el;
+  });
+  const svg = svgEl('svg', { viewBox: m.viewBox, class: 'cm-svg', role: 'img', 'aria-label': m.title },
+    paths, top, m.frame ? svgEl('path', { d: m.frame, class: 'cm-frame' }) : null);
+  const kind = m.kind === 'ország' ? 'ország' : 'megye';
+  const selList = Array.from(sel);
+  const cap = filtered
+    ? h('div', { class: 'cm-cap on' }, h('b', { text: not ? 'Kivéve: ' : 'Szűrés: ' }), selList.slice(0, 6).join(', ') + (selList.length > 6 ? ` és még ${selList.length - 6}` : ''))
+    : h('div', { class: 'cm-cap', text: opts.idle || `Minden ${kind}` + (onToggle ? ' – kattints a térképre a szűréshez' : '') });
+  const lost = (md.unmatched || []).filter(v => counts.get(v) && counts.get(v).total);
+  return h('div', { class: 'cm' + (opts.small ? ' small' : '') }, svg, cap,
+    lost.length ? h('div', { class: 'cm-lost', title: 'Ezek a Megye-értékek nem párosíthatók a térkép régióival; a szűrőlistában választhatók.',
+      text: 'Nincs a térképen: ' + lost.map(v => `${v || '(üres)'} (${counts.get(v).total})`).join(', ') }) : null);
+}
 const B2B_TRI = [['', 'Mind'], ['only', 'Csak ők'], ['exclude', 'Nélkülük']];
 const B2B_GREET = [['name', 'A partner nevével', '„Kedves JDB Hungary Zrt.!”, „Kedves Kiss Péter!” – a Tartalom › Megszólítás mezője szerint'],
   ['auto', 'Cégeknek tartalék', 'Cégnévnél (csupa nagybetű vagy Kft., Bt., Zrt. …) „Kedves Partnerünk!”, személynévnél a név'],
@@ -2020,6 +2095,25 @@ function b2bCard() {
 // A betöltött halmaz kártyája (a fájlkártya helyett).
 function b2bFileCard() {
   const ex = S.excel, info = ex.b2b || {};
+  // a betöltött halmaz partnerei a térképen (a megyeszűrés kiemelve)
+  const mini = h('div', { class: 'b2b-mini' });
+  (async () => {
+    try {
+      if (!B2B.state) await b2bLoadState();
+      const md = await b2bMapData(info.group);
+      const counts = new Map();
+      for (const p of ex.partners) {
+        const v = (p.extra && p.extra.megye) || '';
+        const c = counts.get(v) || { count: 0, total: 0 };
+        c.count++; c.total++;
+        counts.set(v, c);
+      }
+      const f = info.filter || {};
+      const el = countyMap(md, counts, new Set(f.counties || []), !!f.countiesNot, null,
+        { small: true, idle: md.map && md.map.kind === 'ország' ? 'A halmaz partnerei országonként' : 'A halmaz partnerei megyénként' });
+      if (el) mini.replaceChildren(el);
+    } catch (e) { /* a térkép csak kiegészítés */ }
+  })();
   return h('div', { class: 'card card-pad' },
     h('div', { class: 'file-card' },
       h('div', { class: 'file-ic' }, icon('users', 26)),
@@ -2027,6 +2121,7 @@ function b2bFileCard() {
         h('div', { class: 'file-name', text: ex.fileName }),
         h('div', { class: 'file-sum', text: info.summary || '' }),
         h('div', { class: 'file-meta', text: `${info.selected} partner a halmazban (${info.active} aktívból) · partnertörzs szinkron: ${fmtTime(info.syncedAt)}` })),
+      mini,
       h('button', { class: 'btn btn-ghost btn-sm', title: 'Lista bezárása', onclick: closeExcel, style: { alignSelf: 'flex-start' } }, icon('x', 16))),
     h('div', { class: 'note info', style: { margin: '12px 0 0' } }, icon('shield'),
       h('div', { text: 'Generáláskor a program előbb automatikusan frissíti a partnertörzset: aki közben leiratkozott, kimarad, az új feliratkozók (ha illenek a feltételekre) bekerülnek. A leiratkozó linkeket soha nem nyitja meg.' })),
@@ -2125,6 +2220,36 @@ async function openPartnerSet(groupId, loaded) {
   const syncInfo = h('div', { class: 'ps-sync' });
   const left = h('div', { class: 'ps-left' });
   const right = h('div', { class: 'ps-right' });
+  const mapBox = h('div', { class: 'ps-map' });
+  let mapGroup = null, mapData = null;
+
+  // A térkép a Megye szűrő értékeivel; kattintásra a régió megyéi be- vagy kikerülnek.
+  async function renderMap() {
+    if (!last || !last.synced) { mapBox.replaceChildren(); return; }
+    const g = group;
+    if (mapGroup !== g) {
+      try { mapData = await b2bMapData(g); } catch (e) { mapData = null; }
+      if (g !== group) return;
+      mapGroup = g;
+    }
+    if (!mapData || !mapData.map) { mapBox.replaceChildren(); return; }
+    const counts = new Map((last.facets.counties || []).map(v => [v.value, v]));
+    const sel = new Set(filter.counties || []);
+    const shown = ls('psMap') !== false;
+    mapBox.replaceChildren(
+      h('button', { type: 'button', class: 'cm-toggle', title: shown ? 'Térkép elrejtése' : 'Térkép megjelenítése', onclick: () => { ls('psMap', !shown); renderMap(); } },
+        icon(shown ? 'x' : 'map', 13), shown ? null : 'Térkép'),
+      shown ? countyMap(mapData, counts, sel, !!filter.countiesNot, vals => {
+        const s2 = new Set(filter.counties || []);
+        const all = vals.every(v => s2.has(v));
+        vals.forEach(v => all ? s2.delete(v) : s2.add(v));
+        filter.counties = Array.from(s2);
+        if (!filter.counties.length) { delete filter.counties; delete filter.countiesNot; }
+        open.counties = true;
+        query();
+      }) : null);
+    mapBox.classList.toggle('closed', !shown);
+  }
   const loadBtn = h('button', { class: 'btn btn-primary', onclick: e => busy(e.currentTarget, doLoad) }, icon('check'), 'Betöltés');
   const done = () => { document.removeEventListener('keydown', key); bg.remove(); };
   const key = e => { if (e.key === 'Escape' && !document.querySelector('.modal-bg + .modal-bg')) done(); };
@@ -2148,6 +2273,7 @@ async function openPartnerSet(groupId, loaded) {
       last = r;
       renderLeft();
       renderRight();
+      renderMap();
     } catch (e) { toast(e.message, 'err'); }
   }
 
@@ -2253,9 +2379,11 @@ async function openPartnerSet(groupId, loaded) {
     loadBtn.disabled = !last.count;
     loadBtn.replaceChildren(icon('check'), `Betöltés a hírlevélhez (${last.count} partner)`);
     right.replaceChildren(
-      h('div', { class: 'ps-count' },
-        h('div', null, h('b', { text: last.count }), h('span', { text: ` partner a halmazban · ${last.mailable} levelezhetőből · ${last.reps} képviselő` })),
-        h('div', { class: 'ps-summary', text: last.summary })),
+      h('div', { class: 'ps-head' },
+        h('div', { class: 'ps-count' },
+          h('div', null, h('b', { text: last.count }), h('span', { text: ` partner a halmazban · ${last.mailable} levelezhetőből · ${last.reps} képviselő` })),
+          h('div', { class: 'ps-summary', text: last.summary })),
+        mapBox),
       h('div', { class: 'ps-tabs' }, tabs.map(([v, t]) => h('button', { type: 'button', class: tab === v ? 'on' : '', text: t, onclick: () => { tab = v; query(); } }))),
       h('div', { class: 'ps-table' }, h('table', { class: 'pt' },
         h('thead', null, h('tr', null, h('th', { text: 'Partner' }), h('th', { text: 'Képviselő' }), h('th', { text: 'Besorolás' }), h('th', { text: 'Megye · feliratkozás' }), h('th'), h('th'))),

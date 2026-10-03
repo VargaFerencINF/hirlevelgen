@@ -80,6 +80,9 @@ type App struct {
 	inited     bool
 	quit       chan struct{}
 	quitOnce   sync.Once
+	mapsOnce   sync.Once
+	mapSet     *h.MapSet // a partnerválasztó országtérképei (web/terkepek.json)
+	mapsErr    error
 }
 
 // NewApp betölti a sablonokat, az alapértékeket és a mentett beállításokat.
@@ -366,6 +369,7 @@ func (a *App) routes() http.Handler {
 		"/api/b2b/presets":      a.apiB2BPresets,
 		"/api/b2b/load":         a.apiB2BLoad,
 		"/api/b2b/import":       a.apiB2BImport,
+		"/api/b2b/map":          a.apiB2BMap,
 		"/api/heartbeat":        a.apiHeartbeat,
 		"/api/quit":             a.apiQuit,
 	}

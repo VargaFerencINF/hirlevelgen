@@ -1,0 +1,198 @@
+package hirlevel
+
+import (
+	"encoding/json"
+	"fmt"
+	"sort"
+	"strings"
+	"unicode"
+
+	"golang.org/x/text/unicode/norm"
+)
+
+// A partnerválasztó országtérképei (web/terkepek.json, a tools/terkepek.py állítja elő a
+// Natural Earth közkincs adataiból). A partnertörzs Megye mezőjét itt párosítjuk a térkép
+// régióival; a felület csak rajzol.
+
+// MapRegion egy megye / régió / ország a térképen.
+type MapRegion struct {
+	ID    string   `json:"id"`
+	Label string   `json:"label"`
+	HU    string   `json:"hu,omitempty"` // magyar név, ha eltér
+	D     string   `json:"d"`            // SVG-útvonal
+	Keys  []string `json:"keys,omitempty"`
+}
+
+// MapGroup több régiót jelölő név (pl. „Vajdaság”, „Cataluña”).
+type MapGroup struct {
+	Keys []string `json:"keys"`
+	IDs  []string `json:"ids"`
+}
+
+// CountryMap egy célcsoport térképe.
+type CountryMap struct {
+	Title   string      `json:"title"`
+	Kind    string      `json:"kind"` // „megye” vagy „ország” (a nemzetközi célcsoportnál)
+	ViewBox string      `json:"viewBox"`
+	Frame   string      `json:"frame,omitempty"` // kiemelt rész kerete (pl. Kanári-szigetek)
+	Regions []MapRegion `json:"regions"`
+	Groups  []MapGroup  `json:"groups,omitempty"`
+
+	exact map[string][]string // normalizált név → régiók
+}
+
+// MapSet a térképek célcsoportonként.
+type MapSet struct {
+	Maps map[string]*CountryMap `json:"maps"`
+}
+
+// LoadMaps a térképfájl betöltése és a névjegyzékek felépítése.
+func LoadMaps(data []byte) (*MapSet, error) {
+	var ms MapSet
+	if err := json.Unmarshal(data, &ms); err != nil {
+		return nil, fmt.Errorf("a térképfájl hibás: %v", err)
+	}
+	for _, m := range ms.Maps {
+		m.index()
+	}
+	return &ms, nil
+}
+
+func (m *CountryMap) index() {
+	m.exact = map[string][]string{}
+	// a régiók saját nevei; ha két régió ugyanazt a nevet viseli, a név nem egyértelmű
+	owner := map[string]string{}
+	for _, r := range m.Regions {
+		for _, k := range append([]string{r.Label, r.HU, r.ID}, r.Keys...) {
+			n := MapKey(k)
+			if n == "" {
+				continue
+			}
+			if o, ok := owner[n]; ok && o != r.ID {
+				owner[n] = "" // ütközik
+				continue
+			}
+			owner[n] = r.ID
+		}
+	}
+	for n, id := range owner {
+		if id != "" {
+			m.exact[n] = []string{id}
+		}
+	}
+	// régiócsoportok (a régiók saját nevei elsőbbséget élveznek)
+	for _, g := range m.Groups {
+		ids := append([]string{}, g.IDs...)
+		sort.Strings(ids)
+		for _, k := range g.Keys {
+			if n := MapKey(k); n != "" {
+				if _, ok := owner[n]; !ok {
+					m.exact[n] = ids
+				}
+			}
+		}
+	}
+}
+
+// Match a Megye-érték régiói a térképen (üres, ha nem párosítható egyértelműen).
+func (m *CountryMap) Match(value string) []string {
+	k := MapKey(value)
+	if k == "" || m == nil {
+		return nil
+	}
+	if ids, ok := m.exact[k]; ok {
+		return ids
+	}
+	// névalakok: „Pozsony” ~ „Pozsonyi kerület”, „Bratislava” ~ „Bratislavský”
+	cand := map[string][]string{}
+	for key, ids := range m.exact {
+		short, long := k, key
+		if len(short) > len(long) {
+			short, long = long, short
+		}
+		cp := commonPrefix(k, key)
+		if (len(short) >= 4 && strings.HasPrefix(long, short)) || (cp >= 6 && cp*10 >= len(short)*7) {
+			cand[strings.Join(ids, ",")] = ids
+		}
+	}
+	if len(cand) == 1 {
+		for _, ids := range cand {
+			return ids
+		}
+	}
+	return nil
+}
+
+func commonPrefix(a, b string) int {
+	n := 0
+	for n < len(a) && n < len(b) && a[n] == b[n] {
+		n++
+	}
+	return n
+}
+
+// a nevekből elhagyott általános szavak (megye, kraj, county …)
+var mapStopWords = map[string]bool{
+	"megye": true, "varmegye": true, "megyei": true, "kerulet": true, "korzet": true, "jaras": true, "tartomany": true,
+	"kraj": true, "region": true, "regio": true, "regiunea": true, "county": true, "district": true, "okrug": true,
+	"judet": true, "judetul": true, "provincia": true, "province": true, "provincie": true, "land": true, "bundesland": true,
+	"state": true, "comunidad": true, "comunitat": true, "autonoma": true, "autonomous": true, "community": true,
+	"grad": true, "city": true, "of": true, "the": true, "de": true, "del": true, "la": true, "las": true, "los": true,
+	"municipiul": true, "hlavni": true, "mesto": true, "oblast": true, "pokrajina": true, "autonomna": true,
+	"principado": true, "foral": true, "is": true, "islas": true, "illes": true,
+}
+
+var mapFold = strings.NewReplacer("ß", "ss", "ł", "l", "Ł", "l", "đ", "d", "Đ", "d", "ø", "o", "Ø", "o", "æ", "ae", "Æ", "ae", "ı", "i", "ô", "o", "Ô", "o")
+
+// MapKey a nevek összevetéshez használt alakja: kisbetűs, ékezet és általános szavak nélkül
+// („Pest megye” → „pest”, „Bratislavský kraj” → „bratislavsky”, „Județul Cluj” → „cluj”).
+func MapKey(s string) string {
+	s = norm.NFD.String(mapFold.Replace(strings.TrimSpace(s)))
+	var b strings.Builder
+	var words []string
+	flush := func() {
+		if b.Len() > 0 {
+			if w := b.String(); !mapStopWords[w] {
+				words = append(words, w)
+			}
+			b.Reset()
+		}
+	}
+	for _, r := range s {
+		switch {
+		case unicode.Is(unicode.Mn, r):
+		case unicode.IsLetter(r) || unicode.IsDigit(r):
+			b.WriteRune(unicode.ToLower(r))
+		default:
+			flush()
+		}
+	}
+	flush()
+	return strings.Join(words, "")
+}
+
+// MapMatch a célcsoport Megye-értékeinek párosítása (érték → régiók; a nem párosíthatók
+// az unmatched listában).
+func (ms *MapSet) MapMatch(group string, values []string) (m *CountryMap, match map[string][]string, unmatched []string) {
+	match = map[string][]string{}
+	unmatched = []string{}
+	if ms == nil {
+		return nil, match, unmatched
+	}
+	m = ms.Maps[group]
+	if m == nil {
+		return nil, match, unmatched
+	}
+	for _, v := range values {
+		if strings.TrimSpace(v) == "" {
+			continue
+		}
+		if ids := m.Match(v); len(ids) > 0 {
+			match[v] = ids
+		} else {
+			unmatched = append(unmatched, v)
+		}
+	}
+	sort.Strings(unmatched)
+	return m, match, unmatched
+}

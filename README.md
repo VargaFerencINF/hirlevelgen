@@ -53,6 +53,8 @@ Az *Adatok* lépés **B2B partnertörzs** kártyáján:
    - egyes partnerek **egyenként kizárhatók** a listából (és visszavehetők).
 
    Egy szemponton belül bármelyik, a szempontok között mindegyik feltételnek teljesülnie kell. Minden érték mellett látszik, hány partner felel meg rá a többi feltétellel együtt. A halmaz **elmenthető névvel**, és később egy kattintással visszatölthető.
+   **Országtérkép:** a halmaz száma mellett a célcsoport országának kis térképe látszik, megyénként a partnerek számával (minél sötétebb, annál több partner). **Kattintással szűrhetsz** egy megyére (újabb kattintás: ki), a kijelölt megyék kiemelve, a kiszűrtek szürkén látszanak, alatta pedig a felirat mutatja, mire szűrtél („Szűrés: Pest, Nógrád”, „kivéve” esetén „Kivéve: …”). A térkép és a bal oldali Megye-lista ugyanazt a szűrőt állítja. A betöltött halmaz kártyáján (Adatok fül) is látszik a halmaz térképe.
+   Minden célcsoportnak van térképe: Magyarország (19 megye + Budapest), Szlovákia, Csehország, Ausztria, Németország, Románia, Spanyolország (tartományok; a Kanári-szigetek keretben), Szerbia (körzetek), a nemzetközi B2B COM célcsoportnál Európa országai. A partnertörzs Megye-értékeit a program név szerint párosítja a térkép régióival – helyi, magyar, angol és német névalakkal is („Bratislavský kraj”, „Pozsony”, „Bratislava”; „Hargita” / „Harghita”; „Bécs” / „Wien”), és egy név több régiót is jelölhet („Vajdaság”, „Cataluña”). Ami nem párosítható (pl. „Külföld”), a térkép alatt „Nincs a térképen” felsorolásban látszik, és a listában továbbra is választható.
    A partnertörzs a böngészőben letöltött exportból (JSON) is betölthető: húzd be a fájlt az ablakba (a program megkérdezi, melyik célcsoporté), vagy a halmazválasztó **JSON-fájl…** gombja. Ugyanazok a szabályok érvényesek, mint a letöltésnél; régi fájlnál figyelmeztet (az azóta leiratkozottak újra aktívvá válnának).
 3. **Betöltés a hírlevélhez** – a halmaz partnerlistaként töltődik be, a program többi része (tartalom, termékek, ellenőrzés, előnézet, generálás) ugyanúgy működik, mint Excellel.
 
@@ -216,6 +218,8 @@ A program ellenőrzi a sablont: ismeretlen `{{mezőt}}` használó fájlt nem ve
 
 ## Változások
 
+**1.3.16** – országtérkép a partnerválasztóban: kattintással szűrhető megyék, a szűrés kiemelve a térképen és a betöltött halmaz kártyáján, mind a 9 célcsoporthoz.
+
 **1.3** – partnerek a B2B partnertörzsből: célcsoport (ország) választás, összetett partnerhalmaz (képviselő, besorolás, partnerbolt, megye, bizományos, belső címek, feliratkozás dátuma, keresés, egyenkénti kizárás, „kivéve”), mentett halmazok, helyi adatbázis szinkronnal (új / frissített / leiratkozott → inaktív, biztonsági zár), frissítés minden generálás előtt, a partnerek saját leiratkozó linkje a láblécben, képviselő-fotók monogramonként, titkosított tokenek.
 
 **1.2** – „Új termék” a friss cikktörzsből: keresés cikkszámra vagy névre, a mezők kitöltése (ár, leírás, akció, kép, link), képméret-váltó a termékkártyán, kitöltés cikkszám alapján; a cikktörzs helyi tárolása és feltételes frissítése.
@@ -274,6 +278,7 @@ go run . -bongeszo      # fejlesztői futtatás böngészőben
 | `web/` | a felület |
 | `sablonok/`, `assets/` | a tervező nyers (reszponzív) sablonjai és képeik; átalakítás betöltéskor |
 | `demo/`, `tools/minta_excel.py` | minta Excel és előállító szkriptje |
+| `web/terkepek.json`, `tools/terkepek.py` | a partnerválasztó országtérképei és előállító szkriptjük (Natural Earth közkincs adatokból, mapshaperrel egyszerűsítve; a párosítás: `internal/hirlevel/maps.go`) |
 | `winres/` | ikon, manifest, verzióinfó (`go-winres make --in winres/winres.json --out rsrc`) |
 
 A `.github/workflows/windows-build.yml` minden pushnál Windows gépen fordít, lefuttatja a teszteket, az öntesztet és egy valódi WebView2-ablakos tesztet, az exe-t pedig letölthető artefaktként csatolja.
