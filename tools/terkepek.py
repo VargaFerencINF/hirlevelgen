@@ -15,11 +15,10 @@ import json, os, subprocess, sys, tempfile
 SRC, MAPSHAPER, OUT = sys.argv[1], sys.argv[2], sys.argv[3]
 
 # célcsoport → (országok, a térkép neve, egyszerűsítés)
-# A cseh célcsoport a szlovák partnereket is tartalmazza (CZ_SK_… besorolások), ezért közös térkép.
 GROUPS = {
     "B2B_HU": (("HUN",), "Magyarország", "interval=900"),
     "B2B_SK": (("SVK",), "Szlovákia", "interval=900"),
-    "B2B_CZ": (("CZE", "SVK"), "Csehország és Szlovákia", "interval=1300"),
+    "B2B_CZ": (("CZE",), "Csehország", "interval=1100"),
     "B2B_AT": (("AUT",), "Ausztria", "interval=1100"),
     "B2B_DE": (("DEU",), "Németország", "interval=2500"),
     "B2B_RO": (("ROU",), "Románia", "interval=1800"),

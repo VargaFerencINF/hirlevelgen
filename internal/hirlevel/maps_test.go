@@ -78,12 +78,9 @@ func TestMapMatchOtherCountries(t *testing.T) {
 		{"B2B_SK", "Bratislavský kraj", "SK-BL"}, {"B2B_SK", "Pozsony", "SK-BL"}, {"B2B_SK", "Bratislava", "SK-BL"},
 		{"B2B_SK", "Košický", "SK-KI"}, {"B2B_SK", "Kassa", "SK-KI"}, {"B2B_SK", "Nitriansky kraj", "SK-NI"},
 		{"B2B_CZ", "Praha", "CZ-PR"}, {"B2B_CZ", "Hlavní město Praha", "CZ-PR"}, {"B2B_CZ", "Jihomoravský kraj", "CZ-JM"},
-		// a cseh célcsoportban szlovák partnerek is vannak
-		{"B2B_CZ", "Banskobystrický kraj", "SK-BC"}, {"B2B_CZ", "Bratislavský kraj", "SK-BL"}, {"B2B_CZ", "Žilinský kraj", "SK-ZI"},
-		{"B2B_CZ", "Košický kraj", "SK-KI"}, {"B2B_CZ", "Nitriansky kraj", "SK-NI"}, {"B2B_CZ", "Prešovský kraj", "SK-PV"},
-		{"B2B_CZ", "Trenciansky kraj", "SK-TC"}, {"B2B_CZ", "Trenčiansky kraj", "SK-TC"}, {"B2B_CZ", "Trnavský kraj", "SK-TA"},
-		{"B2B_CZ", "Zlínský kraj", "CZ-ZL"}, {"B2B_CZ", "Moravskoslezský kraj", "CZ-MO"}, {"B2B_CZ", "Kraj Vysočina", "CZ-VY"},
-		{"B2B_SK", "Prešovský kraj", "SK-PV"},
+		// a szlovák partnertörzs kerületnevei
+		{"B2B_SK", "Banskobystrický kraj", "SK-BC"}, {"B2B_SK", "Žilinský kraj", "SK-ZI"}, {"B2B_SK", "Prešovský kraj", "SK-PV"},
+		{"B2B_SK", "Trenciansky kraj", "SK-TC"}, {"B2B_SK", "Trenčiansky kraj", "SK-TC"}, {"B2B_SK", "Trnavský kraj", "SK-TA"},
 		{"B2B_AT", "Wien", "AT-9"}, {"B2B_AT", "Bécs", "AT-9"}, {"B2B_AT", "Niederösterreich", "AT-3"}, {"B2B_AT", "Burgenland", "AT-1"},
 		{"B2B_DE", "Bayern", "DE-BY"}, {"B2B_DE", "Bavaria", "DE-BY"}, {"B2B_DE", "Bajorország", "DE-BY"}, {"B2B_DE", "Nordrhein-Westfalen", "DE-NW"},
 		{"B2B_RO", "Cluj", "RO-CJ"}, {"B2B_RO", "Județul Cluj", "RO-CJ"}, {"B2B_RO", "Hargita", "RO-HR"}, {"B2B_RO", "Harghita", "RO-HR"},
@@ -153,5 +150,34 @@ func TestMapMatchSpain(t *testing.T) {
 		if ids := m.Match(v); len(ids) != n {
 			t.Errorf("%q → %v (várt: %d tartomány)", v, ids, n)
 		}
+	}
+}
+
+// A cseh partnertörzs mind a 14 kerülete (ékezettel és anélkül is) a saját kerületére esik.
+func TestMapMatchCzech(t *testing.T) {
+	m := loadTestMaps(t).Maps["B2B_CZ"]
+	if m.Title != "Csehország" || len(m.Regions) != 14 {
+		t.Fatalf("%s: %d régió", m.Title, len(m.Regions))
+	}
+	cases := map[string]string{
+		"Hlavní město Praha": "CZ-PR", "Praha": "CZ-PR", "Středočeský kraj": "CZ-ST", "Jihočeský kraj": "CZ-JC", "Jihocesky kraj": "CZ-JC",
+		"Plzeňský kraj": "CZ-PL", "Karlovarský kraj": "CZ-KA", "Ústecký kraj": "CZ-US", "Liberecký kraj": "CZ-LI",
+		"Královéhradecký kraj": "CZ-KR", "Pardubický kraj": "CZ-PA", "Kraj Vysočina": "CZ-VY", "Vysočina": "CZ-VY",
+		"Jihomoravský kraj": "CZ-JM", "Olomoucký kraj": "CZ-OL", "Zlínský kraj": "CZ-ZL", "Moravskoslezský kraj": "CZ-MO",
+	}
+	seen := map[string]bool{}
+	for v, id := range cases {
+		ids := m.Match(v)
+		if len(ids) != 1 || ids[0] != id {
+			t.Errorf("%q → %v (várt: %s)", v, ids, id)
+		}
+		seen[id] = true
+	}
+	if len(seen) != 14 {
+		t.Errorf("csak %d kerület párosult", len(seen))
+	}
+	// szlovák kerület nincs a cseh térképen
+	if ids := m.Match("Bratislavský kraj"); ids != nil {
+		t.Errorf("Bratislavský kraj → %v", ids)
 	}
 }
