@@ -20,7 +20,7 @@
   --shadow:0 1px 2px rgba(26,23,30,.06),0 4px 14px rgba(26,23,30,.06);
   --font:'Open Sans','Segoe UI',Arial,Helvetica,sans-serif;
   --top:68px;
-  --cm-none:#ECECEC; --cm-out:#D6D6D6; --cm-zero:#FBF1E0;
+  --cm-none:#E3E3E3; --cm-out:#CFCFCF; --cm-zero:#FBF1E0; --cm-sea:#E4EEF5;
 }
 *{box-sizing:border-box}
 html,body{height:100%}
@@ -564,6 +564,10 @@ input[type=checkbox]{width:17px;height:17px;accent-color:var(--orange);cursor:po
 .cm-toggle{position:absolute;top:4px;right:14px;z-index:1;display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line-2);background:var(--panel);border-radius:6px;padding:2px 5px;font-size:11.5px;font-weight:600;color:var(--muted);cursor:pointer}
 .cm-toggle:hover{color:var(--ink);border-color:var(--faint)}
 .cm.small .cm-svg{max-height:110px}
+.cm-globe-wrap{position:relative;display:flex;justify-content:center}
+.cm-globe{display:block;cursor:grab;touch-action:none}
+.cm-tip{position:absolute;z-index:2;pointer-events:none;transform:translate(-50%,calc(-100% - 12px));background:var(--ink);color:#fff;font-size:11.5px;line-height:1.35;padding:4px 8px;border-radius:6px;white-space:pre;box-shadow:var(--shadow)}
+.cm.globe .cm-cap,.cm.globe .cm-lost{text-align:center}
 .b2b-mini{flex:none;width:170px}
 .b2b-mini:empty{display:none}
 .ps-count b{font-size:26px;line-height:30px;font-weight:800}

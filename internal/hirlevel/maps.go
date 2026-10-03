@@ -3,6 +3,7 @@ package hirlevel
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 	"unicode"
@@ -19,8 +20,10 @@ type MapRegion struct {
 	ID    string   `json:"id"`
 	Label string   `json:"label"`
 	HU    string   `json:"hu,omitempty"` // magyar név, ha eltér
-	D     string   `json:"d"`            // SVG-útvonal
+	D     string   `json:"d,omitempty"`  // SVG-útvonal (sík térkép)
 	Keys  []string `json:"keys,omitempty"`
+	// G a földgömb országának alakja földrajzi koordinátákkal: sokszögek → gyűrűk → [hossz, szél, …]
+	G json.RawMessage `json:"g,omitempty"`
 }
 
 // MapGroup több régiót jelölő név (pl. „Vajdaság”, „Cataluña”).
@@ -32,7 +35,7 @@ type MapGroup struct {
 // CountryMap egy célcsoport térképe.
 type CountryMap struct {
 	Title   string      `json:"title"`
-	Kind    string      `json:"kind"` // „megye” vagy „ország” (a nemzetközi célcsoportnál)
+	Kind    string      `json:"kind"` // „megye”, vagy „globe”: forgó földgömb országokkal (nemzetközi célcsoport)
 	ViewBox string      `json:"viewBox"`
 	Frame   string      `json:"frame,omitempty"` // kiemelt rész kerete (pl. Kanári-szigetek)
 	Regions []MapRegion `json:"regions"`
@@ -60,19 +63,34 @@ func LoadMaps(data []byte) (*MapSet, error) {
 
 func (m *CountryMap) index() {
 	m.exact = map[string][]string{}
-	// a régiók saját nevei; ha két régió ugyanazt a nevet viseli, a név nem egyértelmű
+	// a régiók nevei; ha két régió ugyanazt a nevet viseli, a név nem egyértelmű. Előbb a saját
+	// (felirat, magyar név, kód), utána a további névalakok: egy régió saját neve erősebb egy
+	// másik régió mellékneveinél (pl. „Saint-Martin”).
 	owner := map[string]string{}
-	for _, r := range m.Regions {
-		for _, k := range append([]string{r.Label, r.HU, r.ID}, r.Keys...) {
-			n := MapKey(k)
-			if n == "" {
-				continue
+	primary := map[string]bool{}
+	for pass := 0; pass < 2; pass++ {
+		for _, r := range m.Regions {
+			keys := []string{r.Label, r.HU, r.ID}
+			if pass == 1 {
+				keys = r.Keys
 			}
-			if o, ok := owner[n]; ok && o != r.ID {
-				owner[n] = "" // ütközik
-				continue
+			for _, k := range keys {
+				n := MapKey(k)
+				if n == "" {
+					continue
+				}
+				o, ok := owner[n]
+				switch {
+				case !ok:
+					owner[n] = r.ID
+					primary[n] = pass == 0
+				case o == r.ID:
+				case pass == 1 && primary[n]:
+					// a másik régió saját neve marad
+				default:
+					owner[n] = "" // ütközik
+				}
 			}
-			owner[n] = r.ID
 		}
 	}
 	for n, id := range owner {
@@ -80,13 +98,13 @@ func (m *CountryMap) index() {
 			m.exact[n] = []string{id}
 		}
 	}
-	// régiócsoportok (a régiók saját nevei elsőbbséget élveznek)
+	// régiócsoportok (egy régió saját neve elsőbbséget élvez; a több régióra illő név a csoporté)
 	for _, g := range m.Groups {
 		ids := append([]string{}, g.IDs...)
 		sort.Strings(ids)
 		for _, k := range g.Keys {
 			if n := MapKey(k); n != "" {
-				if _, ok := owner[n]; !ok {
+				if o, ok := owner[n]; !ok || o == "" {
 					m.exact[n] = ids
 				}
 			}
@@ -94,14 +112,60 @@ func (m *CountryMap) index() {
 	}
 }
 
-// Match a Megye-érték régiói a térképen (üres, ha nem párosítható egyértelműen).
+// mapPartSep az összetett értékek elválasztói („ANDALUCÍA - ALMERÍA”, „Araba/Álava”);
+// a szóköz nélküli kötőjel a név része („Borsod-Abaúj-Zemplén”).
+var mapPartSep = regexp.MustCompile(`\s+[-–—]+\s+|[/,;()|]`)
+
+// Match a Megye-érték régiói a térképen (üres, ha nem párosítható egyértelműen). Az összetett
+// értékeknél („közösség - tartomány”) a legpontosabb, egyetlen régióra illő részt veszi.
 func (m *CountryMap) Match(value string) []string {
+	if m == nil {
+		return nil
+	}
+	if ids := m.match1(value, false); ids != nil {
+		return ids
+	}
+	parts := mapPartSep.Split(value, -1)
+	if len(parts) > 1 {
+		if ids := m.matchParts(parts, false); ids != nil {
+			return ids
+		}
+	}
+	if ids := m.match1(value, true); ids != nil {
+		return ids
+	}
+	if len(parts) > 1 {
+		return m.matchParts(parts, true)
+	}
+	return nil
+}
+
+// matchParts hátulról (a legpontosabb résztől) keres; az egy régióra illő rész nyer, különben
+// az első csoport.
+func (m *CountryMap) matchParts(parts []string, fuzzy bool) []string {
+	var group []string
+	for i := len(parts) - 1; i >= 0; i-- {
+		ids := m.match1(parts[i], fuzzy)
+		if len(ids) == 1 {
+			return ids
+		}
+		if group == nil && len(ids) > 1 {
+			group = ids
+		}
+	}
+	return group
+}
+
+func (m *CountryMap) match1(value string, fuzzy bool) []string {
 	k := MapKey(value)
-	if k == "" || m == nil {
+	if k == "" {
 		return nil
 	}
 	if ids, ok := m.exact[k]; ok {
 		return ids
+	}
+	if !fuzzy {
+		return nil
 	}
 	// névalakok: „Pozsony” ~ „Pozsonyi kerület”, „Bratislava” ~ „Bratislavský”
 	cand := map[string][]string{}
@@ -137,7 +201,7 @@ var mapStopWords = map[string]bool{
 	"kraj": true, "region": true, "regio": true, "regiunea": true, "county": true, "district": true, "okrug": true,
 	"judet": true, "judetul": true, "provincia": true, "province": true, "provincie": true, "land": true, "bundesland": true,
 	"state": true, "comunidad": true, "comunitat": true, "autonoma": true, "autonomous": true, "community": true,
-	"grad": true, "city": true, "of": true, "the": true, "de": true, "del": true, "la": true, "las": true, "los": true,
+	"grad": true, "city": true, "of": true, "the": true, "de": true, "la": true, "las": true, "los": true,
 	"municipiul": true, "hlavni": true, "mesto": true, "oblast": true, "pokrajina": true, "autonomna": true,
 	"principado": true, "foral": true, "is": true, "islas": true, "illes": true,
 }

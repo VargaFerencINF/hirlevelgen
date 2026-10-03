@@ -764,4 +764,13 @@ func TestAPIB2BMap(t *testing.T) {
 	if r["map"].(map[string]any)["title"] != "Németország" || len(r["match"].(map[string]any)) != 0 {
 		t.Errorf("DE: %v", r["map"].(map[string]any)["title"])
 	}
+	// a nemzetközi célcsoport földgömbje: országok földrajzi koordinátákkal
+	_, r = call(t, srv, app.token, "/api/b2b/map", map[string]any{"group": "B2B_COM"})
+	gm := r["map"].(map[string]any)
+	if gm["kind"] != "globe" || len(gm["regions"].([]any)) < 200 {
+		t.Fatalf("COM: %v, %d ország", gm["kind"], len(gm["regions"].([]any)))
+	}
+	if g, ok := gm["regions"].([]any)[0].(map[string]any)["g"].([]any); !ok || len(g) == 0 {
+		t.Error("COM: nincs alakzat")
+	}
 }

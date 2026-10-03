@@ -1985,11 +1985,8 @@ async function b2bMapData(group) {
   return data;
 }
 
-// countyMap rajzolja a térképet. counts: Megye-érték → { count, total } (count: a többi feltétellel);
-// sel: a kijelölt Megye-értékek; not: „kivéve”; onToggle(értékek): kattintás egy régióra.
-function countyMap(md, counts, sel, not, onToggle, opts = {}) {
-  const m = md && md.map;
-  if (!m) return null;
+// A régiók adatai: a hozzájuk párosított Megye-értékek és partnerszámaik.
+function mapRegionStats(md, counts) {
   const regs = new Map();
   for (const [v, ids] of Object.entries(md.match || {})) {
     const c = counts.get(v);
@@ -2000,40 +1997,260 @@ function countyMap(md, counts, sel, not, onToggle, opts = {}) {
       regs.set(id, r);
     }
   }
-  const max = Math.max(1, ...Array.from(regs.values(), r => r.count));
-  const filtered = sel.size > 0;
-  const top = [];
-  const paths = m.regions.map(reg => {
-    const r = regs.get(reg.id);
-    const picked = !!(r && r.vals.some(v => sel.has(v)));
-    const inSet = !filtered || (picked !== !!not);
-    let fill, cls = 'cm-r';
-    if (!r || !r.total) { fill = 'var(--cm-none)'; cls += ' none'; }
-    else if (!inSet) fill = 'var(--cm-out)';
-    else if (!r.count) fill = 'var(--cm-zero)';
-    else fill = `rgba(241,163,43,${(0.28 + 0.72 * Math.sqrt(r.count / max)).toFixed(2)})`;
-    const name = reg.label + (reg.hu ? ` (${reg.hu})` : '');
-    const tip = !r ? `${name} – nincs partner`
-      : `${name} – ${r.count} partner` + (r.count !== r.total ? ` (${r.total} összesen)` : '') +
-        (r.vals.join(', ') !== reg.label ? `\nMegye: ${r.vals.join(', ')}` : '') +
-        (onToggle ? (picked ? '\nKattintás: kivétel a szűrésből' : '\nKattintás: szűrés erre') : '');
-    const el = svgEl('path', { d: reg.d, fill, class: cls + (picked ? ' on' : '') + (onToggle && r ? ' click' : ''),
-      onclick: onToggle && r ? () => onToggle(r.vals) : null }, svgEl('title', null, document.createTextNode(tip)));
-    if (picked) { top.push(el); return null; }
-    return el;
-  });
-  const svg = svgEl('svg', { viewBox: m.viewBox, class: 'cm-svg', role: 'img', 'aria-label': m.title },
-    paths, top, m.frame ? svgEl('path', { d: m.frame, class: 'cm-frame' }) : null);
-  const kind = m.kind === 'ország' ? 'ország' : 'megye';
-  const selList = Array.from(sel);
-  const cap = filtered
-    ? h('div', { class: 'cm-cap on' }, h('b', { text: not ? 'Kivéve: ' : 'Szűrés: ' }), selList.slice(0, 6).join(', ') + (selList.length > 6 ? ` és még ${selList.length - 6}` : ''))
-    : h('div', { class: 'cm-cap', text: opts.idle || `Minden ${kind}` + (onToggle ? ' – kattints a térképre a szűréshez' : '') });
-  const lost = (md.unmatched || []).filter(v => counts.get(v) && counts.get(v).total);
-  return h('div', { class: 'cm' + (opts.small ? ' small' : '') }, svg, cap,
-    lost.length ? h('div', { class: 'cm-lost', title: 'Ezek a Megye-értékek nem párosíthatók a térkép régióival; a szűrőlistában választhatók.',
-      text: 'Nincs a térképen: ' + lost.map(v => `${v || '(üres)'} (${counts.get(v).total})`).join(', ') }) : null);
+  return regs;
 }
+
+// Egy régió színe: a halmazban narancs (a partnerszám szerint erősebb), kiszűrve szürke.
+function mapRegionLook(r, sel, not, max) {
+  const picked = !!(r && r.vals.some(v => sel.has(v)));
+  const inSet = !sel.size || (picked !== !!not);
+  let fill;
+  if (!r || !r.total) fill = 'var(--cm-none)';
+  else if (!inSet) fill = 'var(--cm-out)';
+  else if (!r.count) fill = 'var(--cm-zero)';
+  else fill = `rgba(241,163,43,${(0.28 + 0.72 * Math.sqrt(r.count / max)).toFixed(2)})`;
+  return { fill, picked, none: !r || !r.total };
+}
+
+function mapRegionTip(reg, r, picked, clickable) {
+  const name = reg.label + (reg.hu ? ` (${reg.hu})` : '');
+  if (!r) return `${name} – nincs partner`;
+  return `${name} – ${r.count} partner` + (r.count !== r.total ? ` (${r.total} összesen)` : '') +
+    (r.vals.join(', ') !== reg.label ? `\nMegye: ${r.vals.join(', ')}` : '') +
+    (clickable ? (picked ? '\nKattintás: kivétel a szűrésből' : '\nKattintás: szűrés erre') : '');
+}
+
+// countyMap rajzolja a térképet (a nemzetközi célcsoportnál forgó földgömböt). counts: Megye-érték →
+// { count, total } (count: a többi feltétellel); sel: a kijelölt Megye-értékek; not: „kivéve”;
+// onToggle(értékek): kattintás egy régióra. opts.globe: a megmaradó földgömb (a forgás folytatódik).
+function countyMap(md, counts, sel, not, onToggle, opts = {}) {
+  const m = md && md.map;
+  if (!m) return null;
+  const regs = mapRegionStats(md, counts);
+  const max = Math.max(1, ...Array.from(regs.values(), r => r.count));
+  let visual;
+  if (m.kind === 'globe') {
+    if (!window.d3 || !d3.geoOrthographic) return null;
+    const g = opts.globe || globeWidget(opts);
+    g.set(md, regs, max, sel, not, onToggle);
+    visual = g.el;
+  } else {
+    const top = [];
+    const paths = m.regions.map(reg => {
+      const r = regs.get(reg.id);
+      const look = mapRegionLook(r, sel, not, max);
+      const el = svgEl('path', { d: reg.d, fill: look.fill, class: 'cm-r' + (look.none ? ' none' : '') + (look.picked ? ' on' : '') + (onToggle && r ? ' click' : ''),
+        onclick: onToggle && r ? () => onToggle(r.vals) : null }, svgEl('title', null, document.createTextNode(mapRegionTip(reg, r, look.picked, !!onToggle))));
+      if (look.picked) { top.push(el); return null; }
+      return el;
+    });
+    visual = svgEl('svg', { viewBox: m.viewBox, class: 'cm-svg', role: 'img', 'aria-label': m.title },
+      paths, top, m.frame ? svgEl('path', { d: m.frame, class: 'cm-frame' }) : null);
+  }
+  const globe = m.kind === 'globe';
+  const kind = globe ? 'ország' : 'megye';
+  const selList = Array.from(sel);
+  const cap = sel.size
+    ? h('div', { class: 'cm-cap on' }, h('b', { text: not ? 'Kivéve: ' : 'Szűrés: ' }), selList.slice(0, 6).join(', ') + (selList.length > 6 ? ` és még ${selList.length - 6}` : ''))
+    : h('div', { class: 'cm-cap', text: opts.idle || `Minden ${kind}` + (onToggle ? (globe ? ' – kattints egy országra a szűréshez, húzással forgatható' : ' – kattints a térképre a szűréshez') : '') });
+  const lost = (md.unmatched || []).filter(v => counts.get(v) && counts.get(v).total).map(v => `${v} (${counts.get(v).total})`);
+  const empty = counts.get('');
+  if (empty && empty.total) lost.push(`${globe ? 'ország' : 'megye'} nélkül (${empty.total})`);
+  return h('div', { class: 'cm' + (opts.small ? ' small' : '') + (globe ? ' globe' : '') }, visual, cap,
+    lost.length ? h('div', { class: 'cm-lost', title: 'Ezek a Megye-értékek nem párosíthatók a térkép régióival; a szűrőlistában választhatók.',
+      text: 'Nincs a térképen: ' + lost.join(', ') }) : null);
+}
+
+// Forgó földgömb (d3-geo, ortografikus vetítés). Lassan forog, egérrel forgatható; egy ország
+// kijelölésekor ráközelít, egy pillanatig mutatja, majd visszaáll a teljes bolygóra.
+function globeWidget(opts = {}) {
+  const size = opts.small ? 150 : 200;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const canvas = h('canvas', { class: 'cm-globe', width: size * dpr, height: size * dpr, style: { width: size + 'px', height: size + 'px' } });
+  const tip = h('div', { class: 'cm-tip hidden' });
+  const el = h('div', { class: 'cm-globe-wrap' }, canvas, tip);
+  const ctx = canvas.getContext('2d');
+  const base = size / 2 - 3;
+  const proj = d3.geoOrthographic().translate([size / 2, size / 2]).scale(base).clipAngle(90).precision(0.5);
+  const path = d3.geoPath(proj, ctx);
+  const grat = d3.geoGraticule10();
+  const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const css = getComputedStyle(document.documentElement);
+  const color = v => v.startsWith('var(') ? css.getPropertyValue(v.slice(4, -1)).trim() : v;
+  let md0 = null, feats = [], byId = new Map(), regs = new Map(), max = 1, sel = new Set(), not = false, onToggle = null;
+  let rot = [-15, -38, 0], scale = base, hover = null, drag = null, fly = null, raf = 0, lastT = 0, prevSel = null, label = '';
+
+  function decode(md) {
+    feats = md.map.regions.map(reg => {
+      const f = { type: 'Feature', id: reg.id, reg, geometry: { type: 'MultiPolygon',
+        coordinates: (reg.g || []).map(poly => poly.map(ring => { const pts = []; for (let i = 0; i + 1 < ring.length; i += 2) pts.push([ring[i], ring[i + 1]]); return pts; })) } };
+      if (d3.geoArea(f) > 2 * Math.PI) f.geometry.coordinates.forEach(poly => poly.forEach(ring => ring.reverse()));
+      f.bounds = d3.geoBounds(f);
+      return f;
+    });
+    byId = new Map(feats.map(f => [f.id, f]));
+  }
+
+  function draw() {
+    proj.rotate(rot).scale(scale);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, size, size);
+    ctx.beginPath(); path({ type: 'Sphere' }); ctx.fillStyle = color('var(--cm-sea)'); ctx.fill();
+    ctx.beginPath(); path(grat); ctx.strokeStyle = 'rgba(53,96,127,.13)'; ctx.lineWidth = 0.5; ctx.stroke();
+    const picked = [];
+    for (const f of feats) {
+      const look = mapRegionLook(regs.get(f.id), sel, not, max);
+      if (look.picked) picked.push(f);
+      ctx.beginPath(); path(f); ctx.fillStyle = color(look.fill); ctx.fill();
+    }
+    ctx.beginPath(); for (const f of feats) path(f);
+    ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 0.4; ctx.stroke();
+    if (picked.length) { ctx.beginPath(); for (const f of picked) path(f); ctx.strokeStyle = color('var(--ink)'); ctx.lineWidth = 1.3; ctx.stroke(); }
+    if (hover) { ctx.beginPath(); path(hover); ctx.strokeStyle = color('var(--ink)'); ctx.lineWidth = 1; ctx.stroke(); }
+    ctx.beginPath(); path({ type: 'Sphere' }); ctx.strokeStyle = 'rgba(26,23,30,.28)'; ctx.lineWidth = 0.8; ctx.stroke();
+    if (label) {
+      ctx.font = '700 12px ' + (css.getPropertyValue('--font') || 'sans-serif');
+      const w = ctx.measureText(label).width + 14;
+      ctx.fillStyle = 'rgba(26,23,30,.82)';
+      ctx.beginPath(); ctx.roundRect ? ctx.roundRect(size / 2 - w / 2, size - 26, w, 20, 6) : ctx.rect(size / 2 - w / 2, size - 26, w, 20); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(label, size / 2, size - 16);
+    }
+  }
+
+  const ease = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  const T_IN = 1100, T_HOLD = 1300, T_OUT = 1000;
+
+  function flyTo(id) {
+    const f = byId.get(id);
+    if (!f) return;
+    const [lon, lat] = d3.geoCentroid(f);
+    const to = [-lon, Math.max(-70, Math.min(70, -lat)), 0];
+    if (reduce) { rot = to; draw(); return; }
+    const from = rot.slice();
+    to[0] = from[0] + ((((to[0] - from[0]) % 360) + 540) % 360 - 180);
+    const r = Math.sqrt(d3.geoArea(f) / Math.PI); // szögsugár (radián)
+    const k = Math.max(1.6, Math.min(8, 0.5 / Math.max(r, 0.02)));
+    fly = { t0: performance.now(), from, to, k, name: f.reg.label };
+    start();
+  }
+
+  function stepFly(t) {
+    const e = t - fly.t0, k = fly.k;
+    if (e < T_IN) {
+      const p = ease(e / T_IN);
+      rot = [fly.from[0] + (fly.to[0] - fly.from[0]) * p, fly.from[1] + (fly.to[1] - fly.from[1]) * p, 0];
+      scale = base * (1 + (k - 1) * ease(Math.max(0, (e / T_IN - 0.25) / 0.75)));
+      label = e > T_IN * 0.5 ? fly.name : '';
+    } else if (e < T_IN + T_HOLD) {
+      rot = fly.to.slice(); scale = base * k; label = fly.name;
+    } else if (e < T_IN + T_HOLD + T_OUT) {
+      scale = base * (1 + (k - 1) * (1 - ease((e - T_IN - T_HOLD) / T_OUT)));
+      label = e < T_IN + T_HOLD + T_OUT * 0.4 ? fly.name : '';
+    } else {
+      scale = base; label = ''; fly = null;
+    }
+  }
+
+  function frame(t) {
+    raf = 0;
+    if (!canvas.isConnected) return; // a térkép eltűnt (a párbeszédablak bezárult)
+    const dt = lastT ? Math.min(64, t - lastT) : 16;
+    lastT = t;
+    if (fly) stepFly(t);
+    else if (!reduce && !hover && !drag) rot = [rot[0] + dt * 0.012, rot[1], 0];
+    draw();
+    if (fly || (!reduce && !hover && !drag)) raf = requestAnimationFrame(frame);
+  }
+  function start() { if (!raf) { lastT = 0; raf = requestAnimationFrame(frame); } }
+
+  function pick(ev) {
+    const b = canvas.getBoundingClientRect();
+    const x = ev.clientX - b.left, y = ev.clientY - b.top;
+    if ((x - size / 2) ** 2 + (y - size / 2) ** 2 > scale * scale) return null;
+    const p = proj.invert([x, y]);
+    if (!p) return null;
+    for (const f of feats) {
+      const [[w, s], [e, n]] = f.bounds;
+      if (p[1] < s || p[1] > n) continue;
+      if (w <= e ? (p[0] < w || p[0] > e) : (p[0] < w && p[0] > e)) continue;
+      if (d3.geoContains(f, p)) return f;
+    }
+    return null;
+  }
+
+  function showTip(ev, f) {
+    if (!f) { tip.classList.add('hidden'); return; }
+    const r = regs.get(f.id);
+    tip.textContent = mapRegionTip(f.reg, r, !!(r && r.vals.some(v => sel.has(v))), !!(onToggle && r));
+    const b = el.getBoundingClientRect();
+    tip.style.left = (ev.clientX - b.left) + 'px';
+    tip.style.top = (ev.clientY - b.top) + 'px';
+    tip.classList.remove('hidden');
+  }
+
+  canvas.addEventListener('pointermove', ev => {
+    if (drag) {
+      const dx = ev.clientX - drag.x, dy = ev.clientY - drag.y;
+      if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true;
+      if (drag.moved) {
+        fly = null; scale = base; label = '';
+        rot = [drag.rot[0] + dx * 0.45, Math.max(-85, Math.min(85, drag.rot[1] - dy * 0.45)), 0];
+        tip.classList.add('hidden');
+        draw();
+      }
+      return;
+    }
+    const f = fly ? null : pick(ev);
+    if (f !== hover) { hover = f; draw(); }
+    showTip(ev, f);
+    canvas.style.cursor = f && onToggle && regs.get(f.id) ? 'pointer' : 'grab';
+    if (!f) start();
+  });
+  canvas.addEventListener('pointerleave', () => { if (!drag) { hover = null; tip.classList.add('hidden'); draw(); start(); } });
+  canvas.addEventListener('pointerdown', ev => {
+    drag = { x: ev.clientX, y: ev.clientY, rot: rot.slice(), moved: false };
+    canvas.setPointerCapture(ev.pointerId);
+    canvas.style.cursor = 'grabbing';
+  });
+  canvas.addEventListener('pointerup', ev => {
+    const d = drag;
+    drag = null;
+    canvas.style.cursor = 'grab';
+    if (d && !d.moved) {
+      const f = pick(ev);
+      const r = f && regs.get(f.id);
+      hover = null;
+      tip.classList.add('hidden');
+      if (f && r && onToggle) onToggle(r.vals);
+      else if (f) flyTo(f.id);
+    }
+    start();
+  });
+
+  return {
+    el,
+    set(md, regs2, max2, sel2, not2, toggle) {
+      if (md !== md0) { md0 = md; decode(md); }
+      regs = regs2; max = max2; not = !!not2; onToggle = toggle;
+      if (prevSel === null) {
+        // első megjelenés: a kijelölt (vagy a legtöbb partnert adó) ország felé fordul
+        const first = Array.from(sel2).map(v => (md.match[v] || [])[0]).find(Boolean) ||
+          Array.from(regs2.entries()).sort((a, b) => b[1].total - a[1].total).map(e => e[0])[0];
+        const f = first && byId.get(first);
+        if (f) { const [lon, lat] = d3.geoCentroid(f); rot = [-lon, Math.max(-50, Math.min(50, -lat)) * 0.7, 0]; }
+      } else {
+        const added = Array.from(sel2).filter(v => !prevSel.has(v));
+        const id = added.map(v => (md.match[v] || [])[0]).find(Boolean);
+        if (id) flyTo(id);
+      }
+      prevSel = new Set(sel2);
+      sel = sel2;
+      draw();
+      start();
+    },
+  };
+}
+
 const B2B_TRI = [['', 'Mind'], ['only', 'Csak ők'], ['exclude', 'Nélkülük']];
 const B2B_GREET = [['name', 'A partner nevével', '„Kedves JDB Hungary Zrt.!”, „Kedves Kiss Péter!” – a Tartalom › Megszólítás mezője szerint'],
   ['auto', 'Cégeknek tartalék', 'Cégnévnél (csupa nagybetű vagy Kft., Bt., Zrt. …) „Kedves Partnerünk!”, személynévnél a név'],
@@ -2221,7 +2438,7 @@ async function openPartnerSet(groupId, loaded) {
   const left = h('div', { class: 'ps-left' });
   const right = h('div', { class: 'ps-right' });
   const mapBox = h('div', { class: 'ps-map' });
-  let mapGroup = null, mapData = null;
+  let mapGroup = null, mapData = null, globe = null;
 
   // A térkép a Megye szűrő értékeivel; kattintásra a régió megyéi be- vagy kikerülnek.
   async function renderMap() {
@@ -2231,6 +2448,7 @@ async function openPartnerSet(groupId, loaded) {
       try { mapData = await b2bMapData(g); } catch (e) { mapData = null; }
       if (g !== group) return;
       mapGroup = g;
+      globe = null;
     }
     if (!mapData || !mapData.map) { mapBox.replaceChildren(); return; }
     const counts = new Map((last.facets.counties || []).map(v => [v.value, v]));
@@ -2247,7 +2465,7 @@ async function openPartnerSet(groupId, loaded) {
         if (!filter.counties.length) { delete filter.counties; delete filter.countiesNot; }
         open.counties = true;
         query();
-      }) : null);
+      }, { globe: mapData.map.kind === 'globe' ? (globe || (globe = globeWidget())) : null }) : null);
     mapBox.classList.toggle('closed', !shown);
   }
   const loadBtn = h('button', { class: 'btn btn-primary', onclick: e => busy(e.currentTarget, doLoad) }, icon('check'), 'Betöltés');

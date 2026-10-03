@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A partnerválasztó országtérképeinek előállítása (web/terkepek.json).
+"""A partnerválasztó országtérképeinek és a földgömb adatainak előállítása (web/terkepek.json).
 
 Forrás: Natural Earth (közkincs, https://www.naturalearthdata.com/):
   ne_10m_admin_1_states_provinces.geojson (megyék, régiók) és
@@ -14,16 +14,17 @@ import json, os, subprocess, sys, tempfile
 
 SRC, MAPSHAPER, OUT = sys.argv[1], sys.argv[2], sys.argv[3]
 
-# célcsoport → (ország, a térkép neve, egyszerűsítés)
+# célcsoport → (országok, a térkép neve, egyszerűsítés)
+# A cseh célcsoport a szlovák partnereket is tartalmazza (CZ_SK_… besorolások), ezért közös térkép.
 GROUPS = {
-    "B2B_HU": ("HUN", "Magyarország", "interval=900"),
-    "B2B_SK": ("SVK", "Szlovákia", "interval=900"),
-    "B2B_CZ": ("CZE", "Csehország", "interval=1100"),
-    "B2B_AT": ("AUT", "Ausztria", "interval=1100"),
-    "B2B_DE": ("DEU", "Németország", "interval=2500"),
-    "B2B_RO": ("ROU", "Románia", "interval=1800"),
-    "B2B_ES": ("ESP", "Spanyolország", "interval=2500"),
-    "B2B_RS": ("SRB", "Szerbia", "interval=1100"),
+    "B2B_HU": (("HUN",), "Magyarország", "interval=900"),
+    "B2B_SK": (("SVK",), "Szlovákia", "interval=900"),
+    "B2B_CZ": (("CZE", "SVK"), "Csehország és Szlovákia", "interval=1300"),
+    "B2B_AT": (("AUT",), "Ausztria", "interval=1100"),
+    "B2B_DE": (("DEU",), "Németország", "interval=2500"),
+    "B2B_RO": (("ROU",), "Románia", "interval=1800"),
+    "B2B_ES": (("ESP",), "Spanyolország", "interval=2500"),
+    "B2B_RS": (("SRB",), "Szerbia", "interval=1100"),
 }
 
 # a megyei jogú városok a Natural Earthben külön egységek: a megyéjükhöz olvasztjuk
@@ -46,6 +47,13 @@ EXTRA_KEYS = {
     "RS-00": ["Beograd", "Belgrád", "Grad Beograd"],
     "RO-B": ["București", "Bucuresti", "Bukarest", "Municipiul București"],
     "AT-9": ["Wien", "Bécs", "Vienna"],
+    # spanyol tartományok: kasztíliai, helyi (katalán, galiciai, baszk) és régi alakok
+    "ES-L": ["Lleida", "Lérida"], "ES-GI": ["Girona", "Gerona"], "ES-OR": ["Ourense", "Orense"],
+    "ES-C": ["A Coruña", "La Coruña", "Coruña"], "ES-SS": ["Gipuzkoa", "Guipúzcoa"], "ES-BI": ["Bizkaia", "Vizcaya", "Biscay"],
+    "ES-VI": ["Álava", "Araba"], "ES-CS": ["Castellón", "Castelló", "Castellón de la Plana"], "ES-A": ["Alicante", "Alacant"],
+    "ES-V": ["Valencia", "València"], "ES-PM": ["Baleares", "Islas Baleares", "Illes Balears", "Balears"],
+    "ES-GC": ["Las Palmas", "Palmas"], "ES-TF": ["Santa Cruz de Tenerife", "Tenerife"], "ES-NA": ["Navarra", "Nafarroa"],
+    "ES-O": ["Asturias"], "ES-M": ["Madrid"], "ES-MU": ["Murcia"], "ES-S": ["Cantabria"], "ES-LO": ["La Rioja"],
 }
 ES_GROUP_KEYS = {  # a spanyol autonóm közösségek további nevei
     "Andalucía": ["Andalusia", "Andalúzia"], "Cataluña": ["Catalunya", "Catalonia", "Katalónia"],
@@ -144,11 +152,13 @@ def main():
     adm0 = json.load(open(os.path.join(SRC, "ne_50m_admin_0_countries.geojson")))["features"]
     result = {"_forras": "Natural Earth (közkincs), egyszerűsítve – tools/terkepek.py", "maps": {}}
 
-    for group, (a3, title, simp) in GROUPS.items():
-        feats = [f for f in adm1 if f["properties"]["adm0_a3"] == a3]
+    for group, (a3s, title, simp) in GROUPS.items():
+        feats = [f for f in adm1 if f["properties"]["adm0_a3"] in a3s]
         meta, groups, src = {}, {}, []
+        extra_group_keys = {}
         for f in feats:
             p = f["properties"]
+            a3 = p["adm0_a3"]
             rid = p["iso_3166_2"]
             if a3 == "HUN" and rid in HU_CITIES:
                 rid = HU_CITIES[rid]
@@ -164,7 +174,9 @@ def main():
                         label = "Beograd"
                 elif a3 == "CZE" and rid == "CZ-PR":
                     label = "Praha"
-                keys = keys_of(p, NAME_FIELDS, "name_alt") + EXTRA_KEYS.get(rid, [])
+                # Spanyolországban a woe_name az autonóm közösség neve: az csoportnév, nem a tartományé
+                fields = [k for k in NAME_FIELDS if not (a3 == "ESP" and k == "woe_name")]
+                keys = keys_of(p, fields, "name_alt") + EXTRA_KEYS.get(rid, [])
                 if a3 == "SRB" and rid == "RS-19":
                     keys = [k for k in keys if "omorav" not in k.lower()] + ["Rasinski", "Rasina", "Raszinai"]
                 hu = p.get("name_hu")
@@ -174,19 +186,18 @@ def main():
                     groups.setdefault(reg, []).append(rid)
             g = dict(f); g["properties"] = {"rid": rid}
             src.append(g)
-        extra_group_keys = {}
-        for k, ids in EXTRA_GROUPS.get(a3, {}).items():
+        for k, ids in [kv for c in a3s for kv in EXTRA_GROUPS.get(c, {}).items()]:
             first, *rest = k.split("|")
             groups[first] = ids
             extra_group_keys[first] = rest
         lat0 = sum(f["properties"]["latitude"] for f in feats) / len(feats)
         lon0 = sum(f["properties"]["longitude"] for f in feats) / len(feats)
-        if a3 == "ESP":
+        if a3s == ("ESP",):
             lat0, lon0 = 40.0, -3.7
-        out = run_mapshaper(src, simp, round(lat0, 2), round(lon0, 2), dissolve=(a3 == "HUN"))
+        out = run_mapshaper(src, simp, round(lat0, 2), round(lon0, 2), dissolve=("HUN" in a3s))
         shift = None
         frame = ""
-        if a3 == "ESP":  # a Kanári-szigetek kerettel a félsziget alá, balra
+        if a3s == ("ESP",):  # a Kanári-szigetek kerettel a félsziget alá, balra
             canary = set(groups.get("Canary Is.", []))
             cx = [c[0] for f in out if f["properties"]["rid"] in canary for r in rings(f["geometry"]) for c in r]
             cy = [c[1] for f in out if f["properties"]["rid"] in canary for r in rings(f["geometry"]) for c in r]
@@ -218,29 +229,54 @@ def main():
             gl.append({"keys": [name] + ES_GROUP_KEYS.get(name, []) + extra_group_keys.get(name, []), "ids": sorted(ids)})
         result["maps"][group] = {"title": title, "kind": "megye", "viewBox": vb, "frame": frame, "regions": regions, "groups": gl}
 
-    # nemzetközi célcsoport: Európa országai
-    eu = [f for f in adm0 if f["properties"]["CONTINENT"] == "Europe" or f["properties"]["ADM0_A3"] in ("TUR", "CYP")]
+    # nemzetközi célcsoport: forgó földgömb a világ országaival (Antarktisz nélkül)
+    world = [f for f in adm0 if f["properties"]["ADM0_A3"] != "ATA"]
     meta, src = {}, []
-    for f in eu:
+    for f in world:
         p = f["properties"]
-        rid = p["ISO_A2"] if p["ISO_A2"] not in ("-99", None) else p["ADM0_A3"]
-        keys = [p[k] for k in ("NAME", "NAME_LONG", "FORMAL_EN", "NAME_EN", "NAME_HU", "NAME_DE", "NAME_ES", "NAME_FR", "NAME_IT", "NAME_PL", "NAME_SORT", "NAME_CIAWF") if p.get(k)]
-        keys += [p["ADM0_A3"]] + ([p["ISO_A2"]] if p["ISO_A2"] not in ("-99", None) else [])
+        iso2 = next((p[k] for k in ("ISO_A2_EH", "ISO_A2") if p.get(k) not in ("-99", None, "")), "")
+        rid = iso2 or p["ADM0_A3"]
+        if rid in meta:  # pl. több egység ugyanazzal a kóddal
+            rid = p["ADM0_A3"]
+        keys = [p[k] for k in ("NAME", "NAME_LONG", "FORMAL_EN", "NAME_EN", "NAME_HU", "NAME_DE", "NAME_ES", "NAME_FR", "NAME_IT",
+                               "NAME_PL", "NAME_PT", "NAME_NL", "NAME_SV", "NAME_SORT", "NAME_CIAWF", "NAME_ALT") if p.get(k)]
+        keys += [p["ADM0_A3"]] + [p[k] for k in ("ISO_A3_EH", "ISO_A3") if p.get(k) not in ("-99", None)] + ([iso2] if iso2 else [])
         meta[rid] = {"id": rid, "label": p.get("NAME_HU") or p["NAME"], "hu": "", "keys": list(dict.fromkeys(keys))}
         g = dict(f); g["properties"] = {"rid": rid}
         src.append(g)
-    out = run_mapshaper(src, "interval=9000", 52, 12, clip=[-2500000, -2050000, 2350000, 2350000])
-    paths, vb, _ = to_svg(out, width=320, max_h=260)
+    with tempfile.TemporaryDirectory() as td:
+        a, b = os.path.join(td, "in.json"), os.path.join(td, "out.json")
+        json.dump({"type": "FeatureCollection", "features": src}, open(a, "w"))
+        subprocess.run([MAPSHAPER, a, "-simplify", "interval=14000", "keep-shapes", "-o", b, "format=geojson", "precision=0.01"],
+                       check=True, capture_output=True)
+        out = json.load(open(b))["features"]
     regions = []
+    geo = {}
+    for f in out:
+        g = f["geometry"]
+        if not g:
+            continue
+        polys = g["coordinates"] if g["type"] == "MultiPolygon" else [g["coordinates"]]
+        enc = []
+        for poly in polys:
+            rs = []
+            for ring in poly:
+                if len(ring) < 4:
+                    continue
+                # a d3-geo a külső gyűrűt az óramutató járásával egyező irányban várja (a GeoJSON fordítva adja)
+                rs.append([round(v, 2) for pt in reversed(ring) for v in pt])
+            if rs:
+                enc.append(rs)
+        geo.setdefault(f["properties"]["rid"], []).extend(enc)
     for rid in sorted(meta, key=lambda r: meta[r]["label"]):
-        if paths.get(rid):
-            m = meta[rid]; m["d"] = paths[rid]
+        if geo.get(rid):
+            m = meta[rid]; m["g"] = geo[rid]
             regions.append(m)
-    result["maps"]["B2B_COM"] = {"title": "Európa", "kind": "ország", "viewBox": vb, "frame": "", "regions": regions, "groups": []}
+    result["maps"]["B2B_COM"] = {"title": "Föld", "kind": "globe", "viewBox": "", "frame": "", "regions": regions, "groups": []}
 
     json.dump(result, open(OUT, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
     for g, m in result["maps"].items():
-        print(g, len(m["regions"]), "régió,", sum(len(r["d"]) for r in m["regions"]) // 1024, "KB", m["viewBox"])
+        print(g, len(m["regions"]), "régió,", len(json.dumps(m["regions"], ensure_ascii=False)) // 1024, "KB", m["viewBox"])
     print("összesen", os.path.getsize(OUT) // 1024, "KB")
 
 
