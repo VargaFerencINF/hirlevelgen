@@ -32,6 +32,19 @@ func newTestServer(t *testing.T) (*App, *httptest.Server) {
 	return app, srv
 }
 
+// flushOnCleanup a teszt végén leállítja a késleltetett mentést és szinkron ment, mielőtt a
+// t.TempDir törlődik (Windowson különben a még író mentés miatt nem törölhető a mappa).
+func flushOnCleanup(t *testing.T, app *App) {
+	t.Cleanup(func() {
+		app.mu.Lock()
+		if app.saveTimer != nil {
+			app.saveTimer.Stop()
+		}
+		app.mu.Unlock()
+		app.saveNow()
+	})
+}
+
 func call(t *testing.T, srv *httptest.Server, token, path string, body any) (int, map[string]any) {
 	t.Helper()
 	b, _ := json.Marshal(body)
@@ -816,6 +829,7 @@ func TestAPIPostmarkSend(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	flushOnCleanup(t, app)
 	app.postmarkBase = pm.URL
 	app.postmarkSleep = func(context.Context, time.Duration) error { return nil }
 	app.imageCheck = func(_ context.Context, ts []h.ImageTarget) []h.ImageCheck {
@@ -970,6 +984,7 @@ func TestWebgalambImportAndGenerate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	flushOnCleanup(t, app)
 	out := filepath.Join(t.TempDir(), "kimenet")
 	app.state.Output.Dir = out
 	srv := httptest.NewServer(app.routes())
