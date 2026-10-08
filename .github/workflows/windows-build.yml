@@ -27,7 +27,7 @@ jobs:
       - name: Exe fordítása
         shell: bash
         run: |
-          VERSION="1.3.${GITHUB_RUN_NUMBER}"
+          VERSION="1.4.${GITHUB_RUN_NUMBER}"
           GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath \
             -ldflags "-s -w -H windowsgui -X main.version=${VERSION}" \
             -o dist/EnergofishHirlevel.exe .
@@ -142,11 +142,12 @@ jobs:
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.3.${{ github.run_number }}
-          name: Energofish Partnerhírlevél-generátor 1.3.${{ github.run_number }}
+          tag_name: v1.4.${{ github.run_number }}
+          name: Energofish Partnerhírlevél-generátor 1.4.${{ github.run_number }}
           body: |
             Letöltés: **EnergofishHirlevel.exe** (telepítés nélkül, dupla kattintással indul) és a minta Excel.
-            Újdonság az 1.3-ban: partnerek a B2B partnertörzsből – célcsoport (ország) választás, partnerhalmaz képviselő, megye, besorolás és más tulajdonságok szerint, mentett halmazok, szinkron a leiratkozottak kiszűrésével, frissítés minden generálás előtt.
+            Újdonság az 1.4-ben: 6. lépés „Küldés” – kiküldés Postmarkon (validálás, sandbox, belső teszt, éles), ellenőrzéssel, kötegelt küldéssel, naplóval és a dupla küldés elleni védelemmel.
+            1.3: partnerek a B2B partnertörzsből – célcsoport (ország) választás, partnerhalmaz képviselő, megye, besorolás és más tulajdonságok szerint, mentett halmazok, szinkron a leiratkozottak kiszűrésével, frissítés minden generálás előtt.
             1.2: „Új termék” keresés a friss cikktörzsben, a mezők automatikus kitöltése, képméret-váltó.
             Commit: ${{ github.sha }}
           files: |

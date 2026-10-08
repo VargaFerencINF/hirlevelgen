@@ -299,6 +299,7 @@ const STEPS = [
   { id: 'termekek', label: 'Termékek' },
   { id: 'ellenorzes', label: 'Ellenőrzés' },
   { id: 'generalas', label: 'Generálás' },
+  { id: 'kuldes', label: 'Küldés' },
 ];
 
 function buildShell() {
@@ -313,7 +314,7 @@ function buildShell() {
   $('#menuBtn').addEventListener('click', e => { e.stopPropagation(); toggleMenu(); });
   document.addEventListener('click', e => { if (!e.target.closest('#menu')) $('#menu').classList.add('hidden'); });
   document.addEventListener('keydown', e => {
-    if ((e.ctrlKey || e.metaKey) && e.key >= '1' && e.key <= '5') { e.preventDefault(); setTab(STEPS[+e.key - 1].id); }
+    if ((e.ctrlKey || e.metaKey) && e.key >= '1' && e.key <= String(STEPS.length)) { e.preventDefault(); setTab(STEPS[+e.key - 1].id); }
   });
   $('#pvToggle').append(icon('eye'), ' Előnézet');
   $('#pvToggle').addEventListener('click', () => $('#preview').classList.toggle('show'));
@@ -329,6 +330,7 @@ function setTab(id) {
   $$('.step').forEach(b => b.classList.toggle('active', b.dataset.step === id));
   if (id === 'ellenorzes') renderCheck();
   if (id === 'generalas') renderGenerate();
+  if (id === 'kuldes') renderSend();
   if (id === 'tartalom') autosizeAll(pane('tartalom'));
   $('#editor').scrollTop = 0;
 }
@@ -1597,6 +1599,350 @@ function renderGenResult() {
     r.warnings && r.warnings.length ? h('ul', null, r.warnings.map(w => h('li', { text: w }))) : null,
     r.skipped && r.skipped.length ? [h('div', { class: 'label-caps', style: { marginTop: '14px' }, text: 'Kimaradt partnerek' }),
       h('ul', null, r.skipped.map(s => h('li', { text: `${s.row}. sor: ${s.name || s.email || '–'} – ${s.reason}` })))] : null));
+}
+
+/* ------------------------------------------------------------------ 6. Küldés (Postmark) */
+
+const PM_MODES = [
+  ['validalas', 'Validálás', 'A Postmark ellenőrzi a kéréseket (POSTMARK_API_TEST), de semmit nem küld el. Biztonságos próba.'],
+  ['sandbox', 'Sandbox', 'Egy Sandbox típusú Postmark-szerverre megy: a levelek a Postmark felületén megnézhetők, de senki nem kapja meg.'],
+  ['belsoteszt', 'Belső teszt', 'Valódi küldés, de csak a beállított tesztcímekre, néhány partner levelével, „[TESZT]” tárggyal.'],
+  ['eles', 'Éles', 'Valódi küldés a partnereknek. Csak „Custom” leiratkozás-kezelésű streamre, megerősítés után.'],
+];
+const PM_TRACK = [['None', 'Nincs'], ['HtmlAndText', 'HTML és szöveg'], ['HtmlOnly', 'Csak HTML'], ['TextOnly', 'Csak szöveg']];
+
+function pmDefaultCampaign() {
+  const d = new Date();
+  return `partnerbrief-${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function pmSelected() { return Array.from(S.sel).sort((a, b) => a - b); }
+
+function pmSig() { return [S.pmMode, (S.pmCampaign || '').trim(), pmSelected().join(',')].join('|'); }
+
+async function renderSend() {
+  const p = pane('kuldes');
+  if (!S.pm) {
+    p.replaceChildren(secHead('06 / Küldés', 'Kiküldés Postmarkon'), h('div', { class: 'p-sub', text: 'Betöltés…' }));
+    try { S.pm = await api('/api/postmark/settings'); } catch (e) { p.append(h('div', { class: 'note err' }, icon('error'), h('div', { text: e.message }))); return; }
+  }
+  const pm = S.pm, st = pm.settings;
+  if (!S.pmMode) S.pmMode = ls('pmMode') || 'validalas';
+  if (S.pmCampaign == null) S.pmCampaign = st.campaign || pmDefaultCampaign();
+  const campaign = h('input', { class: 'inp', value: S.pmCampaign, spellcheck: false, placeholder: pmDefaultCampaign() });
+  campaign.addEventListener('input', () => { S.pmCampaign = campaign.value; renderSendActions(); });
+  const modes = PM_MODES.map(([id, label, desc]) => {
+    const off = (id === 'sandbox' && !pm.sandbox.set) || (id !== 'validalas' && id !== 'sandbox' && !pm.live.set);
+    const why = id === 'sandbox' && !pm.sandbox.set ? ' (nincs Sandbox token)' : off ? ' (nincs éles token)' : '';
+    return h('label', { class: 'check-row pm-mode' + (S.pmMode === id ? ' on' : '') + (off ? ' off' : '') },
+      h('input', { type: 'radio', name: 'pmMode', value: id, checked: S.pmMode === id, disabled: off, onchange: () => { S.pmMode = id; ls('pmMode', id); renderSend(); } }),
+      h('div', null, h('div', { class: 't' }, label, id === 'eles' ? h('span', { class: 'pill dark', style: { marginLeft: '8px' }, text: 'valódi küldés' }) : null,
+        why ? h('span', { class: 'p-sub', text: why }) : null), h('div', { class: 'd', text: desc })));
+  });
+  const tokenLine = (lbl, t) => h('div', { class: 'pm-kv' }, h('span', { text: lbl }), t.set ? h('b', { text: t.masked }) : h('span', { class: 'p-sub', text: 'nincs megadva' }));
+  p.replaceChildren(
+    secHead('06 / Küldés', 'Kiküldés Postmarkon',
+      'A kész, partnerenkénti leveleket a Postmark küldi ki változtatás nélkül. Előbb ellenőrizz, utána küldj – a küldési napló véd a dupla küldés ellen, megszakadás után a program onnan folytatja, ahol abbahagyta.'),
+    h('div', { class: 'card card-pad' },
+      h('div', { class: 'card-title' }, icon('mail'), 'Postmark kapcsolat'),
+      h('div', { class: 'pm-grid' },
+        tokenLine('Éles szerver token', pm.live), tokenLine('Sandbox token', pm.sandbox),
+        h('div', { class: 'pm-kv' }, h('span', { text: 'Üzenetfolyam (stream)' }), h('b', { text: st.stream_id || '–' })),
+        h('div', { class: 'pm-kv' }, h('span', { text: 'Feladó' }), h('b', { text: st.from || '–' })),
+        h('div', { class: 'pm-kv' }, h('span', { text: 'Belső tesztcímek' }), h('b', { text: (st.internal_test_addresses || []).join(', ') || '–' })),
+        h('div', { class: 'pm-kv' }, h('span', { text: 'Mérés' }), h('b', { text: `megnyitás: ${st.track_opens ? 'igen' : 'nem'} · linkek: ${(PM_TRACK.find(x => x[0] === st.track_links) || PM_TRACK[0])[1]}` }))),
+      h('div', { class: 'btn-row', style: { marginTop: '14px' } },
+        h('button', { class: 'btn btn-outline btn-sm', onclick: openPostmarkSettings }, icon('gear', 16), 'Postmark beállítások…'),
+        pm.live.set ? h('button', { class: 'btn btn-ghost btn-sm', dataset: { busy: 'Ellenőrzés…' }, onclick: e => busy(e.currentTarget, () => pmTest('live')) }, icon('zap', 16), 'Kapcsolat ellenőrzése') : null),
+      !pm.protected && (pm.live.set || pm.sandbox.set) ? h('div', { class: 'note warn', style: { margin: '12px 0 0' } }, icon('alert'), h('div', { text: 'Ezen a rendszeren a tokenek nincsenek titkosítva (csak Windowson érhető el a titkosítás).' })) : null),
+    h('div', { class: 'card card-pad' },
+      h('div', { class: 'card-title' }, icon('zap'), 'Kampány és mód'),
+      h('div', { class: 'field' }, h('div', { class: 'field-top' }, h('label', { text: 'Kampány neve' })), campaign,
+        h('div', { class: 'help', text: 'Ez lesz a Postmark Tag, az utm_campaign és a napló neve. Ugyanazzal a névvel újraindítva a már elküldött partnerek kimaradnak.' })),
+      h('div', { class: 'label-caps', style: { margin: '16px 0 4px' }, text: 'Mód' }), modes),
+    h('div', { id: 'pmActions' }),
+    h('div', { id: 'pmCheck' }),
+    h('div', { id: 'pmJob' }),
+    h('div', { class: 'card card-pad' },
+      h('div', { class: 'card-title' }, icon('refresh'), 'Visszajelzések és leiratkozottak'),
+      h('p', { class: 'card-sub', text: 'A Postmark letiltott címei (végleges visszapattanás, spamjelzés, leiratkozás) CSV-be menthetők az Excel vagy a partnertörzs frissítéséhez. Egy saját leiratkozott-lista (bármilyen CSV, amiben e-mail címek vannak) is betölthető: ezek a címek soha nem kapnak levelet.' }),
+      h('div', { class: 'btn-row' },
+        h('button', { class: 'btn btn-outline btn-sm', disabled: !pm.live.set, dataset: { busy: 'Lekérés…' }, onclick: e => busy(e.currentTarget, pmFeedback) }, icon('download', 16), 'Visszajelzések frissítése'),
+        h('button', { class: 'btn btn-outline btn-sm', onclick: pmImportUnsubs }, icon('upload', 16), 'Leiratkozottak importálása…'),
+        pm.unsubs ? h('button', { class: 'btn btn-ghost btn-sm btn-danger', onclick: pmClearUnsubs }, icon('trash', 15), `Lista törlése (${pm.unsubs} cím)`) : null,
+        pm.logDir ? h('button', { class: 'btn btn-ghost btn-sm', onclick: () => openPath(pm.logDir, true) }, icon('folder', 16), 'Küldési naplók') : null),
+      pm.unsubs ? h('div', { class: 'p-sub', style: { marginTop: '8px' }, text: `${pm.unsubs} importált leiratkozott cím – ezek mindig kimaradnak.` }) : null));
+  renderSendActions();
+  renderSendCheck();
+  renderSendJob();
+  if (!S.pmPoll) pmPollStatus();
+}
+
+function renderSendActions() {
+  const box = $('#pmActions');
+  if (!box) return;
+  const why = [];
+  if (!S.excel) why.push('Előbb töltsd be a partnerlistát.');
+  else if (!S.sel.size) why.push('Nincs kijelölt partner.');
+  if (!String(S.state.content['assets.base'] || '').trim()) why.push('A képtár webcíme üres – kiküldéshez a képeket fel kell tölteni (Tartalom › Alapadatok).');
+  if (!String(S.state.output.dir || '').trim()) why.push('Add meg a kimeneti mappát (Generálás lépés): oda kerül a küldési napló.');
+  if (!(S.pmCampaign || '').trim()) why.push('Add meg a kampány nevét.');
+  const running = S.pmJob && S.pmJob.running;
+  const ready = S.pmCheck && S.pmCheck.sig === pmSig() && S.pmCheck.r.ok;
+  const mode = PM_MODES.find(m => m[0] === S.pmMode) || PM_MODES[0];
+  box.replaceChildren(h('div', { class: 'gen-box' },
+    h('div', null, h('div', { class: 'num', text: S.excel ? S.sel.size : 0 }), h('div', { class: 'lbl', text: 'kijelölt partner' })),
+    h('div', { class: 'grow' },
+      h('div', { class: 'ttl', text: `Mód: ${mode[1]}` }),
+      h('div', { class: 'why', text: why.length ? why.join(' ') : ready ? `Ellenőrizve: ${S.pmCheck.r.plan.recipients} levél megy ki ${S.pmCheck.r.plan.batches} kötegben.` : 'Előbb ellenőrizz: a program összeállítja a leveleket, lekéri a Postmark beállításait és a letiltott címeket – még semmit nem küld.' })),
+    h('button', { class: 'btn btn-outline btn-lg pm-light', disabled: !!why.length || running || S.pmBusy, dataset: { busy: 'Ellenőrzés…' }, onclick: e => busy(e.currentTarget, pmCheck) }, icon('shield'), 'Ellenőrzés'),
+    h('button', { class: 'btn btn-primary btn-lg', disabled: !!why.length || !ready || running || S.pmBusy, onclick: pmSend }, icon('mail'), S.pmMode === 'validalas' ? 'Validálás indítása' : 'Küldés')));
+}
+
+async function pmCheck() {
+  S.pmBusy = true;
+  try {
+    await syncNow();
+    const body = { mode: S.pmMode, campaign: (S.pmCampaign || '').trim(), only: pmSelected() };
+    let r = await api('/api/postmark/check', body);
+    if (r.syncFailed) {
+      const when = S.excel.b2b ? fmtTime(S.excel.b2b.syncedAt) : '';
+      if (!await confirmBox('A partnertörzs nem frissíthető', `${r.syncFailed}\n\nEllenőrzöd a legutóbb (${when}) letöltött adatokkal? Aki azóta leiratkozott, még szerepelhet.`, 'Ellenőrzés a régi adatokkal', true)) return;
+      body.skipSync = true;
+      r = await api('/api/postmark/check', body);
+    }
+    if (r.sync) {
+      applyExcel(r, true);
+      S.sel = new Set(r.sync.only || []);
+      renderData();
+      const parts = [];
+      if (r.sync.dropped) parts.push(`${r.sync.dropped} leiratkozott partner kimaradt`);
+      if (r.sync.added) parts.push(`${r.sync.added} új partner bekerült`);
+      if (parts.length) toast('Partnertörzs frissítve: ' + parts.join(', '), 'warn', { timeout: 9000 });
+    }
+    S.pmCheck = { sig: pmSig(), r, skipSync: !!body.skipSync };
+  } catch (e) { toast(e.message, 'err'); S.pmCheck = null; } finally {
+    S.pmBusy = false;
+    renderSendActions();
+    renderSendCheck();
+  }
+}
+
+function renderSendCheck() {
+  const box = $('#pmCheck');
+  if (!box) return;
+  const c = S.pmCheck;
+  if (!c) { box.replaceChildren(); return; }
+  const r = c.r, pl = r.plan;
+  for (const k of ['errors', 'warnings', 'excluded']) if (!Array.isArray(pl[k])) pl[k] = [];
+  const stale = c.sig !== pmSig();
+  const handling = r.stream ? r.stream.handling : '';
+  const stat = (n, lbl, cls) => h('div', { class: 'stat' + (cls ? ' ' + cls : '') }, h('b', { text: n }), h('span', { text: lbl }));
+  box.replaceChildren(h('div', { class: 'card card-pad' },
+    h('div', { class: 'card-title' }, icon('shield'), 'Ellenőrzés eredménye', stale ? h('span', { class: 'pill warn', style: { marginLeft: '8px' }, text: 'elavult – ellenőrizz újra' }) : null),
+    h('div', { class: 'stats' },
+      stat(pl.recipients, 'levél megy ki', 'accent'),
+      stat(pl.excluded.length, 'kimarad', pl.excluded.length ? 'err' : ''),
+      stat(pl.alreadySent, 'már elküldve'),
+      stat(pl.batches, 'köteg')),
+    h('div', { class: 'pm-grid' },
+      h('div', { class: 'pm-kv' }, h('span', { text: 'Stream' }), r.stream ? h('b', { text: `${r.stream.id} · ${r.stream.type}` }) : h('span', { class: 'p-sub', text: 'nem ellenőrizhető' })),
+      h('div', { class: 'pm-kv' }, h('span', { text: 'Leiratkozás kezelése' }), h('b', { text: handling === 'Custom' ? 'Custom (saját link + List-Unsubscribe fejléc)' : handling === 'Postmark' ? 'Postmark (a Postmark linkje is bekerül)' : (handling || 'ismeretlen') })),
+      h('div', { class: 'pm-kv' }, h('span', { text: 'Letiltott címek a Postmarkban' }), h('b', { text: r.suppressed })),
+      r.images ? h('div', { class: 'pm-kv' }, h('span', { text: 'Képek' }), h('b', { text: r.images.checked ? `${r.images.checked} ellenőrizve` + (r.images.errors.length ? `, ${r.images.errors.length} hibás` : ', mind elérhető') : '–' })) : null),
+    pl.errors.length ? h('div', { class: 'note err', style: { marginTop: '14px' } }, icon('error'), h('div', null, h('b', { text: 'Nem küldhető: ' }), h('ul', null, pl.errors.map(e => h('li', { text: e }))))) : null,
+    pl.warnings.length ? h('div', { class: 'note warn', style: { marginTop: '10px' } }, icon('alert'), h('div', null, h('ul', null, pl.warnings.map(e => h('li', { text: e }))))) : null,
+    pl.excluded.length ? h('details', { class: 'pm-excl' }, h('summary', { text: `Kimaradó partnerek és címek (${pl.excluded.length})` }),
+      h('table', { class: 'pt' }, h('thead', null, h('tr', null, h('th', { text: 'Sor' }), h('th', { text: 'Partner' }), h('th', { text: 'E-mail' }), h('th', { text: 'Ok' }))),
+        h('tbody', null, pl.excluded.slice(0, 500).map(x => h('tr', null, h('td', { text: x.row }), h('td', { text: x.name || '–' }), h('td', { text: x.email }), h('td', { text: x.reason })))))) : null,
+    h('div', { class: 'p-sub', style: { marginTop: '10px' }, text: 'Napló: ' + r.logPath })));
+}
+
+async function pmSend() {
+  const c = S.pmCheck;
+  if (!c || !c.r.ok) return;
+  const n = c.r.plan.recipients;
+  const body = { mode: S.pmMode, campaign: (S.pmCampaign || '').trim(), only: pmSelected(), skipSync: c.skipSync };
+  if (S.pmMode === 'eles') {
+    const typed = await new Promise(resolve => {
+      const inp = h('input', { class: 'inp', inputmode: 'numeric', placeholder: String(n), style: { marginTop: '10px' } });
+      const done = v => { bg.remove(); resolve(v); };
+      const bg = h('div', { class: 'modal-bg' }, h('div', { class: 'modal', role: 'dialog' },
+        h('div', { class: 'mh', text: 'Éles küldés' }),
+        h('div', { class: 'mb' },
+          h('p', { style: { margin: 0 } }, 'A levél most ', h('b', { text: `${n} címzetthez` }), ' megy ki valóban. Ez nem vonható vissza.'),
+          h('p', { style: { margin: '8px 0 0' }, text: 'A megerősítéshez írd be a címzettek számát:' }), inp),
+        h('div', { class: 'mf' }, h('button', { class: 'btn btn-ghost', text: 'Mégse', onclick: () => done(null) }),
+          h('button', { class: 'btn btn-dark', text: 'Küldés', onclick: () => done(inp.value.trim()) }))));
+      inp.addEventListener('keydown', e => { if (e.key === 'Enter') done(inp.value.trim()); if (e.key === 'Escape') done(null); });
+      document.body.append(bg);
+      inp.focus();
+    });
+    if (typed == null) return;
+    if (typed !== String(n)) { toast('A beírt szám nem egyezik a címzettek számával – nem indult küldés.', 'warn'); return; }
+    body.confirm = n;
+  }
+  S.pmBusy = true;
+  renderSendActions();
+  try {
+    const r = await api('/api/postmark/send', body);
+    if (r.syncFailed) { toast(r.syncFailed, 'err', { timeout: 12000 }); return; }
+    if (r.sync) { applyExcel(r, true); S.sel = new Set(r.sync.only || []); renderData(); }
+    S.pmJob = r.job;
+    S.pmCheck = null;
+    renderSendCheck();
+    pmPollStatus();
+  } catch (e) { toast(e.message, 'err', { timeout: 12000 }); } finally {
+    S.pmBusy = false;
+    renderSendActions();
+    renderSendJob();
+  }
+}
+
+async function pmPollStatus() {
+  clearTimeout(S.pmPoll);
+  S.pmPoll = null;
+  try {
+    const r = await api('/api/postmark/status');
+    const was = S.pmJob && S.pmJob.running;
+    S.pmJob = r.job;
+    renderSendJob();
+    if (S.pmJob && S.pmJob.running) { S.pmPoll = setTimeout(pmPollStatus, 700); return; }
+    if (was) {
+      renderSendActions();
+      const p = S.pmJob.progress;
+      toast(S.pmJob.lastError ? 'A küldés megállt: ' + S.pmJob.lastError : `Kész: ${p.ok} levél elküldve` + (p.failed ? `, ${p.failed} hibás` : ''), S.pmJob.lastError || p.failed ? 'warn' : 'ok', { timeout: 10000 });
+    }
+  } catch (e) { /* a következő megnyitáskor újra */ }
+}
+
+function renderSendJob() {
+  const box = $('#pmJob');
+  if (!box) return;
+  const j = S.pmJob;
+  if (!j) { box.replaceChildren(); return; }
+  const p = j.progress || {};
+  const pct = p.total ? Math.round(100 * (p.done || 0) / p.total) : 0;
+  const errs = Object.entries(p.errors || {});
+  box.replaceChildren(h('div', { class: 'card card-pad' },
+    h('div', { class: 'card-title' }, icon(j.running ? 'refresh' : j.lastError ? 'alert' : 'check'),
+      j.running ? `Küldés folyamatban – ${j.modeLabel}` : j.cancelled ? `Megszakítva – ${j.modeLabel}` : j.lastError ? `Megállt – ${j.modeLabel}` : `Kész – ${j.modeLabel}`,
+      h('span', { class: 'p-sub', style: { marginLeft: '8px' }, text: j.campaign })),
+    h('div', { class: 'pm-bar' }, h('div', { style: { width: pct + '%' } })),
+    h('div', { class: 'pm-grid', style: { marginTop: '10px' } },
+      h('div', { class: 'pm-kv' }, h('span', { text: 'Feldolgozva' }), h('b', { text: `${p.done || 0} / ${p.total || 0} (${pct}%)` })),
+      h('div', { class: 'pm-kv' }, h('span', { text: 'Sikeres' }), h('b', { text: p.ok || 0 })),
+      h('div', { class: 'pm-kv' }, h('span', { text: 'Hibás' }), h('b', { text: p.failed || 0 })),
+      p.uncertain ? h('div', { class: 'pm-kv' }, h('span', { text: 'Bizonytalan' }), h('b', { text: p.uncertain })) : null,
+      h('div', { class: 'pm-kv' }, h('span', { text: 'Köteg' }), h('b', { text: `${p.batch || 0} / ${p.batches || 0}` }))),
+    j.lastError ? h('div', { class: 'note err', style: { marginTop: '12px' } }, icon('error'), h('div', { text: j.lastError })) : null,
+    errs.length ? h('div', { class: 'note warn', style: { marginTop: '10px' } }, icon('alert'), h('div', null, h('b', { text: 'Postmark hibák: ' }), h('ul', null, errs.map(([m, n]) => h('li', { text: `${n} levél: ${m}` }))))) : null,
+    h('div', { class: 'btn-row', style: { marginTop: '14px' } },
+      j.running ? h('button', { class: 'btn btn-outline btn-sm', disabled: j.cancelRequested, onclick: pmCancel }, icon('x', 16), j.cancelRequested ? 'Megáll a köteg végén…' : 'Megszakítás') : null,
+      j.logPath ? h('button', { class: 'btn btn-ghost btn-sm', onclick: () => openPath(j.logPath) }, icon('sheet', 16), 'Napló (CSV)') : null,
+      !j.running && j.mode && j.mode !== 'eles' ? h('button', { class: 'btn btn-ghost btn-sm', title: 'A teszt mód naplójának törlése, hogy ugyanazzal a kampánynévvel újra küldhess', onclick: pmClearLog }, icon('trash', 15), 'Teszt-napló törlése') : null)));
+}
+
+async function pmCancel() {
+  try { const r = await api('/api/postmark/cancel'); S.pmJob = r.job; renderSendJob(); } catch (e) { toast(e.message, 'err'); }
+}
+
+async function pmClearLog() {
+  const j = S.pmJob;
+  if (!j || !await confirmBox('Teszt-napló törlése', `A(z) „${j.campaign}” kampány ${j.modeLabel} módú naplója törlődik, így ugyanazzal a névvel újra küldhetsz ebben a módban. Az éles napló nem változik.`, 'Törlés')) return;
+  try { await api('/api/postmark/log/clear', { mode: j.mode, campaign: j.campaign }); toast('A teszt-napló törölve.', 'ok'); } catch (e) { toast(e.message, 'err'); }
+}
+
+async function pmTest(which) {
+  try {
+    const r = await api('/api/postmark/test', { which });
+    const s = r.stream;
+    toast(`Kapcsolat rendben: ${s.id} (${s.type}), leiratkozás: ${s.handling}, ${r.suppressed} letiltott cím.` + (s.handling !== 'Custom' ? ' Éles küldéshez a streamen a „Manage unsubscribes on your own” (Custom) beállítás kell.' : ''),
+      s.handling === 'Custom' ? 'ok' : 'warn', { timeout: 12000 });
+  } catch (e) { toast(e.message, 'err', { timeout: 12000 }); }
+}
+
+async function pmFeedback() {
+  try {
+    const r = await api('/api/postmark/feedback');
+    toast(`Visszajelzések: ${r.total} letiltott cím (${r.hardBounce} visszapattant, ${r.spam} spamjelzés, ${r.manual} leiratkozás), ebből ${r.matched} a betöltött listában.`, 'ok',
+      { timeout: 12000, actions: [{ label: 'CSV megnyitása', fn: () => openPath(r.path) }] });
+  } catch (e) { toast(e.message, 'err', { timeout: 12000 }); }
+}
+
+function pmImportUnsubs() {
+  const inp = h('input', { type: 'file', accept: '.csv,.txt,text/csv,text/plain' });
+  inp.addEventListener('change', async () => {
+    const f = inp.files[0];
+    if (!f) return;
+    try {
+      S.pm = await api('/api/postmark/unsubs', { text: await f.text() });
+      toast(`${S.pm.added} új leiratkozott cím betöltve (összesen ${S.pm.unsubs}).`, 'ok');
+      S.pmCheck = null;
+      renderSend();
+    } catch (e) { toast(e.message, 'err'); }
+  });
+  inp.click();
+}
+
+async function pmClearUnsubs() {
+  if (!await confirmBox('Leiratkozott-lista törlése', `A betöltött ${S.pm.unsubs} cím törlődik a listából (a Postmark letiltásai és a partnertörzs leiratkozottjai továbbra is kimaradnak).`, 'Törlés', true)) return;
+  try { S.pm = await api('/api/postmark/unsubs', { clear: true }); S.pmCheck = null; renderSend(); } catch (e) { toast(e.message, 'err'); }
+}
+
+function openPostmarkSettings() {
+  const pm = S.pm, st = pm.settings;
+  const tokenField = (lbl, t, help) => {
+    const inp = h('input', { class: 'inp', type: 'password', autocomplete: 'off', spellcheck: false, placeholder: t.set ? `beállítva: ${t.masked} – új token beírásával cserélhető` : 'Server API token' });
+    const clear = h('input', { type: 'checkbox' });
+    return { inp, clear, el: h('div', { class: 'field' }, h('div', { class: 'field-top' }, h('label', { text: lbl })), inp,
+      h('div', { class: 'help' }, help, t.set ? h('label', { class: 'pm-clear' }, clear, ' token törlése') : null)) };
+  };
+  const live = tokenField('Éles szerver API token', pm.live, 'Postmark › My First Server › API Tokens. Titkosítva tárolódik ezen a gépen; a felület csak a maszkolt alakot mutatja.');
+  const sandbox = tokenField('Sandbox szerver API token (opcionális)', pm.sandbox, 'Egy Sandbox típusú Postmark-szerver tokenje: oda küldve a levelek nem kézbesülnek, csak a Postmark felületén látszanak.');
+  const inp = (v, ph) => h('input', { class: 'inp', value: v || '', placeholder: ph || '', spellcheck: false });
+  const stream = inp(st.stream_id, 'broadcast');
+  const from = inp(st.from, 'Energofish Partner Brief <hirlevel@energofish.hu>');
+  const tests = h('textarea', { class: 'inp', rows: 3, spellcheck: false, placeholder: 'nev@energofish.hu' });
+  tests.value = (st.internal_test_addresses || []).join('\n');
+  const count = h('input', { class: 'inp', type: 'number', min: 1, max: 50, value: st.test_count || 3, style: { width: '90px' } });
+  const utm = inp(st.utm, 'utm_source=partnerbrief&utm_medium=email&utm_campaign={kampany}');
+  const opens = h('input', { type: 'checkbox', checked: !!st.track_opens });
+  const links = h('select', { class: 'inp' }, PM_TRACK.map(([v, t]) => h('option', { value: v, selected: st.track_links === v, text: t })));
+  const oneClick = h('input', { type: 'checkbox', checked: !!st.one_click });
+  const replyRep = h('input', { type: 'checkbox', checked: !!st.reply_to_rep });
+  const row = (lbl, el, help) => h('div', { class: 'field', style: { marginTop: '12px' } }, h('div', { class: 'field-top' }, h('label', { text: lbl })), el, help ? h('div', { class: 'help', text: help }) : null);
+  const chk = (el, t, d) => h('label', { class: 'check-row' }, el, h('div', null, h('div', { class: 't', text: t }), h('div', { class: 'd', text: d })));
+  const done = () => bg.remove();
+  const save = async e => busy(e.currentTarget, async () => {
+    try {
+      S.pm = await api('/api/postmark/settings/save', {
+        liveToken: live.inp.value, sandboxToken: sandbox.inp.value, clearLive: live.clear.checked, clearSandbox: sandbox.clear.checked,
+        settings: { stream_id: stream.value.trim(), from: from.value.trim(), internal_test_addresses: tests.value.split(/[\s,;]+/).filter(Boolean),
+          test_count: +count.value || 3, campaign: (S.pmCampaign || st.campaign || '').trim(), track_opens: opens.checked, track_links: links.value,
+          utm: utm.value.trim(), one_click: oneClick.checked, reply_to_rep: replyRep.checked } });
+      S.pmCheck = null;
+      done();
+      toast('Postmark beállítások mentve.', 'ok');
+      renderSend();
+    } catch (err) { toast(err.message, 'err', { timeout: 10000 }); }
+  });
+  const bg = h('div', { class: 'modal-bg' }, h('div', { class: 'modal pm-modal', role: 'dialog' },
+    h('div', { class: 'mh', text: 'Postmark beállítások' }),
+    h('div', { class: 'mb' },
+      live.el, sandbox.el,
+      row('Üzenetfolyam (Message Stream ID)', stream, 'A hírlevelek broadcast streamje (alapból: broadcast).'),
+      row('Feladó (From)', from, 'Jóváhagyott (DKIM-mel ellenőrzött) energofish.hu címről.'),
+      row('Belső tesztcímek', tests, 'Soronként egy cím. A fiók teszt módjában csak @energofish.hu címre lehet küldeni.'),
+      row('Tesztlevelek száma címenként', count, 'A belső tesztben minden tesztcím ennyi különböző partner levelét kapja meg.'),
+      row('Link-kiegészítés (UTM)', utm, 'Minden kimenő linkhez hozzáfűzve (a leiratkozó és a mailto: linkek kivételével, és ahol már van utm_source). {kampany} = a kampány neve. Üresen nincs kiegészítés.'),
+      row('Linkkövetés (Postmark)', links, 'A Postmark linkkövetése csak a fiók jóváhagyása után működik.'),
+      h('div', { style: { marginTop: '8px' } },
+        chk(opens, 'Megnyitások mérése', 'A Postmark láthatatlan képpel méri a megnyitásokat.'),
+        chk(replyRep, 'Válaszcím: a partner területi képviselője', 'A partner a válaszával közvetlenül a saját képviselőjét éri el (ReplyTo). Képviselő nélkül a feladóhoz megy.'),
+        chk(oneClick, 'Egykattintásos leiratkozás (List-Unsubscribe-Post)', 'A Gmail és más levelezők „Leiratkozás” gombja POST kéréssel hívja meg a partner leiratkozó linkjét. Csak akkor kapcsold be, ha az energofish.hu leiratkozó oldala a POST kérést is kezeli.'))),
+    h('div', { class: 'mf' }, h('button', { class: 'btn btn-ghost', text: 'Mégse', onclick: done }), h('button', { class: 'btn btn-primary', onclick: save }, icon('save', 16), 'Mentés'))));
+  document.body.append(bg);
 }
 
 /* ------------------------------------------------------------------ sablonok */

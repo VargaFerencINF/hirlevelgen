@@ -24,7 +24,7 @@ Windowsos asztali program, amely egy partnerlistából **partnerenként legener�
 
 ---
 
-## Használat 5 lépésben
+## Használat 6 lépésben
 
 | Lépés | Mit csinálsz |
 |---|---|
@@ -33,6 +33,7 @@ Windowsos asztali program, amely egy partnerlistából **partnerenként legener�
 | **3. Termékek** | Az Excelből betöltött termékek: ki-be kapcsolás, sorrend, szövegjavítás. *Új termék:* keresés a friss cikktörzsben cikkszámra vagy névre, a mezők kitöltésével (lásd lent). Az Excel-fájlt nem módosítja. |
 | **4. Ellenőrzés** | Hibák és figyelmeztetések „Ugrás” gombbal a hibás mezőhöz; *Képek ellenőrzése* – letölti és méri a képeket. |
 | **5. Generálás** | Sablon, kimeneti mappa, fájlnév-minta, EML-piszkozatok. Egy gomb, és kész. |
+| **6. Küldés** | Kiküldés Postmarkon: beállítások, kampánynév, mód (validálás → sandbox → belső teszt → éles), ellenőrzés, küldés, napló (lásd lent). |
 
 Minden beállítás automatikusan mentődik; a program a következő indításkor ugyanonnan folytatja (az utoljára használt Excelt is újraolvassa).
 
@@ -83,6 +84,48 @@ A **megszólítás** a *Tartalom › Megszólítás* mező szerint („Kedves {n
 **A leiratkozó linket a program soha nem nyitja meg** (egy megnyitás azonnal leiratkoztatná a partnert): az előnézetben helyettesítő link szerepel, a „Megnyitás” és a link-ellenőrzés tiltja, az áttekintő oldal figyelmeztet. A kész levelekben a valódi link van – ott se kattints rá.
 
 A partner **tokenje** (automatikus bejelentkezés) titkosan tárolódik, de a linkekbe még **nem** kerül: a webes oldal elkészülte és a link-szabályok (paraméternév, csak energofish.hu linkek, UTM-ek) véglegesítése után kapcsolható be.
+
+## Küldés Postmarkon (1.4)
+
+A 6. lépés a kész, partnerenkénti leveleket a [Postmark](https://postmarkapp.com) REST API-ján küldi ki. A Postmark semmit nem renderel: minden partner pontosan azt a HTML-t kapja, amit a generálás is készít (ugyanaz a sablon és tartalom), csak a képek a **feltöltött képtárból** jönnek (a képtár webcíme kötelező, `cid:` vagy helyi kép nem lehet a levélben). A korábbi lépések és a Generálás nem változtak.
+
+**Postmark beállítások** (*Küldés › Postmark beállítások…*):
+
+| Beállítás | Mire való |
+|---|---|
+| Éles szerver API token | A Postmark szerver (pl. „My First Server”) *API Tokens* oldaláról. |
+| Sandbox szerver API token | Opcionális: egy *Sandbox* típusú Postmark-szerver tokenje (nem kézbesít, a levelek a Postmark felületén látszanak). |
+| Üzenetfolyam (stream) | A hírlevelek broadcast streamje, alapból `broadcast`. |
+| Feladó | Alapból `Energofish Partner Brief <hirlevel@energofish.hu>` (a domain DKIM-mel és Return-Pathszal ellenőrzött). |
+| Belső tesztcímek, tesztlevelek száma | A *Belső teszt* címzettjei; mindegyik ennyi különböző partner levelét kapja. |
+| Link-kiegészítés (UTM) | Alapból `utm_source=partnerbrief&utm_medium=email&utm_campaign={kampany}`: minden kimenő http(s) linkhez hozzáfűzve – a leiratkozó link, a `mailto:`/`tel:` és a már `utm_source`-ot tartalmazó linkek kivételével. |
+| Megnyitások mérése, linkkövetés | `TrackOpens` (alapból be), `TrackLinks` (alapból `None` – a Postmark linkkövetése csak a fiók jóváhagyása után működik). |
+| Válaszcím: a területi képviselő | `ReplyTo` = a partner képviselőjének e-mail címe (képviselő nélkül a feladó). |
+| Egykattintásos leiratkozás | `List-Unsubscribe-Post: List-Unsubscribe=One-Click` – csak akkor hagyd bekapcsolva, ha az energofish.hu leiratkozó oldala a POST kérést is kezeli (a Gmail „Leiratkozás” gombja így hívja meg). |
+
+A tokenek a beállítások mappájában, **titkosítva** tárolódnak (`postmark-tokenek.dat`, Windowson a felhasználói fiókhoz kötve); a többi beállítás a `postmark.json`-ban. A token soha nem kerül a forráskódba, az exe-be, naplóba, CSV-be vagy hibaüzenetbe, a felület csak a maszkolt alakot mutatja.
+
+**A négy mód:**
+
+1. **Validálás** (alapértelmezett) – `POSTMARK_API_TEST` tokennel: a Postmark ellenőrzi a kéréseket, de semmit nem küld el.
+2. **Sandbox** – a Sandbox szerverre; csak ha van Sandbox token.
+3. **Belső teszt** – az éles szerverről, de csak a tesztcímekre, `[TESZT]` tárggyal.
+4. **Éles** – a partnereknek. Csak „Custom” leiratkozás-kezelésű streamre küldhető, és a megerősítéshez be kell írni a címzettek számát.
+
+Teszt módokban (1–3) a levelekben a partner **valódi leiratkozó linkje helyett egy ártalmatlan helyettesítő link** áll (a fejlécben is), így egy tesztelő kattintása nem iratkoztathat le senkit. A program a leiratkozó linkeket soha nem hívja meg.
+
+**Ellenőrzés** (semmit nem küld): B2B halmaznál frissíti a partnertörzset; lekéri a stream beállítását (`UnsubscribeHandlingType`) és a letiltott címeket (`suppressions/dump`); összeállítja a leveleket, és összesíti a címzetteket, a kimaradókat (okkal) és a kötegek számát. Kimarad: a hibás vagy hiányzó cím, az ismétlődő cím, a Postmarkban letiltott cím (végleges visszapattanás, spamjelzés, Postmarkos leiratkozás), az Excel *Leiratkozott* oszlopában jelölt partner (igen / x / 1), az importált leiratkozott-listán szereplő cím, illetve ahol nincs érvényes leiratkozó link. Figyelmeztet a 100 KB-nál nagyobb levelekre (a Gmail levágja) és a képviselő nélküli partnerekre; letölti a képeket is (élesen az elérhetetlen kép megállítja a küldést).
+
+- **„Custom” stream:** minden levél `List-Unsubscribe: <a partner saját leiratkozó linkje>` fejlécet kap (ugyanaz a link, mint a láthatóban) és – ha be van kapcsolva – `List-Unsubscribe-Post` fejlécet.
+- **„Postmark” stream** (a fiók jóváhagyásáig): saját fejléc nincs (a Postmark a sajátját teszi be és egy saját leiratkozó linket is a levél aljára) – ez teszt módokban figyelmeztetés, élesen tiltott.
+
+**Küldés:** `POST /email/batch`, legfeljebb 500 levél kötegenként, a kötegek egymás után (egyszerre egy kapcsolat). Levelenként: From, To, ReplyTo, Subject, HtmlBody, TextBody (a levél szöveges változata), MessageStream, Tag (= kampány), Metadata (`partner_id`, `campaign`, `nazon`), TrackOpens, TrackLinks. A HTTP 200 nem jelenti, hogy minden levél kiment: a program levelenként nézi az `ErrorCode`-ot, és magyarul írja ki a hibát (pl. *„a fiók még teszt módban van: csak @energofish.hu címekre lehet küldeni”*). 429 és 5xx válasznál növekvő várakozással újrapróbál; egy elküldött, de válasz nélkül maradt köteget soha nem küld újra vakon („bizonytalan” állapot – nézd meg a Postmark *Activity* oldalán). A *Megszakítás* a folyamatban lévő köteget még befejezi.
+
+**Napló és folytatás:** kampányonként és módonként egy CSV a kimeneti mappában: `postmark-naplo\<kampány>_<mód>.csv` (UTF-8 BOM, Excelben megnyitható; oszlopok: `partner_id, email, rep_email, MessageID, ErrorCode, Message, mode, timestamp`). Ez az igazság forrása: ugyanazzal a kampánynévvel újraindítva a már sikeresen elküldött partnerek kimaradnak, így egy összeomlás, megszakítás vagy ismételt indítás sem küld duplán. Teszt módok naplója törölhető (*Teszt-napló törlése*), az élesé nem.
+
+**Visszajelzések frissítése:** lekéri a Postmark letiltott címeit, és CSV-be menti (`postmark-visszajelzesek_<dátum>.csv` a kimeneti mappában) a betöltött partnerek adataival – az Excel / partnertörzs frissítéséhez. **Leiratkozottak importálása:** bármilyen CSV vagy szövegfájl, amiben e-mail címek vannak; ezek a címek ezután soha nem kapnak levelet.
+
+**A Postmark fiók teszt módjában** (jóváhagyásig) összesen legfeljebb 100 levél küldhető, és csak `@energofish.hu` címekre – ilyenkor a *Belső teszt* használható, az éles küldés a Postmark jóváhagyása és a „Manage unsubscribes on your own” (Custom) beállítás után.
 
 ## Beállítások (⚙ a jobb felső sarokban)
 
@@ -219,6 +262,8 @@ A program ellenőrzi a sablont: ismeretlen `{{mezőt}}` használó fájlt nem ve
 
 ## Változások
 
+**1.4** – 6. lépés: **Küldés Postmarkon** – négy mód (validálás, sandbox, belső teszt, éles), küldés előtti ellenőrzés (stream-beállítás, letiltott címek, leiratkozottak, képek, méret), kötegelt küldés újrapróbálással, levelenkénti hibakezelés, CSV-napló a dupla küldés ellen, visszajelzések exportja; titkosított tokenek.
+
 **1.3.18** – a cseh célcsoport térképe újra csak Csehország (a helyes forrással a cseh kerületek jönnek).
 
 **1.3.17** – a spanyol („KÖZÖSSÉG - TARTOMÁNY”) Megye-értékek is a térképre kerülnek; a B2B COM célcsoportnál forgó földgömb ráközelítéssel.
@@ -240,6 +285,10 @@ A program ellenőrzi a sablont: ismeretlen `{{mezőt}}` használó fájlt nem ve
 | Jelenség | Megoldás |
 |---|---|
 | SmartScreen figyelmeztetés | *További információ → Futtatás mindenképp.* |
+| Küldés: „érvénytelen vagy hiányzó API token” | A *Postmark beállítások*ban a szerver *Server API token*jét add meg (nem az Account tokent). |
+| Küldés: „a fiók még teszt módban van…” | A Postmark fiók jóváhagyásáig csak `@energofish.hu` címekre lehet küldeni (Belső teszt). |
+| Éles küldés tiltva: leiratkozás-kezelés „Postmark” | A Postmarkban a broadcast streamen kapcsold be a „Manage unsubscribes on your own” beállítást (a fiók jóváhagyása után). |
+| „bizonytalan” levelek a küldési naplóban | A kapcsolat a küldés közben szakadt meg; a program ezeket nem küldi újra. Nézd meg a Postmark *Activity* oldalán, hogy kimentek-e. |
 | „Nem sikerült létrehozni az adatkönyvtárat” (Microsoft Edge), értelmetlen nevű mappák a program mellett, csak rendszergazdaként indul | A korábbi változatok hibája volt (a WebView2 adatmappa útvonala sérülhetett). Töltsd le a legfrissebb kiadást, a program mellett keletkezett furcsa nevű mappákat pedig nyugodtan töröld. Rendszergazdai jog nem kell. Ha mégis előjönne, a `naplo.txt` „WebView2 … betöltő … adatmappa” sora segít a hiba azonosításában. |
 | Böngészőben nyílik meg ablak helyett | Hiányzik a WebView2: [telepíthető a Microsofttól](https://developer.microsoft.com/microsoft-edge/webview2/), de böngészőben is minden működik. Kilépés: jobb felső menü → *Kilépés a programból*. |
 | Az Excel módosítása nem látszik | Mentsd a fájlt Excelben, majd *Újratöltés*. |
@@ -285,6 +334,7 @@ go run . -bongeszo      # fejlesztői futtatás böngészőben
 | `demo/`, `tools/minta_excel.py` | minta Excel és előállító szkriptje |
 | `web/terkepek.json`, `tools/terkepek.py` | a partnerválasztó országtérképei és a földgömb adatai, előállító szkriptjük (Natural Earth közkincs adatokból, mapshaperrel egyszerűsítve; a párosítás: `internal/hirlevel/maps.go`) |
 | `web/vendor/` | d3-geo és d3-array (ISC-licenc, `LICENSE-d3.txt`) a földgömb vetítéséhez |
+| `app_postmark.go`, `internal/hirlevel/postmark.go`, `send.go` | Postmark-küldés: beállítások és API, a Postmark REST kliens (újrapróbálás, hibakódok), a küldési terv (UTM, leiratkozó fejlécek, kizárások), kötegelés és napló |
 | `winres/` | ikon, manifest, verzióinfó (`go-winres make --in winres/winres.json --out rsrc`) |
 
 A `.github/workflows/windows-build.yml` minden pushnál Windows gépen fordít, lefuttatja a teszteket, az öntesztet és egy valódi WebView2-ablakos tesztet, az exe-t pedig letölthető artefaktként csatolja.

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -772,5 +774,191 @@ func TestAPIB2BMap(t *testing.T) {
 	}
 	if g, ok := gm["regions"].([]any)[0].(map[string]any)["g"].([]any); !ok || len(g) == 0 {
 		t.Error("COM: nincs alakzat")
+	}
+}
+
+// Postmark-küldés a felület API-ján át, hamis Postmark szerverrel.
+func TestAPIPostmarkSend(t *testing.T) {
+	const tok = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" // kitalált
+	var mu sync.Mutex
+	var sent []map[string]any
+	pm := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Postmark-Server-Token") != tok && r.Header.Get("X-Postmark-Server-Token") != "POSTMARK_API_TEST" {
+			w.WriteHeader(401)
+			fmt.Fprint(w, `{"ErrorCode":10,"Message":"Bad token"}`)
+			return
+		}
+		switch r.URL.Path {
+		case "/message-streams/broadcast":
+			fmt.Fprint(w, `{"ID":"broadcast","Name":"Broadcasts","MessageStreamType":"Broadcasts","SubscriptionManagementConfiguration":{"UnsubscribeHandlingType":"Custom"}}`)
+		case "/message-streams/broadcast/suppressions/dump":
+			fmt.Fprint(w, `{"Suppressions":[{"EmailAddress":"bolt2@example.com","SuppressionReason":"HardBounce","Origin":"Recipient","CreatedAt":"2026-10-01T10:00:00Z"}]}`)
+		case "/email/batch":
+			var msgs []map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&msgs)
+			mu.Lock()
+			sent = append(sent, msgs...)
+			mu.Unlock()
+			out := make([]map[string]any, len(msgs))
+			for i := range msgs {
+				out[i] = map[string]any{"ErrorCode": 0, "Message": "OK", "MessageID": fmt.Sprintf("m-%d", i), "To": msgs[i]["To"]}
+			}
+			_ = json.NewEncoder(w).Encode(out)
+		default:
+			w.WriteHeader(404)
+		}
+	}))
+	defer pm.Close()
+
+	data, _ := os.ReadFile("internal/hirlevel/testdata/b2b-minta.json")
+	dir := t.TempDir()
+	app, err := NewApp(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	app.postmarkBase = pm.URL
+	app.postmarkSleep = func(context.Context, time.Duration) error { return nil }
+	app.imageCheck = func(_ context.Context, ts []h.ImageTarget) []h.ImageCheck {
+		out := make([]h.ImageCheck, len(ts))
+		for i, x := range ts {
+			out[i] = h.ImageCheck{ImageTarget: x, Status: "ok"}
+		}
+		return out
+	}
+	out := filepath.Join(t.TempDir(), "kimenet")
+	app.state.Output.Dir = out
+	app.state.Content["assets.base"] = "https://kepek.example.com/hirlevel"
+	if _, err := app.b2b.ImportData("B2B_HU", data, "minta.json", false); err != nil {
+		t.Fatal(err)
+	}
+	if err := app.loadB2BSet("B2B_HU", h.PartnerFilter{Internal: "exclude"}, "", nil); err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(app.routes())
+	defer srv.Close()
+	noTok := func(where string, v any) {
+		t.Helper()
+		b, _ := json.Marshal(v)
+		if strings.Contains(string(b), tok) {
+			t.Errorf("%s: token a válaszban", where)
+		}
+	}
+
+	// beállítások: a token maszkolva látszik
+	_, v := call(t, srv, app.token, "/api/postmark/settings/save", map[string]any{"liveToken": tok,
+		"settings": map[string]any{"stream_id": "broadcast", "from": "Energofish Partner Brief <hirlevel@energofish.hu>", "internal_test_addresses": []string{"teszt@energofish.hu"},
+			"test_count": 2, "track_opens": true, "track_links": "None", "utm": h.DefaultUTM, "one_click": true, "reply_to_rep": true}})
+	noTok("settings", v)
+	if v["live"].(map[string]any)["set"] != true || !strings.Contains(v["live"].(map[string]any)["masked"].(string), "aaaa…") {
+		t.Fatalf("beállítások: %v", v)
+	}
+	if raw, _ := os.ReadFile(filepath.Join(dir, "postmark-tokenek.dat")); secretsProtected && strings.Contains(string(raw), tok) {
+		t.Error("a token nincs titkosítva")
+	}
+	if raw, _ := os.ReadFile(filepath.Join(dir, "postmark.json")); strings.Contains(string(raw), tok) {
+		t.Error("token a postmark.json-ban")
+	}
+
+	n := len(app.excel.Partners)
+	only := make([]int, n)
+	for i := range only {
+		only[i] = i
+	}
+	req := map[string]any{"mode": "eles", "campaign": "teszt-kampany", "only": only, "skipSync": true}
+	_, c := call(t, srv, app.token, "/api/postmark/check", req)
+	noTok("check", c)
+	plan := c["plan"].(map[string]any)
+	if _, ok := plan["errors"].([]any); !ok {
+		t.Error("a hibák listája null")
+	}
+	if c["ok"] != true || c["stream"].(map[string]any)["handling"] != "Custom" || c["suppressed"].(float64) != 1 {
+		t.Fatalf("ellenőrzés: %v", c)
+	}
+	recipients := int(plan["recipients"].(float64))
+	ex, _ := json.Marshal(plan["excluded"])
+	if recipients == 0 || !strings.Contains(string(ex), "bolt2@example.com") || !strings.Contains(string(ex), "HardBounce") {
+		t.Fatalf("terv: %d címzett, kizárva: %s", recipients, ex)
+	}
+
+	// élesen megerősítés nélkül nem indul
+	_, er := call(t, srv, app.token, "/api/postmark/send", req)
+	if resp := fmt.Sprint(er["error"]); !strings.Contains(resp, "címzettek számát") {
+		t.Errorf("megerősítés nélkül: %s", resp)
+	}
+	req["confirm"] = recipients
+	_, st := call(t, srv, app.token, "/api/postmark/send", req)
+	if st["started"] != true {
+		t.Fatalf("küldés: %v", st)
+	}
+	var job map[string]any
+	for i := 0; i < 200; i++ {
+		_, s := call(t, srv, app.token, "/api/postmark/status", nil)
+		job = s["job"].(map[string]any)
+		if job["running"] != true {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	p := job["progress"].(map[string]any)
+	if int(p["ok"].(float64)) != recipients || job["lastError"] != nil {
+		t.Fatalf("eredmény: %v", job)
+	}
+	mu.Lock()
+	first := sent[0]
+	mu.Unlock()
+	hdr, _ := json.Marshal(first["Headers"])
+	if first["MessageStream"] != "broadcast" || first["Tag"] != "teszt-kampany" || !strings.Contains(string(hdr), "List-Unsubscribe") ||
+		!strings.Contains(string(hdr), "leiratkozas.html") {
+		t.Errorf("levél: %v %s", first["To"], hdr)
+	}
+	logData, _ := os.ReadFile(job["logPath"].(string))
+	if strings.Contains(string(logData), tok) || strings.Count(string(logData), ";0;") != recipients {
+		t.Errorf("napló:\n%s", logData)
+	}
+
+	// újra: már mindenki megkapta, nem küld duplán
+	_, c = call(t, srv, app.token, "/api/postmark/check", req)
+	plan = c["plan"].(map[string]any)
+	if c["ok"] == true || int(plan["alreadySent"].(float64)) != recipients {
+		t.Errorf("ismételt ellenőrzés: %v", plan)
+	}
+	// az éles napló nem törölhető
+	if _, er := call(t, srv, app.token, "/api/postmark/log/clear", req); !strings.Contains(fmt.Sprint(er["error"]), "nem törölhető") {
+		resp := fmt.Sprint(er["error"])
+		t.Errorf("éles napló törlése: %s", resp)
+	}
+
+	// belső teszt: csak a tesztcímre, [TESZT] tárggyal, valódi leiratkozó link nélkül
+	mu.Lock()
+	sent = nil
+	mu.Unlock()
+	req = map[string]any{"mode": "belsoteszt", "campaign": "teszt-kampany", "only": only, "skipSync": true}
+	_, st = call(t, srv, app.token, "/api/postmark/send", req)
+	for i := 0; i < 200; i++ {
+		_, s := call(t, srv, app.token, "/api/postmark/status", nil)
+		if s["job"].(map[string]any)["running"] != true {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	mu.Lock()
+	if len(sent) != 2 {
+		t.Errorf("belső teszt: %d levél", len(sent))
+	}
+	for _, m := range sent {
+		b, _ := json.Marshal(m)
+		if m["To"] != "teszt@energofish.hu" || !strings.HasPrefix(m["Subject"].(string), "[TESZT] ") || strings.Contains(string(b), "leiratkozas.html") {
+			t.Errorf("tesztlevél: %v %v", m["To"], m["Subject"])
+		}
+	}
+	mu.Unlock()
+
+	// visszajelzések
+	_, fb := call(t, srv, app.token, "/api/postmark/feedback", nil)
+	if fb["hardBounce"].(float64) != 1 || fb["matched"].(float64) != 1 {
+		t.Errorf("visszajelzések: %v", fb)
+	}
+	if b, _ := os.ReadFile(fb["path"].(string)); !strings.Contains(string(b), "bolt2@example.com") {
+		t.Error("visszajelzés CSV")
 	}
 }
