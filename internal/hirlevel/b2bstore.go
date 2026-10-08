@@ -154,6 +154,9 @@ func (s *B2BStore) apply(group string, data []byte, status int, ferr error, star
 	list, rep, err := ParseB2BExport(data)
 	res.Report = rep
 	if err != nil {
+		if source != "" {
+			err = fmt.Errorf("%s: %w", source, err) // a fájl neve a hibaüzenetben
+		}
 		return fail(err, &rep)
 	}
 	next := db.Clone()

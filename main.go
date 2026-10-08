@@ -22,7 +22,7 @@ import (
 	h "energofish/hirlevel/internal/hirlevel"
 )
 
-var version = "1.4.0"
+var version = "1.4.1"
 
 const appTitle = "Energofish Partnerhírlevél-generátor"
 

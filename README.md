@@ -76,6 +76,7 @@ A **megszólítás** a *Tartalom › Megszólítás* mező szerint („Kedves {n
 
 **Szinkron (a partnertörzs saját, helyi adatbázisa):**
 
+- az export lehet lista (`[{…},{…}]`) vagy számozott kulcsú objektum (`{"0":{…},"1":{…},"3":{…}}` – a Webgalamb így írja ki, ha egy rekordot kiszűr a lista közepéről); a program mindkettőt kezeli, a rekordokat a sorszámok szerint olvassa, a lyukakat átugorja. Csak az `Email_cim` kötelező: e-mail cím nélküli rekord figyelmeztetéssel kimarad, a hiányzó vagy üres többi mező nem hiba. Ugyanaz az e-mail cím kétszer: egy partner lesz belőle (egy levél), az Ellenőrzés lépésben látszik, melyik rekord maradt ki.
 - új feliratkozó → bekerül; meglévő → frissül; aki újra feliratkozott → újra aktív; **aki kimaradt az exportból (leiratkozott vagy törölték) → inaktív**, és levelet nem kap. Partner soha nem törlődik, minden futás naplózódik (csak darabszámokkal).
 - az exporton belül többször szereplő e-mail egy partnerré vonódik össze; az érvénytelen rekordok kimaradnak; a „Torolt” tokenű partnerek token nélkül szerepelnek.
 - **biztonsági zár:** ha a letöltés hibás, üres, nem JSON, vagy az export a jelenlegi aktív partnerek 80%-ánál kevesebbet tartalmaz, **semmi nem változik** (a program figyelmeztet; tudatos döntéssel kényszeríthető).
@@ -262,6 +263,8 @@ A program ellenőrzi a sablont: ismeretlen `{{mezőt}}` használó fájlt nem ve
 
 ## Változások
 
+**1.4.1** – a Webgalamb export beolvasása robusztus: lista és számozott kulcsú objektum (lyukakkal, numerikus sorrendben), BOM, burkoló objektum; csak az e-mail cím kötelező, a hiányzó / null / számként érkező mezők nem okoznak hibát; magyar hibaüzenetek sor- és oszlopszámmal; az Ellenőrzés lépésben a beolvasás formátuma és a duplikált címek (melyik rekord maradt ki).
+
 **1.4** – 6. lépés: **Küldés Postmarkon** – négy mód (validálás, sandbox, belső teszt, éles), küldés előtti ellenőrzés (stream-beállítás, letiltott címek, leiratkozottak, képek, méret), kötegelt küldés újrapróbálással, levelenkénti hibakezelés, CSV-napló a dupla küldés ellen, visszajelzések exportja; titkosított tokenek.
 
 **1.3.18** – a cseh célcsoport térképe újra csak Csehország (a helyes forrással a cseh kerületek jönnek).
@@ -285,6 +288,7 @@ A program ellenőrzi a sablont: ismeretlen `{{mezőt}}` használó fájlt nem ve
 | Jelenség | Megoldás |
 |---|---|
 | SmartScreen figyelmeztetés | *További információ → Futtatás mindenképp.* |
+| A partnertörzs nem tölthető be / „ismeretlen szerkezetű” JSON | A Webgalamb export lehet lista vagy számozott objektum, az app mindkettőt kezeli. Ha mégis hibát jelez, a hibaüzenet megmondja a fájlnevet és a hiba sorát, oszlopát (pl. csonka letöltés, HTML hibaoldal érvénytelen token miatt). |
 | Küldés: „érvénytelen vagy hiányzó API token” | A *Postmark beállítások*ban a szerver *Server API token*jét add meg (nem az Account tokent). |
 | Küldés: „a fiók még teszt módban van…” | A Postmark fiók jóváhagyásáig csak `@energofish.hu` címekre lehet küldeni (Belső teszt). |
 | Éles küldés tiltva: leiratkozás-kezelés „Postmark” | A Postmarkban a broadcast streamen kapcsold be a „Manage unsubscribes on your own” beállítást (a fiók jóváhagyása után). |

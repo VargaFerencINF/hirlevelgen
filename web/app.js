@@ -1369,7 +1369,27 @@ function renderCheck() {
       h('div', { class: 'big' }, icon(ic, 28)),
       h('div', null, h('h3', { text: title }), h('p', { text: sub + (blocked ? ` Kimaradó partner: ${blocked}.` : '') }))),
     groups.map(g => issueGroup(g)),
+    b2bImportCard(),
     imageCard());
+}
+
+// A B2B partnertörzs legutóbbi beolvasása: rekordszám, formátum (lista / számozott objektum),
+// duplikált e-mail címek (melyik rekord maradt ki – címenként csak egy levél készül).
+function b2bImportCard() {
+  const im = S.excel && S.excel.b2b && S.excel.b2b.import;
+  if (!im) return null;
+  const dups = im.duplicates || [];
+  const row = (level, text) => h('div', { class: 'issue' },
+    h('span', { class: 'st ' + level }, icon(level === 'warn' ? 'alert' : 'info', 15)), h('div', { class: 'txt', text }));
+  const other = (im.warnings || []).slice(0, 20);
+  return h('div', { class: 'card issue-group' },
+    h('h4', null, icon('users', 18), 'Partnertörzs beolvasása', h('span', { style: { marginLeft: 'auto', display: 'flex', gap: '6px' } },
+      dups.length ? h('span', { class: 'pill warn', text: `${dups.length} duplikált cím` }) : h('span', { class: 'pill ok', text: 'rendben' }))),
+    row('info', `${im.records} rekord jött be, formátum: ${im.format || '–'} · ${im.unique} egyedi partner` +
+      (im.skipped ? ` · ${im.skipped} hibás rekord kimaradt` : '') + ` · ${im.source || 'letöltés a linkről'}, ${fmtTime(im.start)}`),
+    dups.map(d => row('warn', `Duplikált e-mail cím – ${d}. Címenként csak egy levél készül és megy ki.`)),
+    other.map(w => row('info', w)),
+    (im.warnings || []).length > other.length ? h('div', { class: 'more-row', text: `…és még ${im.warnings.length - other.length} megjegyzés.` }) : null);
 }
 
 function issueGroup(g) {

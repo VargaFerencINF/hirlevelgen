@@ -962,3 +962,82 @@ func TestAPIPostmarkSend(t *testing.T) {
 		t.Error("visszajelzés CSV")
 	}
 }
+
+// Végponttól végpontig: az új (számozott objektumos) Webgalamb export fájlból, partnerhalmaz,
+// generálás – címenként egy levél; hibás fájlnál érthető magyar hiba a fájlnévvel.
+func TestWebgalambImportAndGenerate(t *testing.T) {
+	app, err := NewApp(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := filepath.Join(t.TempDir(), "kimenet")
+	app.state.Output.Dir = out
+	srv := httptest.NewServer(app.routes())
+	defer srv.Close()
+	upload := func(name string, data []byte) map[string]any {
+		t.Helper()
+		req, _ := http.NewRequest(http.MethodPost, srv.URL+"/api/b2b/import", bytes.NewReader(data))
+		req.Header.Set("X-Token", app.token)
+		req.Header.Set("X-Group", "B2B_HU")
+		req.Header.Set("X-Filename", name)
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer res.Body.Close()
+		var m map[string]any
+		_ = json.NewDecoder(res.Body).Decode(&m)
+		return m
+	}
+	// hibás fájl: olvasható hiba, a program fut tovább, semmi nem változik
+	r := upload("rossz.json", []byte(`{"0":{"Email_cim":"a@example.com"},"1":`))
+	if f, _ := r["failed"].(string); !strings.Contains(f, "fájl: rossz.json") || !strings.Contains(f, "csonka") {
+		t.Errorf("hibás fájl: %v", r["failed"])
+	}
+	r = upload("ismeretlen.json", []byte(`{"valami":"más"}`))
+	if f, _ := r["failed"].(string); !strings.Contains(f, "gyökéreleme ismeretlen szerkezetű (várt: lista vagy számozott objektum)") {
+		t.Errorf("ismeretlen szerkezet: %v", r["failed"])
+	}
+
+	data, _ := os.ReadFile("internal/hirlevel/testdata/webgalamb-objektum-anon.json")
+	r = upload("webgalamb_37_B2B-teljes-celcsoport.json", data)
+	if r["failed"] != nil {
+		t.Fatalf("betöltés: %v", r["failed"])
+	}
+	lg := r["result"].(map[string]any)["log"].(map[string]any)
+	if lg["records"].(float64) != 568 || lg["unique"].(float64) != 566 || !strings.HasPrefix(lg["format"].(string), "számozott objektum") {
+		t.Errorf("napló: %v", lg)
+	}
+	_, ld := call(t, srv, app.token, "/api/b2b/load", map[string]any{"group": "B2B_HU", "filter": map[string]any{}})
+	ex := ld["excel"].(map[string]any)
+	im := ex["b2b"].(map[string]any)["import"].(map[string]any)
+	if len(im["duplicates"].([]any)) != 2 || !strings.Contains(im["duplicates"].([]any)[0].(string), "kimaradt") {
+		t.Errorf("duplikátumok az Ellenőrzéshez: %v", im["duplicates"])
+	}
+	parts := ex["partners"].([]any)
+	only := make([]int, len(parts))
+	for i := range only {
+		only[i] = i
+	}
+	_, g := call(t, srv, app.token, "/api/generate", map[string]any{"only": only, "skipSync": true})
+	if g["generated"] == nil {
+		t.Fatalf("generálás: %v", g)
+	}
+	csvData, _ := os.ReadFile(g["csv"].(string))
+	seen := map[string]bool{}
+	rows := strings.Split(strings.TrimSpace(string(csvData)), "\r\n")[1:]
+	for _, row := range rows {
+		e := strings.ToLower(strings.Split(row, ";")[1])
+		if seen[e] {
+			t.Errorf("kétszer generált cím: %s", e)
+		}
+		seen[e] = true
+	}
+	if int(g["generated"].(float64)) != len(parts) || len(rows) != len(parts) {
+		t.Errorf("generálva: %v, partner: %d, sor: %d", g["generated"], len(parts), len(rows))
+	}
+	htmls, _ := filepath.Glob(filepath.Join(g["folder"].(string), "html", "*.html"))
+	if len(htmls) != len(parts) {
+		t.Errorf("HTML fájlok: %d", len(htmls))
+	}
+}

@@ -221,9 +221,8 @@
 		"Token": "3130303130ababababababababababab"
 	},
 	{
-		"Email_cim": "hianyos@example.com",
 		"Nazon": "10011",
-		"Nev": "HIÁNYOS",
+		"Nev": "HIÁNYOS (nincs e-mail cím)",
 		"Telefonszam": "+36301234567",
 		"Feliratkozas_datum": "2024-01-10 10:00:00",
 		"Leiratkozas_link": "https://energofish.hu/leiratkozas.html?&c=31303031310000000000",

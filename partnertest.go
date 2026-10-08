@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"log"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -42,8 +43,10 @@ func runPartnerTest(group string) error {
 	if len(r.UnknownKeys) > 0 {
 		log.Printf("új (ismeretlen) mezők: %s", strings.Join(r.UnknownKeys, ", "))
 	}
+	log.Printf("formátum: %s; duplikált e-mail cím: %d", r.Format, len(r.Duplicates))
+	// a CI napló nyilvános lehet: e-mail cím és token nem kerülhet bele
 	for _, w := range r.Warnings {
-		log.Printf("figyelmeztetés: %s", h.MaskSecrets(w))
+		log.Printf("figyelmeztetés: %s", maskEmails(h.MaskSecrets(w)))
 	}
 	db, _ := s.DB(g.ID)
 	fc := h.B2BFacets(db, h.PartnerFilter{})
@@ -108,3 +111,8 @@ func boolInt(b bool) int {
 	}
 	return 0
 }
+
+var emailInText = regexp.MustCompile(`[^\s@,;:()"']+@([^\s@,;:()"']+)`)
+
+// maskEmails az e-mail címek helyi részét kitakarja („***@domain”).
+func maskEmails(s string) string { return emailInText.ReplaceAllString(s, "***@$1") }

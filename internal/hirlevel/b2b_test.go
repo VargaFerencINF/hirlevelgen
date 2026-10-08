@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -81,11 +82,11 @@ func TestParseB2BExport(t *testing.T) {
 
 func TestParseB2BExportErrors(t *testing.T) {
 	cases := map[string]string{
-		"":                  "JSON",
-		"[]":                "üres",
-		"<html>Hiba</html>": "nem JSON tömb",
-		`{"hiba":"token"}`:  "nem JSON tömb",
-		`[{"Email_cim":"a"},{"Email_cim":"b"},{"Email_cim":"c"}]`: "hiányoznak",
+		"":                                      "JSON",
+		"[]":                                    "üres",
+		"<html>Hiba</html>":                     "ismeretlen szerkezetű",
+		`{"hiba":"token"}`:                      "ismeretlen szerkezetű",
+		`[{"Nev":"a"},{"Nev":"b"},{"Nev":"c"}]`: "hiányzik az e-mail cím",
 	}
 	for in, want := range cases {
 		if _, _, err := ParseB2BExport([]byte(in)); err == nil || !strings.Contains(err.Error(), want) {
@@ -415,7 +416,8 @@ func TestB2BStoreSync(t *testing.T) {
 	}
 	for _, l := range db.Log {
 		b, _ := json.Marshal(l)
-		if strings.Contains(string(b), tok) || strings.Contains(string(b), "@example.com") {
+		// teljes e-mail cím nem lehet benne (a duplikátumoknál csak kitakart: „bel…@example.com”)
+		if strings.Contains(string(b), tok) || regexp.MustCompile(`[A-Za-z0-9._%+-]@example\.com`).MatchString(string(b)) {
 			t.Errorf("a naplóban titkos/személyes adat: %s", b)
 		}
 	}

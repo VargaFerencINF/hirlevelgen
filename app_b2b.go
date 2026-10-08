@@ -582,7 +582,7 @@ func (a *App) buildB2BData(group string, f h.PartnerFilter, name string, o h.B2B
 		}
 	}
 	ex.B2B = &h.B2BSetInfo{Group: group, Label: label, Name: name, Summary: h.FilterSummary(db, f), Filter: f,
-		SyncedAt: db.SyncedAt, Active: db.ActiveCount(), Selected: len(sel), NoMail: noMail}
+		SyncedAt: db.SyncedAt, Active: db.ActiveCount(), Selected: len(sel), NoMail: noMail, Import: db.LastImport()}
 	col := func(hdr, field, label, target string) h.Column {
 		return h.Column{Index: len(ex.PartnerColumns), Letter: "·", Header: hdr, Field: field, Label: label, Target: target}
 	}

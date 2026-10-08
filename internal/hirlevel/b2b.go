@@ -121,6 +121,8 @@ type ExportReport struct {
 	NoMail      int      `json:"noMail"`  // nem kaphat levelet (pl. hibás leiratkozó link)
 	UnknownKeys []string `json:"unknownKeys,omitempty"`
 	Warnings    []string `json:"warnings,omitempty"`
+	Format      string   `json:"format,omitempty"`     // lista / számozott objektum (lyukakkal, burkolva)
+	Duplicates  []string `json:"duplicates,omitempty"` // duplikált e-mail címek: melyik rekord maradt ki
 }
 
 func (r *ExportReport) warn(format string, a ...any) {
@@ -129,7 +131,12 @@ func (r *ExportReport) warn(format string, a ...any) {
 	}
 }
 
-var b2bRequired = []string{
+// b2bRequired a kötelező mező: enélkül a rekord kimarad (figyelmeztetéssel).
+var b2bRequired = []string{"Email_cim"}
+
+// b2bExpected a specifikáció mezői: hiányuk nem hiba (a rekord üres értékkel kerül be), de ha a
+// rekordok többségéből hiányzik egy, az export szerkezete valószínűleg megváltozott.
+var b2bExpected = []string{
 	"Email_cim", "Nazon", "Nev", "Telefonszam", "Feliratkozas_datum", "Leiratkozas_link",
 	"Teruleti_kepviselo_nev", "Teruleti_kepviselo_telefonszam", "Teruleti_kepviselo_email_cim",
 	"Teruleti_kepviselo_monogram", "Fix", "Bizomanyos", "Besor", "Megye", "Statusz", "Tulajdonsag_6", "Token",
@@ -137,7 +144,7 @@ var b2bRequired = []string{
 
 var b2bKnown = func() map[string]bool {
 	m := map[string]bool{"Partnerbolt_statusz": true}
-	for _, k := range b2bRequired {
+	for _, k := range b2bExpected {
 		m[k] = true
 	}
 	return m
@@ -151,11 +158,29 @@ var (
 )
 
 // parseYesNo: LANG_ADMIN_YES / igen → true, LANG_ADMIN_NO / nem → false (V12).
+// MaskEmail részben kitakart e-mail cím a naplóhoz („g.j…@energofish.hu”): a napló nem
+// tartalmazhat teljes személyes adatot, de a rekord így is felismerhető.
+func MaskEmail(e string) string {
+	at := strings.LastIndexByte(e, '@')
+	if at < 0 {
+		return "…"
+	}
+	local := []rune(e[:at])
+	n := 3
+	if len(local) <= 3 {
+		n = 1
+	}
+	if n > len(local) {
+		n = len(local)
+	}
+	return string(local[:n]) + "…" + e[at:]
+}
+
 func parseYesNo(s string) (bool, bool) {
 	switch strings.ToLower(b2bClean(s)) {
 	case "lang_admin_yes", "igen", "yes", "true", "1":
 		return true, true
-	case "lang_admin_no", "nem", "no", "false", "0":
+	case "lang_admin_no", "nem", "no", "false", "0", "": // hiányzó mező: nem
 		return false, true
 	}
 	return false, false
@@ -181,30 +206,37 @@ func jsonString(v any) string {
 // Hibát ad (és semmi nem változhat), ha az export nem JSON tömb, üres, vagy túl sok a hibás rekord.
 func ParseB2BExport(data []byte) ([]B2BPartner, ExportReport, error) {
 	var rep ExportReport
-	data = bytes.TrimPrefix(data, []byte("\xef\xbb\xbf"))
-	dec := json.NewDecoder(bytes.NewReader(data))
-	dec.UseNumber()
-	var raw []map[string]any
-	if err := dec.Decode(&raw); err != nil {
-		trim := bytes.TrimSpace(data)
-		if len(trim) > 0 && trim[0] != '[' {
-			return nil, rep, errors.New("a válasz nem JSON tömb (lehet, hogy a token érvénytelen vagy lejárt)")
-		}
-		return nil, rep, fmt.Errorf("a válasz nem értelmezhető JSON: %v", err)
+	wg, err := DecodeWebgalamb(data)
+	if err != nil {
+		return nil, rep, err
 	}
+	raw := wg.Records
+	rep.Format = wg.FormatLabel()
 	rep.Records = len(raw)
+	for _, w := range wg.Skipped {
+		rep.Skipped++
+		rep.warn("%s", w)
+	}
 	if len(raw) == 0 {
 		return nil, rep, errors.New("az export üres (0 partner) – biztonsági okból nem dolgozom fel")
 	}
 	unknown := map[string]bool{}
 	byEmail := map[string]int{}
 	var out []B2BPartner
+	var outLabel []string // a megtartott rekord helye a fájlban (a duplikátum-jelentéshez)
 	missingKeys := 0
+	absent := map[string]int{}
 	for i, obj := range raw {
 		get := func(k string) string { return b2bClean(jsonString(obj[k])) }
+		label := wg.Labels[i]
+		for _, k := range b2bExpected {
+			if _, ok := obj[k]; !ok {
+				absent[k]++
+			}
+		}
 		var missing []string
 		for _, k := range b2bRequired {
-			if _, ok := obj[k]; !ok {
+			if get(k) == "" {
 				missing = append(missing, k)
 			}
 		}
@@ -212,7 +244,7 @@ func ParseB2BExport(data []byte) ([]B2BPartner, ExportReport, error) {
 		if len(missing) > 0 {
 			rep.Skipped++
 			missingKeys++
-			rep.warn("%d. rekord (%s): hiányzó mező: %s – kihagyva", i+1, nazon, strings.Join(missing, ", "))
+			rep.warn("%s rekord (Nazon: %s): hiányzó vagy üres e-mail cím (Email_cim) – kihagyva", label, orDash(nazon))
 			continue
 		}
 		p := B2BPartner{
@@ -234,7 +266,7 @@ func ParseB2BExport(data []byte) ([]B2BPartner, ExportReport, error) {
 		}
 		if !emailRx.MatchString(p.Email) { // V01
 			rep.Skipped++
-			rep.warn("%d. rekord (%s): érvénytelen e-mail cím – kihagyva", i+1, nazon)
+			rep.warn("%s rekord (Nazon: %s): érvénytelen e-mail cím – kihagyva", label, orDash(nazon))
 			continue
 		}
 		var ok1, ok2 bool
@@ -242,7 +274,7 @@ func ParseB2BExport(data []byte) ([]B2BPartner, ExportReport, error) {
 		p.Commission, ok2 = parseYesNo(get("Bizomanyos"))
 		if !ok1 || !ok2 { // V12
 			rep.Skipped++
-			rep.warn("%d. rekord (%s): ismeretlen Fix/Bizomanyos érték – kihagyva", i+1, nazon)
+			rep.warn("%s rekord (Nazon: %s): ismeretlen Fix/Bizomanyos érték – kihagyva", label, orDash(nazon))
 			continue
 		}
 		if d := get("Feliratkozas_datum"); d != "" { // V15
@@ -263,7 +295,7 @@ func ParseB2BExport(data []byte) ([]B2BPartner, ExportReport, error) {
 		case !unsubRx.MatchString(u) && strings.Contains(u, "energofish.hu/leiratkozas"):
 			rep.warn("%s: a leiratkozó link szokatlan formátumú", nazon)
 		}
-		if p.WGStatus != "Aktív" { // V13
+		if p.WGStatus != "" && p.WGStatus != "Aktív" { // V13 (hiányzó mező: az export csak aktívakat ad)
 			rep.warn("%s: a forrásrendszer státusza „%s”", nazon, p.WGStatus)
 			if p.NoMail == "" {
 				p.NoMail = "a forrásrendszer státusza: " + p.WGStatus
@@ -272,9 +304,18 @@ func ParseB2BExport(data []byte) ([]B2BPartner, ExportReport, error) {
 		if p.RepMono == "" && p.RepName == "" { // V09
 			rep.NoRep++
 		}
-		if j, dup := byEmail[p.Email]; dup { // S04: összevonás
+		if j, dup := byEmail[p.Email]; dup { // S04: összevonás – címenként egy partner, egy levél
 			rep.Merged++
 			prev := &out[j]
+			kept, dropped := label, outLabel[j]
+			keptNazon, droppedNazon := p.Nazon, prev.Nazon
+			if p.Subscribed < prev.Subscribed {
+				kept, dropped, keptNazon, droppedNazon = dropped, kept, droppedNazon, keptNazon
+			} else {
+				outLabel[j] = label
+			}
+			rep.Duplicates = append(rep.Duplicates, fmt.Sprintf("%s: kétszer szerepel – a(z) %s rekord (Nazon: %s) adatai maradtak, a(z) %s rekord (Nazon: %s) kimaradt",
+				MaskEmail(p.Email), kept, orDash(keptNazon), dropped, orDash(droppedNazon)))
 			fix := prev.Fix || p.Fix
 			first := prev.Subscribed
 			if p.Subscribed != "" && (first == "" || p.Subscribed < first) {
@@ -288,9 +329,15 @@ func ParseB2BExport(data []byte) ([]B2BPartner, ExportReport, error) {
 		}
 		byEmail[p.Email] = len(out)
 		out = append(out, p)
+		outLabel = append(outLabel, label)
+	}
+	for _, k := range b2bExpected {
+		if n := absent[k]; k != "Email_cim" && n*2 > len(raw) {
+			rep.warn("a(z) %s mező a rekordok többségéből (%d/%d) hiányzik – megváltozott az export szerkezete?", k, n, len(raw))
+		}
 	}
 	if missingKeys >= 3 && missingKeys*20 > len(raw) { // S02: >5% hibás szerkezetű rekord (szerkezetváltozás)
-		return nil, rep, fmt.Errorf("az export %d rekordjából %d-ből hiányoznak kötelező mezők – a szerkezet megváltozott, a betöltés megszakítva", len(raw), missingKeys)
+		return nil, rep, fmt.Errorf("az export %d rekordjából %d-ből hiányzik az e-mail cím (Email_cim) – a szerkezet megváltozott, a betöltés megszakítva", len(raw), missingKeys)
 	}
 	if len(out) == 0 {
 		return nil, rep, errors.New("az exportban nincs egyetlen érvényes partner sem")
@@ -370,6 +417,10 @@ type ImportLog struct {
 	OK          bool      `json:"ok"`
 	Result      string    `json:"result"`
 	Warnings    []string  `json:"warnings,omitempty"`
+	Format      string    `json:"format,omitempty"`     // az export formátuma (lista / számozott objektum)
+	Merged      int       `json:"merged,omitempty"`     // duplikált e-mail címek miatt összevont rekordok
+	Skipped     int       `json:"skipped,omitempty"`    // hibás, kihagyott rekordok
+	Duplicates  []string  `json:"duplicates,omitempty"` // melyik rekord maradt ki
 }
 
 // ErrSuspiciousExport: az export gyanúsan kevés partnert tartalmaz (S01b).
@@ -412,7 +463,8 @@ func (db *B2BDB) addLog(l ImportLog) ImportLog {
 // Ha az export kevesebb partnert ad, mint a jelenlegi aktívak minRatio-szorosa,
 // és nincs force, semmi nem változik (ErrSuspiciousExport).
 func (db *B2BDB) Apply(list []B2BPartner, rep ExportReport, now time.Time, minRatio float64, force bool) (ImportLog, error) {
-	l := ImportLog{Group: db.Group, Start: now, Records: rep.Records, Unique: len(list), Unknown: rep.UnknownKeys, Warnings: rep.Warnings}
+	l := ImportLog{Group: db.Group, Start: now, Records: rep.Records, Unique: len(list), Unknown: rep.UnknownKeys, Warnings: rep.Warnings,
+		Format: rep.Format, Merged: rep.Merged, Skipped: rep.Skipped, Duplicates: rep.Duplicates}
 	active := db.ActiveCount()
 	if len(list) == 0 {
 		return l, errors.New("üres export")
@@ -467,6 +519,7 @@ func (db *B2BDB) LogFailure(now time.Time, httpStatus int, reason string, rep *E
 	l := ImportLog{Group: db.Group, Start: now, HTTP: httpStatus, Result: "megszakítva: " + reason, Active: db.ActiveCount()}
 	if rep != nil {
 		l.Records, l.Unique, l.Unknown, l.Warnings = rep.Records, rep.Unique, rep.UnknownKeys, rep.Warnings
+		l.Format, l.Merged, l.Skipped, l.Duplicates = rep.Format, rep.Merged, rep.Skipped, rep.Duplicates
 	}
 	return db.addLog(l)
 }
@@ -914,9 +967,21 @@ type B2BSetInfo struct {
 	Summary  string        `json:"summary"`
 	Filter   PartnerFilter `json:"filter"`
 	SyncedAt time.Time     `json:"syncedAt"`
-	Active   int           `json:"active"`   // aktív partnerek a célcsoportban
-	Selected int           `json:"selected"` // a halmazban
-	NoMail   int           `json:"noMail"`   // aktív, de nem kaphat levelet
+	Active   int           `json:"active"`           // aktív partnerek a célcsoportban
+	Selected int           `json:"selected"`         // a halmazban
+	NoMail   int           `json:"noMail"`           // aktív, de nem kaphat levelet
+	Import   *ImportLog    `json:"import,omitempty"` // a legutóbbi sikeres beolvasás (formátum, duplikátumok)
+}
+
+// LastImport a legutóbbi sikeres beolvasás naplója (nil, ha még nem volt).
+func (db *B2BDB) LastImport() *ImportLog {
+	for i := len(db.Log) - 1; i >= 0; i-- {
+		if db.Log[i].OK {
+			l := db.Log[i]
+			return &l
+		}
+	}
+	return nil
 }
 
 // FilterSummary a feltételek rövid, olvasható leírása.
