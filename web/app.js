@@ -1656,7 +1656,7 @@ function ftpResultBox(r) {
     h('ul', null, x[k].slice(0, 200).map(f => h('li', { text: f })))) : null;
   return h('div', null,
     h('div', { class: 'note ' + ((x.failed || []).length || r.probe ? 'warn' : 'ok'), style: { margin: '0 0 8px' } }, icon((x.failed || []).length || r.probe ? 'alert' : 'check'),
-      h('div', null, h('b', { text: ftpSummary(r) + '.' }), ` ${r.files} fájl a képtárban · ${r.secure ? 'titkosított (FTPS)' : 'titkosítás nélküli'} kapcsolat`,
+      h('div', null, h('b', { text: ftpSummary(r) + '.' }), ` ${r.files} fájl a képtárban · ${r.secure ? 'titkosított (FTPS)' : 'titkosítás nélküli'} kapcsolat` + (r.note ? ` (${r.note})` : ''),
         r.assetsBaseSet ? h('div', { text: `A képtár webcíme beállítva: ${r.assetsBase}` }) : null,
         r.probe ? h('div', { text: `Ellenőrzés: ${r.probeUrl} – ${r.probe}` }) : r.probeUrl ? h('div', { text: 'A képek elérhetők a megadott webcímen.' }) : null)),
     list('uploaded', 'Feltöltött új fájlok'), list('replaced', 'Felülírt fájlok'), list('changed', 'Eltérő méretű, fent hagyott fájlok', 'warn'),
@@ -1719,7 +1719,7 @@ async function openFtp() {
       h('button', { class: 'btn btn-outline', dataset: { busy: 'Kapcsolódás…' }, onclick: e => busy(e.currentTarget, async () => {
         try {
           const r = await api('/api/ftp/test', { settings: settings(), password: pass.value });
-          out.replaceChildren(h('div', { class: 'note ok' }, icon('check'), h('div', { text: `Kapcsolat rendben (${r.secure ? 'titkosított, FTPS' : 'titkosítás nélküli FTP'}) – a képtár mappájában ${r.files} fájl van.` })));
+          out.replaceChildren(h('div', { class: 'note ok' }, icon('check'), h('div', { text: `Kapcsolat rendben (${r.secure ? 'titkosított, FTPS' : 'titkosítás nélküli FTP'}) – a képtár mappájában ${r.files} fájl van.` + (r.note ? ` Titkosítás nélkül, mert ${r.note}.` : '') })));
         } catch (err) { out.replaceChildren(h('div', { class: 'note err' }, icon('error'), h('div', { text: err.message }))); }
       }) }, icon('zap', 16), 'Kapcsolat ellenőrzése'),
       h('button', { class: 'btn btn-outline', onclick: async () => { try { await save(); toast('Az FTP beállítások mentve.', 'ok'); } catch (err) { toast(err.message, 'err'); } } }, icon('save', 16), 'Mentés'),

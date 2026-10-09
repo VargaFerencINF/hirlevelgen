@@ -270,7 +270,7 @@ func ftpError(err error) error {
 	if errors.As(err, &te) {
 		hu := map[int]string{
 			421: "a szerver bontotta a kapcsolatot (túl sok kapcsolat vagy időtúllépés)",
-			425: "az adatkapcsolat nem jött létre (tűzfal / passzív mód)",
+			425: "az adatkapcsolat nem jött létre",
 			426: "az átvitel megszakadt",
 			430: "hibás felhasználónév vagy jelszó",
 			450: "a fájl most nem érhető el",
@@ -300,21 +300,77 @@ func ftpError(err error) error {
 	return errors.New(h.SafeNetErr(err))
 }
 
-// ftpConnect csatlakozik és bejelentkezik. Automatikus módban előbb titkosítva (FTPS) próbál,
-// és ha a szerver nem támogatja, titkosítás nélkül. Visszaadja, hogy titkosított-e a kapcsolat.
-func (a *App) ftpConnect(ctx context.Context, s FTPSettings, pw string) (*ftp.ServerConn, bool, error) {
+// ftpMode egy kapcsolódási mód.
+type ftpMode struct {
+	tls   bool
+	tls12 bool // legfeljebb TLS 1.2 (munkamenet-jegyekkel egyes szervereknél működik az újrahasználat)
+	label string
+}
+
+var (
+	ftpModeTLS   = ftpMode{tls: true, label: "titkosított (FTPS)"}
+	ftpModeTLS12 = ftpMode{tls: true, tls12: true, label: "titkosított (FTPS, TLS 1.2)"}
+	ftpModePlain = ftpMode{label: "titkosítás nélküli FTP"}
+)
+
+// ftpModes a kipróbálandó kapcsolódási módok sorrendben.
+func ftpModes(setting string) []ftpMode {
+	switch setting {
+	case "none":
+		return []ftpMode{ftpModePlain}
+	case "explicit":
+		return []ftpMode{ftpModeTLS, ftpModeTLS12}
+	}
+	return []ftpMode{ftpModeTLS, ftpModeTLS12, ftpModePlain}
+}
+
+func ftpCode(err error) int {
+	var te *textproto.Error
+	if errors.As(err, &te) {
+		return te.Code
+	}
+	return 0
+}
+
+// dataConnFailed igaz, ha az adatkapcsolat nem épült fel (pl. a szerver a titkosított
+// adatkapcsolatnál a vezérlő kapcsolat TLS-munkamenetének újrahasználatát kéri – ProFTPD).
+func dataConnFailed(err error) bool {
+	switch ftpCode(err) {
+	case 425, 426, 522:
+		return true
+	}
+	return false
+}
+
+// authUnsupported igaz, ha a szerver nem tud titkosítást (AUTH TLS).
+func authUnsupported(err error) bool {
+	switch ftpCode(err) {
+	case 500, 502, 504, 534, 431:
+		return true
+	}
+	return false
+}
+
+// ftpConnect csatlakozik, bejelentkezik, és egy listázással kipróbálja az adatkapcsolatot is.
+// Automatikus módban sorban próbálja: titkosítva (FTPS), titkosítva TLS 1.2-vel, végül
+// titkosítás nélkül – az elsőt használja, amelyikkel az adatkapcsolat is működik. A note
+// elmondja, miért nem a titkosított kapcsolat lett (ha nem az).
+func (a *App) ftpConnect(ctx context.Context, s FTPSettings, pw string) (*ftp.ServerConn, bool, string, error) {
 	if !s.configured() {
-		return nil, false, errors.New("az FTP nincs beállítva (szerver, felhasználó, mappa)")
+		return nil, false, "", errors.New("az FTP nincs beállítva (szerver, felhasználó, mappa)")
 	}
 	if pw == "" {
-		return nil, false, errors.New("nincs megadva az FTP jelszó")
+		return nil, false, "", errors.New("nincs megadva az FTP jelszó")
 	}
 	addr := net.JoinHostPort(s.Host, strconv.Itoa(s.Port))
-	dial := func(useTLS bool) (*ftp.ServerConn, error) {
+	dial := func(m ftpMode) (*ftp.ServerConn, error) {
 		opts := []ftp.DialOption{ftp.DialWithContext(ctx), ftp.DialWithTimeout(30 * time.Second)}
-		if useTLS {
-			opts = append(opts, ftp.DialWithExplicitTLS(&tls.Config{ServerName: s.Host, InsecureSkipVerify: !s.Verify,
-				ClientSessionCache: tls.NewLRUClientSessionCache(8), MinVersion: tls.VersionTLS12}))
+		if m.tls {
+			cfg := &tls.Config{ServerName: s.Host, InsecureSkipVerify: !s.Verify, ClientSessionCache: tls.NewLRUClientSessionCache(8), MinVersion: tls.VersionTLS12}
+			if m.tls12 {
+				cfg.MaxVersion = tls.VersionTLS12
+			}
+			opts = append(opts, ftp.DialWithExplicitTLS(cfg))
 		}
 		c, err := ftp.Dial(addr, opts...)
 		if err != nil {
@@ -326,25 +382,46 @@ func (a *App) ftpConnect(ctx context.Context, s FTPSettings, pw string) (*ftp.Se
 		}
 		return c, nil
 	}
-	switch s.TLS {
-	case "none":
-		c, err := dial(false)
-		return c, false, ftpError(err)
-	case "explicit":
-		c, err := dial(true)
-		return c, true, ftpError(err)
+	modes := ftpModes(s.TLS)
+	note := ""
+	var lastErr error
+	for i := 0; i < len(modes); i++ {
+		m := modes[i]
+		c, err := dial(m)
+		if err != nil {
+			if m.tls && authUnsupported(err) && modes[len(modes)-1] == ftpModePlain {
+				// a szerver nem tud titkosítást: egyből titkosítás nélkül
+				note = "a szerver nem támogatja a titkosítást"
+				i = len(modes) - 2
+				lastErr = err
+				continue
+			}
+			return nil, false, "", ftpError(err)
+		}
+		// az adatkapcsolat próbája (a gyökérmappa mindig létezik)
+		_, perr := c.List("/")
+		if perr == nil || !dataConnFailed(perr) {
+			if m.tls {
+				return c, true, "", nil
+			}
+			return c, false, note, nil
+		}
+		_ = c.Quit()
+		lastErr = perr
+		if m.tls {
+			note = "a szerver nem engedte a titkosított adatkapcsolatot (TLS-munkamenet újrahasználatát kéri)"
+		}
+		log.Printf("FTP: %s kapcsolattal az adatkapcsolat nem jött létre (%d), következő mód", m.label, ftpCode(perr))
 	}
-	c, err := dial(true)
-	if err == nil {
-		return c, true, nil
+	if dataConnFailed(lastErr) {
+		if s.TLS == "explicit" {
+			return nil, false, "", errors.New("a szerver nem engedi a titkosított adatkapcsolatot (" + strconv.Itoa(ftpCode(lastErr)) +
+				"): a vezérlő kapcsolat TLS-munkamenetének újrahasználatát kéri, amit a program nem tud. Megoldás: állítsd a Titkosítást „Automatikus”-ra (ekkor titkosítás nélkül tölt fel), vagy kérd a tárhelyszolgáltatótól a „TLSOptions NoSessionReuseRequired” beállítást")
+		}
+		return nil, false, "", errors.New("az adatkapcsolat nem jött létre (" + strconv.Itoa(ftpCode(lastErr)) +
+			") – a szerver vagy a tűzfal nem engedi a passzív módú adatkapcsolatot; kérdezd a tárhelyszolgáltatót, melyik portokat kell engedélyezni")
 	}
-	// a szerver nem tud titkosítást (AUTH TLS) → titkosítás nélkül
-	var te *textproto.Error
-	if errors.As(err, &te) && (te.Code == 500 || te.Code == 502 || te.Code == 504 || te.Code == 534 || te.Code == 431) {
-		c, err := dial(false)
-		return c, false, ftpError(err)
-	}
-	return nil, false, ftpError(err)
+	return nil, false, "", ftpError(lastErr)
 }
 
 // apiFTPTest kapcsolatpróba: bejelentkezés és a képtár mappájának listázása.
@@ -367,7 +444,7 @@ func (a *App) apiFTPTest(w http.ResponseWriter, r *http.Request) (any, error) {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
 	defer cancel()
-	c, secure, err := a.ftpConnect(ctx, s, pw)
+	c, secure, note, err := a.ftpConnect(ctx, s, pw)
 	if err != nil {
 		return nil, err
 	}
@@ -382,7 +459,7 @@ func (a *App) apiFTPTest(w http.ResponseWriter, r *http.Request) (any, error) {
 			n++
 		}
 	}
-	return map[string]any{"ok": true, "secure": secure, "files": n}, nil
+	return map[string]any{"ok": true, "secure": secure, "note": note, "files": n}, nil
 }
 
 // uploadAssets összegyűjti és feltölti a képtárat; ha kérve van, a képtár webcímét is beállítja.
@@ -401,7 +478,7 @@ func (a *App) uploadAssets(ctx context.Context) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	c, secure, err := a.ftpConnect(ctx, s, pw)
+	c, secure, note, err := a.ftpConnect(ctx, s, pw)
 	if err != nil {
 		return nil, err
 	}
@@ -411,7 +488,7 @@ func (a *App) uploadAssets(ctx context.Context) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	out := map[string]any{"result": res, "files": len(files), "secure": secure, "millis": time.Since(start).Milliseconds()}
+	out := map[string]any{"result": res, "files": len(files), "secure": secure, "note": note, "millis": time.Since(start).Milliseconds()}
 	log.Printf("képtár feltöltése FTP-re: %d fájl, %d új, %d felülírt, %d már fent volt, %d eltérő (kihagyva), %d hiba",
 		len(files), len(res.Uploaded), len(res.Replaced), len(res.Skipped), len(res.Changed), len(res.Failed))
 	if s.PublicURL != "" {

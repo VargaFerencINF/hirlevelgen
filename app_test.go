@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/textproto"
 	"os"
 	"path/filepath"
 	"strings"
@@ -1102,5 +1103,26 @@ func TestFTPSettings(t *testing.T) {
 	_, v = call(t, srv, app.token, "/api/ftp/settings/save", map[string]any{"clearPassword": true, "settings": s})
 	if v["password"] != false {
 		t.Error("a jelszó nem törlődött")
+	}
+}
+
+// FTP: a kapcsolódási módok sorrendje és az adatkapcsolati hiba felismerése (ProFTPD: 425,
+// ha a titkosított adatkapcsolat nem használja újra a vezérlő kapcsolat TLS-munkamenetét).
+func TestFTPModes(t *testing.T) {
+	if m := ftpModes("auto"); len(m) != 3 || !m[0].tls || !m[1].tls12 || m[2].tls {
+		t.Errorf("auto: %+v", m)
+	}
+	if m := ftpModes("explicit"); len(m) != 2 || !m[0].tls || !m[1].tls {
+		t.Errorf("explicit: %+v", m)
+	}
+	if m := ftpModes("none"); len(m) != 1 || m[0].tls {
+		t.Errorf("none: %+v", m)
+	}
+	e425 := &textproto.Error{Code: 425, Msg: "Unable to build data connection: Operation not permitted"}
+	if !dataConnFailed(e425) || dataConnFailed(&textproto.Error{Code: 550}) || !authUnsupported(&textproto.Error{Code: 502}) {
+		t.Error("hibakódok")
+	}
+	if !strings.Contains(ftpError(e425).Error(), "az adatkapcsolat nem jött létre") {
+		t.Error(ftpError(e425))
 	}
 }

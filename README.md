@@ -279,6 +279,8 @@ A program ellenőrzi a sablont: ismeretlen `{{mezőt}}` használó fájlt nem ve
 
 ## Változások
 
+**1.4.3** – FTP: ha a szerver nem engedi a titkosított adatkapcsolatot (425 – pl. ProFTPD, amely a TLS-munkamenet újrahasználatát kéri), automatikus módban a program magától TLS 1.2-vel, majd titkosítás nélkül próbálkozik, és kiírja, melyikkel sikerült.
+
 **1.4.2** – képtár feltöltése FTP-re (FTPS-sel is): beállító ablak titkosított jelszóval, a sablonok képei és saját képek feltöltése, a már fent lévő fájlok kihagyása, a képtár webcímének beállítása és ellenőrzése, automatikus feltöltés a küldés előtti ellenőrzésnél.
 
 **1.4.1** – a Webgalamb export beolvasása robusztus: lista és számozott kulcsú objektum (lyukakkal, numerikus sorrendben), BOM, burkoló objektum; csak az e-mail cím kötelező, a hiányzó / null / számként érkező mezők nem okoznak hibát; magyar hibaüzenetek sor- és oszlopszámmal; az Ellenőrzés lépésben a beolvasás formátuma és a duplikált címek (melyik rekord maradt ki).
@@ -306,6 +308,7 @@ A program ellenőrzi a sablont: ismeretlen `{{mezőt}}` használó fájlt nem ve
 | Jelenség | Megoldás |
 |---|---|
 | SmartScreen figyelmeztetés | *További információ → Futtatás mindenképp.* |
+| FTP: „425 Unable to build data connection: Operation not permitted” | A szerver (pl. ProFTPD) a titkosított adatkapcsolatnál a TLS-munkamenet újrahasználatát kéri. *Titkosítás: Automatikus* mellett a program magától titkosítás nélkül tölt fel (és kiírja); titkosítva csak akkor megy, ha a tárhelyszolgáltató bekapcsolja a „TLSOptions NoSessionReuseRequired” beállítást. |
 | FTP: „a szerver TLS-tanúsítványa nem ellenőrizhető” | IP címmel vagy saját aláírású tanúsítvánnyal csatlakozva kapcsold ki a *Tanúsítvány ellenőrzése* beállítást (a kapcsolat titkosított marad). |
 | FTP: a feltöltés kész, de „a webcím valószínűleg nem a feltöltési mappára mutat” | A *Képtár webcíme* és a *mappa a szerveren* nem ugyanaz a hely – pl. a mappa elejéről hiányzik vagy fölösleges a `/public_html`. |
 | A partnertörzs nem tölthető be / „ismeretlen szerkezetű” JSON | A Webgalamb export lehet lista vagy számozott objektum, az app mindkettőt kezeli. Ha mégis hibát jelez, a hibaüzenet megmondja a fájlnevet és a hiba sorát, oszlopát (pl. csonka letöltés, HTML hibaoldal érvénytelen token miatt). |
