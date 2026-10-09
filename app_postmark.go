@@ -506,9 +506,20 @@ func (a *App) apiPostmarkCheck(w http.ResponseWriter, r *http.Request) (any, err
 	if err := decode(r, &req); err != nil {
 		return nil, err
 	}
+	// képtár: ha be van állítva az FTP, a hiányzó képek feltöltése (a fent lévők kimaradnak)
+	var ftpRes map[string]any
+	var ftpErr error
+	if fs := a.loadFTPSettings(); fs.configured() && fs.AutoUpload && a.loadFTPPassword() != "" {
+		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Minute)
+		ftpRes, ftpErr = a.uploadAssets(ctx)
+		cancel()
+	}
 	prep, early, err := a.prepareSend(r.Context(), req, true)
 	if err != nil || early != nil {
 		return early, err
+	}
+	if ftpErr != nil {
+		prep.plan.Warnings = append(prep.plan.Warnings, "A képtár FTP-feltöltése nem sikerült: "+ftpErr.Error())
 	}
 	// képek: a feltöltött képtár minden képe elérhető-e
 	images := map[string]any{"checked": 0, "errors": []string{}, "warnings": 0}
@@ -546,7 +557,11 @@ func (a *App) apiPostmarkCheck(w http.ResponseWriter, r *http.Request) (any, err
 			}
 		}
 	}
-	return a.sendResponse(prep, map[string]any{"images": images}), nil
+	extra := map[string]any{"images": images}
+	if ftpRes != nil {
+		extra["ftp"] = ftpRes
+	}
+	return a.sendResponse(prep, extra), nil
 }
 
 // apiPostmarkSend elindítja a küldést a háttérben (egyszerre csak egy futhat).

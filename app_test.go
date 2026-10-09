@@ -1056,3 +1056,51 @@ func TestWebgalambImportAndGenerate(t *testing.T) {
 		t.Errorf("HTML fájlok: %d", len(htmls))
 	}
 }
+
+// FTP-beállítások: a jelszó külön, titkosítva; a felület csak azt látja, hogy be van-e állítva.
+func TestFTPSettings(t *testing.T) {
+	dir := t.TempDir()
+	app, err := NewApp(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	flushOnCleanup(t, app)
+	srv := httptest.NewServer(app.routes())
+	defer srv.Close()
+	const pw = "titkos-ftp-jelszo-42"
+	_, v := call(t, srv, app.token, "/api/ftp/settings/save", map[string]any{"password": pw,
+		"settings": map[string]any{"host": "ftp://ftp.example.com:2121/www/kepek", "user": " felhasznalo ", "tls": "valami", "verify": true,
+			"publicUrl": "https://example.com/kepek/", "setBase": true, "autoUpload": true}})
+	b, _ := json.Marshal(v)
+	if strings.Contains(string(b), pw) {
+		t.Error("a jelszó kiment a felületre")
+	}
+	s := v["settings"].(map[string]any)
+	if s["host"] != "ftp.example.com" || s["port"].(float64) != 2121 || s["remoteDir"] != "/www/kepek" || s["user"] != "felhasznalo" ||
+		s["tls"] != "auto" || s["publicUrl"] != "https://example.com/kepek" || v["password"] != true || v["configured"] != true {
+		t.Errorf("beállítások: %s", b)
+	}
+	if raw, _ := os.ReadFile(filepath.Join(dir, "ftp.json")); strings.Contains(string(raw), pw) {
+		t.Error("jelszó az ftp.json-ban")
+	}
+	if raw, _ := os.ReadFile(filepath.Join(dir, "ftp-jelszo.dat")); secretsProtected && strings.Contains(string(raw), pw) {
+		t.Error("a jelszó nincs titkosítva")
+	}
+	if app.loadFTPPassword() != pw {
+		t.Error("a jelszó nem olvasható vissza")
+	}
+	// hibás webcím
+	if _, e := call(t, srv, app.token, "/api/ftp/settings/save", map[string]any{"settings": map[string]any{"host": "x", "publicUrl": "example.com/kepek"}}); !strings.Contains(fmt.Sprint(e["error"]), "https://") {
+		t.Errorf("hibás webcím: %v", e)
+	}
+	// elérhetetlen szerver: érthető hiba, a jelszó nincs benne
+	_, e := call(t, srv, app.token, "/api/ftp/test", map[string]any{"settings": map[string]any{"host": "127.0.0.1", "port": 1, "user": "u", "remoteDir": "/x"}})
+	if msg := fmt.Sprint(e["error"]); msg == "<nil>" || strings.Contains(msg, pw) {
+		t.Errorf("elérhetetlen szerver: %v", e)
+	}
+	// jelszó törlése
+	_, v = call(t, srv, app.token, "/api/ftp/settings/save", map[string]any{"clearPassword": true, "settings": s})
+	if v["password"] != false {
+		t.Error("a jelszó nem törlődött")
+	}
+}

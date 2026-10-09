@@ -385,6 +385,11 @@ func (a *App) routes() http.Handler {
 		"/api/postmark/unsubs":        a.apiPostmarkUnsubs,
 		"/api/postmark/log/clear":     a.apiPostmarkLogClear,
 		"/api/postmark/feedback":      a.apiPostmarkFeedback,
+		"/api/ftp/settings":           a.apiFTPSettings,
+		"/api/ftp/settings/save":      a.apiFTPSettingsSave,
+		"/api/ftp/folder":             a.apiFTPFolder,
+		"/api/ftp/test":               a.apiFTPTest,
+		"/api/ftp/upload":             a.apiFTPUpload,
 		"/api/heartbeat":              a.apiHeartbeat,
 		"/api/quit":                   a.apiQuit,
 	}

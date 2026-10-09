@@ -370,6 +370,7 @@ function toggleMenu() {
     h('hr'),
     item('users', 'Partnerek a B2B partnertörzsből…', () => { setTab('adatok'); openPartnerSet(); }),
     item('link', 'Partnertörzs-források (linkek)…', () => openSources()),
+    item('upload', 'Képtár feltöltése (FTP)…', () => openFtp()),
     h('hr'),
     item('download', 'Minta Excel mentése…', saveDemo),
     item('plus', 'Sablon hozzáadása…', importTemplates),
@@ -1563,7 +1564,8 @@ function renderGenSummary() {
         h('div', { class: 'why', text: why.length ? why.join(' ') : (skipped ? `${skipped} kijelölt partner hibás e-mail cím miatt kimarad.` : 'Minden kijelölt partner megkapja a saját változatát.') })),
       btn),
     !String(S.state.content['assets.base'] || '').trim()
-      ? h('div', { class: 'note warn' }, icon('alert'), h('div', null, h('b', { text: 'A képtár webcíme üres. ' }), 'A levelek helyben jól látszanak (a képek a kimeneti mappába másolódnak), de kiküldés előtt az assets mappát fel kell tölteni egy https tárhelyre, és a címét megadni az Alapadatok között.'))
+      ? h('div', { class: 'note warn' }, icon('alert'), h('div', null, h('b', { text: 'A képtár webcíme üres. ' }), 'A levelek helyben jól látszanak (a képek a kimeneti mappába másolódnak), de kiküldés előtt az assets mappát fel kell tölteni egy https tárhelyre, és a címét megadni az Alapadatok között.',
+        h('div', { style: { marginTop: '8px' } }, h('button', { class: 'btn btn-outline btn-sm', onclick: () => openFtp() }, icon('upload', 15), 'Képtár feltöltése FTP-re…'))))
       : null);
 }
 
@@ -1621,6 +1623,118 @@ function renderGenResult() {
       h('ul', null, r.skipped.map(s => h('li', { text: `${s.row}. sor: ${s.name || s.email || '–'} – ${s.reason}` })))] : null));
 }
 
+/* ------------------------------------------------------------------ képtár feltöltése FTP-re */
+
+const FTP_TLS = [['auto', 'Automatikus (FTPS, ha a szerver tudja)'], ['explicit', 'Csak titkosítva (FTPS)'], ['none', 'Titkosítás nélkül (FTP)']];
+
+// Az FTP-feltöltés eredményének szöveges összegzése (és a képtár webcímének frissítése a felületen).
+function ftpSummary(r) {
+  const x = r.result || {};
+  const n = k => (x[k] || []).length;
+  const parts = [`${n('uploaded')} új kép feltöltve`];
+  if (n('replaced')) parts.push(`${n('replaced')} felülírva`);
+  parts.push(`${n('skipped')} már fent volt`);
+  if (n('changed')) parts.push(`${n('changed')} eltérő méretű (nem írta felül)`);
+  if (n('failed')) parts.push(`${n('failed')} hiba`);
+  return parts.join(', ');
+}
+
+function applyFtpResult(r) {
+  if (r && r.assetsBase && S.state.content['assets.base'] !== r.assetsBase) {
+    S.state.content['assets.base'] = r.assetsBase;
+    const inp = $('[data-key="assets.base"] .inp, .field[data-key="assets.base"] input');
+    if (inp) inp.value = r.assetsBase;
+    refreshPreview();
+    renderGenSummary();
+    if (S.tab === 'kuldes') renderSendActions();
+  }
+}
+
+function ftpResultBox(r) {
+  const x = r.result || {};
+  const list = (k, t, cls) => (x[k] || []).length ? h('details', { class: 'ftp-list' + (cls ? ' ' + cls : '') }, h('summary', { text: `${t} (${x[k].length})` }),
+    h('ul', null, x[k].slice(0, 200).map(f => h('li', { text: f })))) : null;
+  return h('div', null,
+    h('div', { class: 'note ' + ((x.failed || []).length || r.probe ? 'warn' : 'ok'), style: { margin: '0 0 8px' } }, icon((x.failed || []).length || r.probe ? 'alert' : 'check'),
+      h('div', null, h('b', { text: ftpSummary(r) + '.' }), ` ${r.files} fájl a képtárban · ${r.secure ? 'titkosított (FTPS)' : 'titkosítás nélküli'} kapcsolat`,
+        r.assetsBaseSet ? h('div', { text: `A képtár webcíme beállítva: ${r.assetsBase}` }) : null,
+        r.probe ? h('div', { text: `Ellenőrzés: ${r.probeUrl} – ${r.probe}` }) : r.probeUrl ? h('div', { text: 'A képek elérhetők a megadott webcímen.' }) : null)),
+    list('uploaded', 'Feltöltött új fájlok'), list('replaced', 'Felülírt fájlok'), list('changed', 'Eltérő méretű, fent hagyott fájlok', 'warn'),
+    list('failed', 'Hibák', 'err'), list('skipped', 'Már fent volt'));
+}
+
+async function openFtp() {
+  let v;
+  try { v = await api('/api/ftp/settings'); } catch (e) { toast(e.message, 'err'); return; }
+  const st = v.settings;
+  const inp = (val, ph, extra) => h('input', Object.assign({ class: 'inp', value: val || '', placeholder: ph || '', spellcheck: false, autocomplete: 'off' }, extra || {}));
+  const host = inp(st.host, 'ftp.energofish.hu vagy IP cím');
+  const port = inp(st.port || 21, '21', { type: 'number', min: 1, max: 65535, style: { width: '100px' } });
+  const user = inp(st.user, 'felhasználónév');
+  const pass = inp('', v.password ? 'beállítva – új jelszó beírásával cserélhető' : 'jelszó', { type: 'password', autocomplete: 'new-password' });
+  const clearPass = h('input', { type: 'checkbox' });
+  const tlsSel = h('select', { class: 'inp' }, FTP_TLS.map(([k, t]) => h('option', { value: k, selected: st.tls === k, text: t })));
+  const verify = h('input', { type: 'checkbox', checked: !!st.verify });
+  const remote = inp(st.remoteDir, '/public_html/hirlevel/assets');
+  const pub = inp(st.publicUrl, 'https://energofish.hu/hirlevel/assets');
+  const local = inp(st.localDir, 'nincs – csak a sablonok képei');
+  const overwrite = h('input', { type: 'checkbox', checked: !!st.overwrite });
+  const setBase = h('input', { type: 'checkbox', checked: !!st.setBase });
+  const auto = h('input', { type: 'checkbox', checked: !!st.autoUpload });
+  const out = h('div', { class: 'ftp-out' });
+  const settings = () => ({ host: host.value.trim(), port: +port.value || 21, user: user.value.trim(), tls: tlsSel.value, verify: verify.checked,
+    remoteDir: remote.value.trim(), publicUrl: pub.value.trim(), localDir: local.value.trim(), overwrite: overwrite.checked, setBase: setBase.checked, autoUpload: auto.checked });
+  const save = async () => {
+    const r = await api('/api/ftp/settings/save', { settings: settings(), password: pass.value, clearPassword: clearPass.checked });
+    pass.value = ''; clearPass.checked = false;
+    pass.placeholder = r.password ? 'beállítva – új jelszó beírásával cserélhető' : 'jelszó';
+    S.ftp = r;
+    return r;
+  };
+  const row = (lbl, el, help) => h('div', { class: 'field', style: { marginTop: '10px' } }, h('div', { class: 'field-top' }, h('label', { text: lbl })), el, help ? h('div', { class: 'help' }, help) : null);
+  const chk = (el, t, d) => h('label', { class: 'check-row' }, el, h('div', null, h('div', { class: 't', text: t }), h('div', { class: 'd', text: d })));
+  const done = () => { bg.remove(); if (S.tab === 'kuldes') renderSend(); };
+  const bg = h('div', { class: 'modal-bg' }, h('div', { class: 'modal pm-modal', role: 'dialog' },
+    h('div', { class: 'mh', text: 'Képtár feltöltése (FTP)' }),
+    h('div', { class: 'mb' },
+      h('p', { class: 'card-sub', text: 'A program feltölti a képtárat (a sablonok alapértelmezett képeit, a hozzáadott sablonok képeit és a saját képek mappáját) a webes tárhelyre. A szerveren már fent lévő fájlokat nem tölti fel újra.' }),
+      h('div', { class: 'ftp-grid hp' }, row('FTP szerver', host), row('Port', port)),
+      h('div', { class: 'ftp-grid' }, row('Felhasználó', user),
+        row('Jelszó', pass, v.password ? h('label', { class: 'pm-clear' }, clearPass, ' jelszó törlése') : 'Titkosítva tárolódik ezen a gépen.')),
+      row('Titkosítás', tlsSel),
+      chk(verify, 'Tanúsítvány ellenőrzése', 'IP címmel vagy saját aláírású tanúsítvánnyal kapcsold ki (a kapcsolat titkosított marad).'),
+      row('A képtár mappája a szerveren', remote, 'Pl. /public_html/hirlevel/assets – ha nem létezik, a program létrehozza.'),
+      row('A képtár webcíme', pub, 'Ahol ugyanez a mappa a weben elérhető. Feltöltés után ez lesz a levelekben a képtár webcíme (Tartalom › Alapadatok).'),
+      row('Saját képek mappája (opcionális)', h('div', { class: 'path-row' }, local,
+        h('button', { class: 'btn btn-outline btn-sm', onclick: async () => {
+          try { await save(); const r = await api('/api/ftp/folder'); if (!r.cancelled) { local.value = r.settings.localDir; S.ftp = r; } } catch (e) { toast(e.message, 'err'); }
+        } }, icon('folder', 16), 'Tallózás…')), 'Az itt lévő képek (png, jpg, gif, webp, svg) is felkerülnek; azonos nevű beépített képet felülírnak.'),
+      h('div', { style: { marginTop: '8px' } },
+        chk(overwrite, 'A módosított képek felülírása', 'Ha egy fájl már fent van, de más a mérete, felülírja. Kikapcsolva a fent lévő fájlokhoz nem nyúl.'),
+        chk(setBase, 'A képtár webcímének beállítása feltöltés után', 'A Tartalom › Alapadatok „Képtár webcíme” mezője a fenti webcímre áll.'),
+        chk(auto, 'Automatikus feltöltés a küldés előtti ellenőrzésnél', 'A Küldés lépés Ellenőrzés gombja előbb feltölti a hiányzó képeket.')),
+      out),
+    h('div', { class: 'mf' },
+      h('button', { class: 'btn btn-ghost', text: 'Bezárás', onclick: done }),
+      h('button', { class: 'btn btn-outline', dataset: { busy: 'Kapcsolódás…' }, onclick: e => busy(e.currentTarget, async () => {
+        try {
+          const r = await api('/api/ftp/test', { settings: settings(), password: pass.value });
+          out.replaceChildren(h('div', { class: 'note ok' }, icon('check'), h('div', { text: `Kapcsolat rendben (${r.secure ? 'titkosított, FTPS' : 'titkosítás nélküli FTP'}) – a képtár mappájában ${r.files} fájl van.` })));
+        } catch (err) { out.replaceChildren(h('div', { class: 'note err' }, icon('error'), h('div', { text: err.message }))); }
+      }) }, icon('zap', 16), 'Kapcsolat ellenőrzése'),
+      h('button', { class: 'btn btn-outline', onclick: async () => { try { await save(); toast('Az FTP beállítások mentve.', 'ok'); } catch (err) { toast(err.message, 'err'); } } }, icon('save', 16), 'Mentés'),
+      h('button', { class: 'btn btn-primary', dataset: { busy: 'Feltöltés…' }, onclick: e => busy(e.currentTarget, async () => {
+        try {
+          await save();
+          out.replaceChildren(h('div', { class: 'p-sub', text: 'Feltöltés folyamatban…' }));
+          const r = await api('/api/ftp/upload');
+          applyFtpResult(r);
+          out.replaceChildren(ftpResultBox(r));
+        } catch (err) { out.replaceChildren(h('div', { class: 'note err' }, icon('error'), h('div', { text: err.message }))); }
+      }) }, icon('upload', 16), 'Mentés és feltöltés'))));
+  document.body.append(bg);
+}
+
 /* ------------------------------------------------------------------ 6. Küldés (Postmark) */
 
 const PM_MODES = [
@@ -1646,6 +1760,8 @@ async function renderSend() {
     p.replaceChildren(secHead('06 / Küldés', 'Kiküldés Postmarkon'), h('div', { class: 'p-sub', text: 'Betöltés…' }));
     try { S.pm = await api('/api/postmark/settings'); } catch (e) { p.append(h('div', { class: 'note err' }, icon('error'), h('div', { text: e.message }))); return; }
   }
+  if (!S.ftp) { try { S.ftp = await api('/api/ftp/settings'); } catch (e) { S.ftp = null; } }
+  const fs = S.ftp && S.ftp.settings;
   const pm = S.pm, st = pm.settings;
   if (!S.pmMode) S.pmMode = ls('pmMode') || 'validalas';
   if (S.pmCampaign == null) S.pmCampaign = st.campaign || pmDefaultCampaign();
@@ -1675,6 +1791,13 @@ async function renderSend() {
         h('button', { class: 'btn btn-outline btn-sm', onclick: openPostmarkSettings }, icon('gear', 16), 'Postmark beállítások…'),
         pm.live.set ? h('button', { class: 'btn btn-ghost btn-sm', dataset: { busy: 'Ellenőrzés…' }, onclick: e => busy(e.currentTarget, () => pmTest('live')) }, icon('zap', 16), 'Kapcsolat ellenőrzése') : null),
       !pm.protected && (pm.live.set || pm.sandbox.set) ? h('div', { class: 'note warn', style: { margin: '12px 0 0' } }, icon('alert'), h('div', { text: 'Ezen a rendszeren a tokenek nincsenek titkosítva (csak Windowson érhető el a titkosítás).' })) : null),
+    h('div', { class: 'card card-pad' },
+      h('div', { class: 'card-title' }, icon('upload'), 'Képtár (FTP)'),
+      h('div', { class: 'pm-grid' },
+        h('div', { class: 'pm-kv' }, h('span', { text: 'Képtár webcíme a levelekben' }), String(S.state.content['assets.base'] || '').trim() ? h('b', { text: S.state.content['assets.base'] }) : h('span', { class: 'p-sub', text: 'üres – kiküldéshez kötelező' })),
+        h('div', { class: 'pm-kv' }, h('span', { text: 'FTP' }), S.ftp && S.ftp.configured ? h('b', { text: `${fs.user}@${fs.host} · ${fs.remoteDir}` + (fs.autoUpload ? ' · automatikus feltöltés az ellenőrzésnél' : '') }) : h('span', { class: 'p-sub', text: 'nincs beállítva' }))),
+      h('div', { class: 'btn-row', style: { marginTop: '12px' } },
+        h('button', { class: 'btn btn-outline btn-sm', onclick: () => openFtp() }, icon('gear', 16), S.ftp && S.ftp.configured ? 'FTP beállítások és feltöltés…' : 'FTP beállítása…'))),
     h('div', { class: 'card card-pad' },
       h('div', { class: 'card-title' }, icon('zap'), 'Kampány és mód'),
       h('div', { class: 'field' }, h('div', { class: 'field-top' }, h('label', { text: 'Kampány neve' })), campaign,
@@ -1740,6 +1863,7 @@ async function pmCheck() {
       if (r.sync.added) parts.push(`${r.sync.added} új partner bekerült`);
       if (parts.length) toast('Partnertörzs frissítve: ' + parts.join(', '), 'warn', { timeout: 9000 });
     }
+    if (r.ftp) applyFtpResult(r.ftp);
     S.pmCheck = { sig: pmSig(), r, skipSync: !!body.skipSync };
   } catch (e) { toast(e.message, 'err'); S.pmCheck = null; } finally {
     S.pmBusy = false;
@@ -1769,6 +1893,7 @@ function renderSendCheck() {
       h('div', { class: 'pm-kv' }, h('span', { text: 'Stream' }), r.stream ? h('b', { text: `${r.stream.id} · ${r.stream.type}` }) : h('span', { class: 'p-sub', text: 'nem ellenőrizhető' })),
       h('div', { class: 'pm-kv' }, h('span', { text: 'Leiratkozás kezelése' }), h('b', { text: handling === 'Custom' ? 'Custom (saját link + List-Unsubscribe fejléc)' : handling === 'Postmark' ? 'Postmark (a Postmark linkje is bekerül)' : (handling || 'ismeretlen') })),
       h('div', { class: 'pm-kv' }, h('span', { text: 'Letiltott címek a Postmarkban' }), h('b', { text: r.suppressed })),
+      r.ftp ? h('div', { class: 'pm-kv' }, h('span', { text: 'Képtár feltöltése (FTP)' }), h('b', { text: ftpSummary(r.ftp) })) : null,
       r.images ? h('div', { class: 'pm-kv' }, h('span', { text: 'Képek' }), h('b', { text: r.images.checked ? `${r.images.checked} ellenőrizve` + (r.images.errors.length ? `, ${r.images.errors.length} hibás` : ', mind elérhető') : '–' })) : null),
     pl.errors.length ? h('div', { class: 'note err', style: { marginTop: '14px' } }, icon('error'), h('div', null, h('b', { text: 'Nem küldhető: ' }), h('ul', null, pl.errors.map(e => h('li', { text: e }))))) : null,
     pl.warnings.length ? h('div', { class: 'note warn', style: { marginTop: '10px' } }, icon('alert'), h('div', null, h('ul', null, pl.warnings.map(e => h('li', { text: e }))))) : null,
@@ -3200,6 +3325,14 @@ async function openSettings(focus) {
   const srcSec = sec('sources', 'link', 'B2B partnertörzs-források', 'A célcsoportok (országok) tokenes exportlinkjei. A program mellé tett partnerforrasok.txt-t indításkor automatikusan beolvassa.',
     sourcesPanel(b2, null).el);
 
+  // képtár (FTP)
+  let ftpSt = null;
+  try { ftpSt = await api('/api/ftp/settings'); } catch (e) { /* nem akadály */ }
+  const ftpSec = sec('ftp', 'upload', 'Képtár (FTP)', 'A sablonok képei és a saját képek feltöltése a webes tárhelyre; a már fent lévő fájlokat nem tölti fel újra.',
+    h('div', { class: 'set-row' },
+      h('div', { class: 'set-path', text: ftpSt && ftpSt.configured ? `${ftpSt.settings.user}@${ftpSt.settings.host} · ${ftpSt.settings.remoteDir}` + (ftpSt.settings.publicUrl ? ` → ${ftpSt.settings.publicUrl}` : '') : 'nincs beállítva' }),
+      h('button', { class: 'btn btn-outline btn-sm', onclick: () => openFtp() }, icon('gear', 15), 'FTP beállítások és feltöltés…')));
+
   // alaphelyzet
   const resetSec = sec('reset', 'reset', 'Alaphelyzet', 'A betöltött adatok törlése a hírlevélből. A források, a beállítások és a közös tartalom megmaradnak.',
     h('div', { class: 'btn-row' },
@@ -3211,7 +3344,7 @@ async function openSettings(focus) {
         h('div', { class: 'p-sub', text: 'Minden beállítás az első indításkori értékre áll (a régiekről másolat készül). Ha a program el sem indul rendesen: EnergofishHirlevel.exe -alaphelyzet' })),
       h('button', { class: 'btn btn-dark btn-sm', onclick: () => openFactoryReset() }, icon('reset', 15), 'Visszaállítás…')));
 
-  const nav = h('div', { class: 'set-nav' }, [['import', 'Import Excel'], ['feed', 'Cikktörzs'], ['sources', 'Partnertörzs-források'], ['reset', 'Alaphelyzet']].map(([id, t]) =>
+  const nav = h('div', { class: 'set-nav' }, [['import', 'Import Excel'], ['feed', 'Cikktörzs'], ['sources', 'Partnertörzs-források'], ['ftp', 'Képtár (FTP)'], ['reset', 'Alaphelyzet']].map(([id, t]) =>
     h('button', { type: 'button', text: t, onclick: () => { const el = document.getElementById('set-' + id); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); } })));
   const done = () => { document.removeEventListener('keydown', key); bg.remove(); };
   const key = e => { if (e.key === 'Escape' && !document.querySelector('.modal-bg + .modal-bg')) done(); };
@@ -3219,7 +3352,7 @@ async function openSettings(focus) {
     h('div', { class: 'modal settings', role: 'dialog' },
       h('div', { class: 'mh' }, h('span', null, icon('gear', 18), ' Beállítások'), h('button', { class: 'x', title: 'Bezárás', onclick: done }, icon('x', 18))),
       nav,
-      h('div', { class: 'mb' }, importSec, feedSec, srcSec, resetSec),
+      h('div', { class: 'mb' }, importSec, feedSec, srcSec, ftpSec, resetSec),
       h('div', { class: 'mf' }, h('button', { class: 'btn btn-primary', text: 'Kész', onclick: done }))));
   document.body.append(bg);
   document.addEventListener('keydown', key);

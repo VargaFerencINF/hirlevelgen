@@ -128,6 +128,22 @@ Teszt módokban (1–3) a levelekben a partner **valódi leiratkozó linkje hely
 
 **A Postmark fiók teszt módjában** (jóváhagyásig) összesen legfeljebb 100 levél küldhető, és csak `@energofish.hu` címekre – ilyenkor a *Belső teszt* használható, az éles küldés a Postmark jóváhagyása és a „Manage unsubscribes on your own” (Custom) beállítás után.
 
+## Képtár feltöltése FTP-re (1.4.2)
+
+A levelek képei (logó, hullámok, borító, portré, a hozzáadott sablonok képei) kiküldéshez egy webes tárhelyen kell legyenek. A *Képtár feltöltése (FTP)* ablak (⚙ Beállítások › Képtár, a ⋮ menü, a Küldés lépés vagy a Generálás figyelmeztetése) ezt elvégzi:
+
+| Beállítás | Mire való |
+|---|---|
+| FTP szerver, port, felhasználó, jelszó | A tárhely FTP-adatai (a `ftp://szerver:port/mappa` alak is beírható). A jelszó titkosítva tárolódik (`ftp-jelszo.dat`, Windowson a felhasználói fiókhoz kötve), a felület csak azt mutatja, hogy be van-e állítva. |
+| Titkosítás | *Automatikus*: titkosítva (FTPS), ha a szerver tudja, különben sima FTP; *Csak titkosítva*; *Titkosítás nélkül*. IP címmel vagy saját aláírású tanúsítvánnyal kapcsold ki a *Tanúsítvány ellenőrzése* beállítást. |
+| A képtár mappája a szerveren | Pl. `/public_html/hirlevel/assets` – ha nincs ilyen, a program létrehozza. |
+| A képtár webcíme | Ahol ugyanez a mappa a weben látszik, pl. `https://energofish.hu/hirlevel/assets`. Feltöltés után ez lesz a *Képtár webcíme* (kikapcsolható), és a program egy képpel ellenőrzi, hogy tényleg elérhető-e. |
+| Saját képek mappája | Opcionális helyi mappa új képekkel (png, jpg, gif, webp, svg); azonos nevű beépített képet felülír. |
+| A módosított képek felülírása | Alapból ki: a szerveren már fent lévő fájlhoz a program nem nyúl, csak a hiányzókat tölti fel. Bekapcsolva az eltérő méretű fájlt felülírja. |
+| Automatikus feltöltés | A Küldés lépés *Ellenőrzés* gombja előbb feltölti a hiányzó képeket. |
+
+Feltöltésre kerül a beépített képtár (a sablonok alapértelmezett képei), a hozzáadott sablonok saját képei és a saját képek mappája. A szerveren már meglévő fájlt (azonos névvel és mérettel) nem tölti fel újra; az eredmény fájlonként látszik (új, felülírt, már fent volt, eltérő méretű, hiba). A *Kapcsolat ellenőrzése* bejelentkezik és kilistázza a mappát, semmit nem tölt fel. A generálás nem változott: üres képtár-webcímnél továbbra is a kimeneti mappába másolja a képeket.
+
 ## Beállítások (⚙ a jobb felső sarokban)
 
 - **Import Excel** – ha Excelből dolgozol, a program **csak a beállított nevű fájlt** olvassa be (alapból `Energofish_partner_hirlevel_minta.xlsx`): induláskor a megadott mappából (alapból a program mappája; korábbi változatról frissítve az eddig használt Excel mappája), behúzva vagy tallózva pedig bárhonnan, de csak ezzel a névvel. Más nevű Excelt a program nem tölt be, hanem megmondja, mi a várt név; partner nélküli (rossz) Excelt sem tölt be, a korábbi lista marad. A név és a mappa itt bármikor átírható; az *Adatok* lépésben a **Betöltés** gomb a beállított fájlt tölti be.
@@ -263,6 +279,8 @@ A program ellenőrzi a sablont: ismeretlen `{{mezőt}}` használó fájlt nem ve
 
 ## Változások
 
+**1.4.2** – képtár feltöltése FTP-re (FTPS-sel is): beállító ablak titkosított jelszóval, a sablonok képei és saját képek feltöltése, a már fent lévő fájlok kihagyása, a képtár webcímének beállítása és ellenőrzése, automatikus feltöltés a küldés előtti ellenőrzésnél.
+
 **1.4.1** – a Webgalamb export beolvasása robusztus: lista és számozott kulcsú objektum (lyukakkal, numerikus sorrendben), BOM, burkoló objektum; csak az e-mail cím kötelező, a hiányzó / null / számként érkező mezők nem okoznak hibát; magyar hibaüzenetek sor- és oszlopszámmal; az Ellenőrzés lépésben a beolvasás formátuma és a duplikált címek (melyik rekord maradt ki).
 
 **1.4** – 6. lépés: **Küldés Postmarkon** – négy mód (validálás, sandbox, belső teszt, éles), küldés előtti ellenőrzés (stream-beállítás, letiltott címek, leiratkozottak, képek, méret), kötegelt küldés újrapróbálással, levelenkénti hibakezelés, CSV-napló a dupla küldés ellen, visszajelzések exportja; titkosított tokenek.
@@ -288,6 +306,8 @@ A program ellenőrzi a sablont: ismeretlen `{{mezőt}}` használó fájlt nem ve
 | Jelenség | Megoldás |
 |---|---|
 | SmartScreen figyelmeztetés | *További információ → Futtatás mindenképp.* |
+| FTP: „a szerver TLS-tanúsítványa nem ellenőrizhető” | IP címmel vagy saját aláírású tanúsítvánnyal csatlakozva kapcsold ki a *Tanúsítvány ellenőrzése* beállítást (a kapcsolat titkosított marad). |
+| FTP: a feltöltés kész, de „a webcím valószínűleg nem a feltöltési mappára mutat” | A *Képtár webcíme* és a *mappa a szerveren* nem ugyanaz a hely – pl. a mappa elejéről hiányzik vagy fölösleges a `/public_html`. |
 | A partnertörzs nem tölthető be / „ismeretlen szerkezetű” JSON | A Webgalamb export lehet lista vagy számozott objektum, az app mindkettőt kezeli. Ha mégis hibát jelez, a hibaüzenet megmondja a fájlnevet és a hiba sorát, oszlopát (pl. csonka letöltés, HTML hibaoldal érvénytelen token miatt). |
 | Küldés: „érvénytelen vagy hiányzó API token” | A *Postmark beállítások*ban a szerver *Server API token*jét add meg (nem az Account tokent). |
 | Küldés: „a fiók még teszt módban van…” | A Postmark fiók jóváhagyásáig csak `@energofish.hu` címekre lehet küldeni (Belső teszt). |
@@ -337,6 +357,7 @@ go run . -bongeszo      # fejlesztői futtatás böngészőben
 | `sablonok/`, `assets/` | a tervező nyers (reszponzív) sablonjai és képeik; átalakítás betöltéskor |
 | `demo/`, `tools/minta_excel.py` | minta Excel és előállító szkriptje |
 | `web/terkepek.json`, `tools/terkepek.py` | a partnerválasztó országtérképei és a földgömb adatai, előállító szkriptjük (Natural Earth közkincs adatokból, mapshaperrel egyszerűsítve; a párosítás: `internal/hirlevel/maps.go`) |
+| `app_ftp.go`, `internal/hirlevel/ftpsync.go` | képtár feltöltése FTP-re: beállítások, kapcsolat (github.com/jlaffaye/ftp), a feltöltendő fájlok és a hiányzók feltöltése |
 | `web/vendor/` | d3-geo és d3-array (ISC-licenc, `LICENSE-d3.txt`) a földgömb vetítéséhez |
 | `app_postmark.go`, `internal/hirlevel/postmark.go`, `send.go` | Postmark-küldés: beállítások és API, a Postmark REST kliens (újrapróbálás, hibakódok), a küldési terv (UTM, leiratkozó fejlécek, kizárások), kötegelés és napló |
 | `winres/` | ikon, manifest, verzióinfó (`go-winres make --in winres/winres.json --out rsrc`) |

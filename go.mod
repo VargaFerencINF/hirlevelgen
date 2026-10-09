@@ -4,6 +4,7 @@ go 1.25.0
 
 require (
 	github.com/jchv/go-webview2 v0.0.0-20260205173254-56598839c808
+	github.com/jlaffaye/ftp v0.2.4
 	github.com/ncruces/zenity v0.10.15
 	github.com/xuri/excelize/v2 v2.11.0
 	golang.org/x/image v0.44.0
