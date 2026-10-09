@@ -1693,9 +1693,10 @@ async function openFtp() {
   };
   const row = (lbl, el, help) => h('div', { class: 'field', style: { marginTop: '10px' } }, h('div', { class: 'field-top' }, h('label', { text: lbl })), el, help ? h('div', { class: 'help' }, help) : null);
   const chk = (el, t, d) => h('label', { class: 'check-row' }, el, h('div', null, h('div', { class: 't', text: t }), h('div', { class: 'd', text: d })));
-  const done = () => { bg.remove(); if (S.tab === 'kuldes') renderSend(); };
+  const key = e => { if (e.key === 'Escape' && !bg.nextElementSibling?.classList.contains('modal-bg')) done(); };
+  const done = () => { document.removeEventListener('keydown', key); bg.remove(); if (S.tab === 'kuldes') renderSend(); };
   const bg = h('div', { class: 'modal-bg' }, h('div', { class: 'modal pm-modal', role: 'dialog' },
-    h('div', { class: 'mh', text: 'Képtár feltöltése (FTP)' }),
+    h('div', { class: 'mh' }, h('span', { text: 'Képtár feltöltése (FTP)' }), h('button', { class: 'x', title: 'Bezárás', onclick: () => done() }, icon('x', 18))),
     h('div', { class: 'mb' },
       h('p', { class: 'card-sub', text: 'A program feltölti a képtárat (a sablonok alapértelmezett képeit, a hozzáadott sablonok képeit és a saját képek mappáját) a webes tárhelyre. A szerveren már fent lévő fájlokat nem tölti fel újra.' }),
       h('div', { class: 'ftp-grid hp' }, row('FTP szerver', host), row('Port', port)),
@@ -1733,6 +1734,7 @@ async function openFtp() {
         } catch (err) { out.replaceChildren(h('div', { class: 'note err' }, icon('error'), h('div', { text: err.message }))); }
       }) }, icon('upload', 16), 'Mentés és feltöltés'))));
   document.body.append(bg);
+  document.addEventListener('keydown', key);
 }
 
 /* ------------------------------------------------------------------ 6. Küldés (Postmark) */
@@ -2058,7 +2060,8 @@ function openPostmarkSettings() {
   const replyRep = h('input', { type: 'checkbox', checked: !!st.reply_to_rep });
   const row = (lbl, el, help) => h('div', { class: 'field', style: { marginTop: '12px' } }, h('div', { class: 'field-top' }, h('label', { text: lbl })), el, help ? h('div', { class: 'help', text: help }) : null);
   const chk = (el, t, d) => h('label', { class: 'check-row' }, el, h('div', null, h('div', { class: 't', text: t }), h('div', { class: 'd', text: d })));
-  const done = () => bg.remove();
+  const key = e => { if (e.key === 'Escape' && !bg.nextElementSibling?.classList.contains('modal-bg')) done(); };
+  const done = () => { document.removeEventListener('keydown', key); bg.remove(); };
   const save = async e => busy(e.currentTarget, async () => {
     try {
       S.pm = await api('/api/postmark/settings/save', {
@@ -2073,7 +2076,7 @@ function openPostmarkSettings() {
     } catch (err) { toast(err.message, 'err', { timeout: 10000 }); }
   });
   const bg = h('div', { class: 'modal-bg' }, h('div', { class: 'modal pm-modal', role: 'dialog' },
-    h('div', { class: 'mh', text: 'Postmark beállítások' }),
+    h('div', { class: 'mh' }, h('span', { text: 'Postmark beállítások' }), h('button', { class: 'x', title: 'Bezárás', onclick: () => done() }, icon('x', 18))),
     h('div', { class: 'mb' },
       live.el, sandbox.el,
       row('Üzenetfolyam (Message Stream ID)', stream, 'A hírlevelek broadcast streamje (alapból: broadcast).'),
@@ -2088,6 +2091,7 @@ function openPostmarkSettings() {
         chk(oneClick, 'Egykattintásos leiratkozás (List-Unsubscribe-Post)', 'A Gmail és más levelezők „Leiratkozás” gombja POST kéréssel hívja meg a partner leiratkozó linkjét. Csak akkor kapcsold be, ha az energofish.hu leiratkozó oldala a POST kérést is kezeli.'))),
     h('div', { class: 'mf' }, h('button', { class: 'btn btn-ghost', text: 'Mégse', onclick: done }), h('button', { class: 'btn btn-primary', onclick: save }, icon('save', 16), 'Mentés'))));
   document.body.append(bg);
+  document.addEventListener('keydown', key);
 }
 
 /* ------------------------------------------------------------------ sablonok */

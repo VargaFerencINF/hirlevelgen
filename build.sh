@@ -3,7 +3,7 @@
 # Használat: ./build.sh [verzió]
 set -euo pipefail
 cd "$(dirname "$0")"
-VERSION="${1:-1.4.3}"
+VERSION="${1:-1.4.4}"
 mkdir -p dist
 go test ./...
 GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath \

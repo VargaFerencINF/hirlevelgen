@@ -646,8 +646,10 @@ input[type=checkbox]{width:17px;height:17px;accent-color:var(--orange);cursor:po
 .pm-excl summary{cursor:pointer;font-weight:700;padding:6px 0}
 .pm-excl table{margin-top:6px}
 .pm-clear{display:inline-flex;align-items:center;gap:4px;margin-left:8px;font-weight:600;color:var(--err)}
-.pm-modal{max-width:620px}
-.pm-modal .mb{max-height:70vh;overflow:auto}
+.pm-modal{max-width:620px;max-height:calc(100vh - 24px);display:flex;flex-direction:column}
+.pm-modal .mh{display:flex;align-items:center;gap:10px;flex:none}
+.pm-modal .mb{flex:1 1 auto;min-height:0;overflow:auto}
+.pm-modal .mf{flex:none;padding-top:12px;border-top:1px solid #eee}
 .gen-box .pm-light{background:transparent;color:#fff;border-color:#fff}
 .gen-box .pm-light:hover:not(:disabled){background:rgba(255,255,255,.1)}
 .pm-modal .field + .field{margin-top:12px}

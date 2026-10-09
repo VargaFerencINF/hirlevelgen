@@ -279,6 +279,8 @@ A program ellenőrzi a sablont: ismeretlen `{{mezőt}}` használó fájlt nem ve
 
 ## Változások
 
+**1.4.4** – Az FTP és a Postmark beállítások ablaka a fejlécben X gombbal (és Esc billentyűvel) is bezárható; kis képernyőn a gombsor mindig látszik, a tartalom görgethető.
+
 **1.4.3** – FTP: ha a szerver nem engedi a titkosított adatkapcsolatot (425 – pl. ProFTPD, amely a TLS-munkamenet újrahasználatát kéri), automatikus módban a program magától TLS 1.2-vel, majd titkosítás nélkül próbálkozik, és kiírja, melyikkel sikerült.
 
 **1.4.2** – képtár feltöltése FTP-re (FTPS-sel is): beállító ablak titkosított jelszóval, a sablonok képei és saját képek feltöltése, a már fent lévő fájlok kihagyása, a képtár webcímének beállítása és ellenőrzése, automatikus feltöltés a küldés előtti ellenőrzésnél.
