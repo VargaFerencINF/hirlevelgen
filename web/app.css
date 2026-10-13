@@ -473,6 +473,23 @@ input[type=checkbox]{width:17px;height:17px;accent-color:var(--orange);cursor:po
 .pill.dark{font-size:10px}
 
 /* képváltó a termékkártyán */
+.famsw-wrap[hidden]{display:none}
+.pcard .famsw-wrap{margin-right:30px}
+.famsw{border:1px solid var(--line);border-radius:10px;background:var(--soft)}
+.famsw summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;padding:6px 10px;font-size:12px;font-weight:700;color:var(--graphite);flex-wrap:wrap}
+.famsw summary::-webkit-details-marker{display:none}
+.famsw summary svg{transform:rotate(-90deg);transition:transform .15s;flex:none}
+.famsw[open] summary svg{transform:none}
+.famsw summary .fs-state{background:#fff;border:1px solid var(--line-2);border-radius:20px;padding:1px 9px;font-size:11px;color:var(--ink)}
+.famsw summary .fs-state.fam{background:var(--orange);border-color:var(--orange);color:#fff}
+.famsw summary small{font-weight:600;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1}
+.famsw .fs-body{padding:4px 10px 10px;display:flex;flex-direction:column;gap:8px}
+.famsw .fs-row{display:grid;grid-template-columns:84px 1fr;gap:8px;align-items:center}
+.famsw .fs-label{font-size:11px;font-weight:700;color:var(--muted)}
+.famsw .seg{display:flex;min-width:0;background:#fff}
+.famsw .seg button{flex:1 1 0;min-width:0;flex-direction:column;align-items:flex-start;gap:0;padding:4px 10px;font-size:12px;text-align:left}
+.famsw .seg button .fs-val{font-weight:500;font-size:11px;opacity:.75;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.famsw .fs-all{display:flex;gap:8px;flex-wrap:wrap;margin-top:2px}
 .imgsw{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px;align-items:center}
 .imgsw:empty{display:none}
 .imgsw .sw-label{font-size:11px;font-weight:700;color:var(--muted);margin-right:2px}

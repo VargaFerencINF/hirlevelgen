@@ -66,6 +66,9 @@ func (a *App) apiFeedSearch(w http.ResponseWriter, r *http.Request) (any, error)
 	have := map[string]bool{}
 	for _, p := range a.state.Products {
 		have[codeKey(p.Code)] = true
+		if p.Feed != nil { // főtermékre váltott cikk: a saját cikkszámával is szerepel
+			have[codeKey(p.Feed.Code)] = true
+		}
 	}
 	a.mu.Unlock()
 	res := make([]feedResult, len(found))
@@ -112,10 +115,14 @@ func (a *App) apiFeedImages(w http.ResponseWriter, r *http.Request) (any, error)
 	}
 	list := a.feed.Products()
 	out := map[string][]h.FeedImage{}
+	refs := map[string]*h.FeedRef{}
 	for _, c := range req.Codes {
-		if p := h.FindFeed(list, c); p != nil && len(p.Images) > 0 {
-			out[c] = p.Images
+		if p := h.FindFeed(list, c); p != nil {
+			refs[c] = p.Ref()
+			if len(p.Images) > 0 {
+				out[c] = p.Images
+			}
 		}
 	}
-	return map[string]any{"ready": len(list) > 0, "images": out}, nil
+	return map[string]any{"ready": len(list) > 0, "images": out, "refs": refs}, nil
 }

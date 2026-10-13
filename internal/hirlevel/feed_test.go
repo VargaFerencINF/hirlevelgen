@@ -223,6 +223,11 @@ func TestFeedToProduct(t *testing.T) {
 		a.Image != "https://images.energofish.hu/codeimage/C10000-327.JPG" || len(a.Images) != 7 {
 		t.Errorf("alap: %+v", a)
 	}
+	// a főtermékre váltáshoz: a cikk és a főtermék adatai
+	if f := a.Feed; f == nil || f.Code != "10000-327" || f.Name != "CRAB RED 12CM" || f.Family != list[0].Family ||
+		f.FamilyID != 24021 || f.Link != list[0].Link {
+		t.Errorf("főtermék: %+v", a.Feed)
+	}
 	a = list[0].ToProduct(FeedOptions{Price: "wholesale", Image: "small", Link: "pattern"})
 	if a.Price != "320\u00a0Ft + áfa" || a.Deal != "−19%, kifutó" || a.URL != "" || !strings.Contains(a.Image, "/smallimage/") {
 		t.Errorf("nagyker: %+v", a)

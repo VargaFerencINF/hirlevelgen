@@ -414,10 +414,15 @@ func feedDeal(list, sale int, badge string) string {
 	return ""
 }
 
+// Ref a cikk és a főtermék adatai (a termékkártya cikk/főtermék váltójához).
+func (p *FeedProduct) Ref() *FeedRef {
+	return &FeedRef{Code: p.Code, Name: p.Name, Family: p.Family, FamilyID: p.FamilyID, Link: p.Link}
+}
+
 // ToProduct a cikktörzs adataiból hírlevél-termék (utána szabadon szerkeszthető).
 func (p *FeedProduct) ToProduct(o FeedOptions) Product {
 	pr := Product{On: true, Code: p.Code, Name: p.Name, Desc: FeedDesc(p, 30), Alt: p.Name,
-		Images: append([]FeedImage(nil), p.Images...)}
+		Images: append([]FeedImage(nil), p.Images...), Feed: p.Ref()}
 	list, sale, suffix := p.Retail, p.RetailAkc, ""
 	if o.Price == "wholesale" {
 		list, sale, suffix = p.Wholesale, p.WholesaleAkc, " + áfa"

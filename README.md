@@ -279,6 +279,8 @@ A program ellenőrzi a sablont: ismeretlen `{{mezőt}}` használó fájlt nem ve
 
 ## Változások
 
+**1.4.5** – Termékek: a cikktörzsből jött cikkek kártyáján lenyitható „Cikk / Főtermék” fül – cikkenként átrakható a név (Fotermek), az azonosító (Fotermek id) és a gomb link (Termek_link) a főtermékre, és vissza.
+
 **1.4.4** – Az FTP és a Postmark beállítások ablaka a fejlécben X gombbal (és Esc billentyűvel) is bezárható; kis képernyőn a gombsor mindig látszik, a tartalom görgethető.
 
 **1.4.3** – FTP: ha a szerver nem engedi a titkosított adatkapcsolatot (425 – pl. ProFTPD, amely a TLS-munkamenet újrahasználatát kéri), automatikus módban a program magától TLS 1.2-vel, majd titkosítás nélkül próbálkozik, és kiírja, melyikkel sikerült.

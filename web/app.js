@@ -936,7 +936,13 @@ function productCard(pr, i) {
       syncSoon();
     });
     if (f.k === 'price') inp.addEventListener('blur', () => { const v = formatPrice(inp.value); if (v !== inp.value) { inp.value = v; pr.price = v; syncSoon(0); } });
-    if (f.k === 'code') inp.addEventListener('input', () => { if (pr.images) { delete pr.images; const fn = swRender.get(pr); if (fn) fn(); } lookupSoon(); });
+    if (f.k === 'code') inp.addEventListener('input', () => {
+      // a főtermék azonosítójára vagy a saját cikkszámára írt kód megtartja a cikk adatait
+      const keep = pr.feed && [pr.feed.code, String(pr.feed.familyId || '')].some(x => x && codeKey(x) === codeKey(inp.value));
+      if (pr.images && !keep) { delete pr.images; const fn = swRender.get(pr); if (fn) fn(); }
+      if (pr.feed && !keep) delete pr.feed;
+      lookupSoon();
+    });
     if (f.k === 'image') inp.addEventListener('input', () => { const fn = swRender.get(pr); if (fn) fn(); });
     upd();
     return h('div', { class: 'field' + (f.half ? ' half' : ''), dataset: { k: f.k } },
@@ -951,7 +957,7 @@ function productCard(pr, i) {
       h('div', { class: 'p-order' },
         h('button', { class: 'btn btn-ghost btn-sm', title: 'Feljebb', disabled: i === 0, onclick: () => moveProduct(i, -1) }, icon('up', 16)),
         h('button', { class: 'btn btn-ghost btn-sm', title: 'Lejjebb', disabled: i === S.state.products.length - 1, onclick: () => moveProduct(i, 1) }, icon('down', 16)))),
-    h('div', { class: 'fields' }, fields),
+    h('div', { class: 'fields' }, familySwitcher(pr), fields),
     h('button', { class: 'btn btn-ghost btn-sm btn-danger del', title: 'Termék törlése', onclick: () => removeProduct(i) }, icon('trash', 16)));
   updThumb();
   return card;
@@ -1054,17 +1060,26 @@ let lookupBusy = false;
 
 async function lookupImages() {
   if (lookupBusy || !S.feed || !S.feed.ready) return;
-  const want = S.state.products.filter(p => p.code && !(p.images && p.images.length) && !lookupDone.has(codeKey(p.code)));
+  const want = S.state.products.filter(p => feedCode(p) && !((p.images && p.images.length) && p.feed) && !lookupDone.has(codeKey(feedCode(p))));
   if (!want.length) return;
   lookupBusy = true;
   try {
-    const codes = [...new Set(want.map(p => p.code.trim()))];
+    const codes = [...new Set(want.map(feedCode))];
     const r = await api('/api/feed/images', { codes });
     if (!r.ready) return;
-    codes.forEach(c => { if (!r.images[c]) lookupDone.add(codeKey(c)); }); // a nem találtakat nem kérdezi újra
+    const refs = r.refs || {};
+    codes.forEach(c => { if (!r.images[c] || !refs[c]) lookupDone.add(codeKey(c)); }); // a nem találtakat nem kérdezi újra
     let changed = false;
     for (const p of want) {
-      const imgs = r.images[p.code.trim()];
+      const ref = refs[feedCode(p)];
+      if (ref && !p.feed) {
+        p.feed = ref;
+        changed = true;
+        const fn = famRender.get(p);
+        if (fn) fn();
+      }
+      if (p.images && p.images.length) continue;
+      const imgs = r.images[feedCode(p)];
       if (!imgs || !imgs.length) continue;
       p.images = imgs;
       // kézzel felvett termék üres képmezője: az előnyben részesített kép (az Excel-sorokét nem írja felül)
@@ -1081,7 +1096,7 @@ const lookupSoon = debounce(lookupImages, 700);
 // Egy (pl. kézzel felvett) termék üres mezőinek kitöltése a cikktörzsből.
 async function fillFromFeed(pr) {
   try {
-    const r = await api('/api/feed/products', { codes: [String(pr.code || '').trim()], options: feedOpts() });
+    const r = await api('/api/feed/products', { codes: [feedCode(pr)], options: feedOpts() });
     const f = r.products[0];
     if (!f) { toast('Ez a cikkszám nincs a cikktörzsben.', 'warn'); return; }
     const keys = ['name', 'desc', 'price', 'deal', 'image', 'url', 'alt'];
@@ -1092,10 +1107,67 @@ async function fillFromFeed(pr) {
     }
     for (const k of take) pr[k] = f[k];
     pr.images = f.images;
+    if (f.feed) pr.feed = f.feed;
     renderProducts();
     syncSoon(0);
     toast(`${take.filter(k => k !== 'alt').length} mező kitöltve a cikktörzsből – utána is szabadon átírható.`, 'ok');
   } catch (e) { toast(e.message, 'err'); }
+}
+
+// A cikk saját cikkszáma (főtermékre váltva is ezzel keres a cikktörzsben).
+function feedCode(p) { return String((p.feed && p.feed.code) || p.code || '').trim(); }
+
+// Cikk / főtermék váltó a termékkártyán (lenyitható fül): a név, az azonosító és a gomb link
+// cikkenként átrakható a főtermékre (a cikktörzs Fotermek neve és id-ja, Termek_link) és vissza.
+const famRender = new WeakMap();
+const famOpen = new WeakSet();
+
+function familySwitcher(pr) {
+  const box = h('div', { class: 'field famsw-wrap' });
+  const render = () => {
+    const f = pr.feed;
+    box.replaceChildren();
+    if (!f || !(f.family || f.familyId)) { box.hidden = true; return; }
+    box.hidden = false;
+    const pat = S.state.content['offer.urlPattern'] || '';
+    const rows = [
+      ['code', 'Azonosító', [['Cikkszám', f.code], ['Főtermék azonosító', f.familyId ? String(f.familyId) : '']]],
+      ['name', 'Név', [['Cikknév', f.name], ['Főtermék név', f.family]]],
+      ['url', 'Gomb link', [['Cikk oldala', /\{cikkszam\}/i.test(pat) ? resolveUrl(pat, f.code) : ''], ['Főtermék oldala', f.link]]],
+    ].map(([k, label, opts]) => [k, label, opts.filter(o => o[1])]).filter(r => r[2].length);
+    const cur = k => String(pr[k] || '').trim();
+    const isFam = (k, opts) => opts.length > 1 && cur(k) === opts[1][1];
+    const isArt = (k, opts) => cur(k) === opts[0][1] && !isFam(k, opts);
+    const famRows = rows.filter(r => r[2].length > 1);
+    // az állapot a névből és az azonosítóból adódik (a cikktörzs linkje alapból is a főtermék oldala)
+    const idRows = rows.filter(r => r[0] !== 'url');
+    const nFam = idRows.filter(([k, , o]) => isFam(k, o)).length;
+    const state = nFam && nFam === idRows.length ? 'Főtermék' : nFam ? 'Vegyes' : idRows.every(([k, , o]) => isArt(k, o)) ? 'Cikk' : 'Egyedi';
+    // a cikk eredeti gomb linkje: amit az „Új termék” is adna (webshop: a cikktörzs termékoldala)
+    const artUrl = feedOpts().link === 'pattern' ? '' : (f.link || '');
+    const set = (k, v) => {
+      const old = pr[k];
+      pr[k] = v;
+      if (k === 'name' && (!pr.alt || pr.alt === old)) pr.alt = v;
+    };
+    const apply = changes => { changes.forEach(([k, v]) => set(k, v)); renderProducts(); syncSoon(0); };
+    const det = h('details', { class: 'famsw', open: famOpen.has(pr) },
+      h('summary', null, icon('down', 14), h('span', { text: 'Cikk / Főtermék' }), h('b', { class: 'fs-state ' + (state === 'Főtermék' ? 'fam' : ''), text: state }),
+        h('small', { text: f.family ? `főtermék: ${f.family}${f.familyId ? ' (' + f.familyId + ')' : ''}` : '' })),
+      h('div', { class: 'fs-body' },
+        rows.map(([k, label, opts]) => h('div', { class: 'fs-row' }, h('span', { class: 'fs-label', text: label }),
+          h('div', { class: 'seg' }, opts.map(([t, v], j) => h('button', { type: 'button', class: (j ? isFam(k, opts) : isArt(k, opts)) ? 'on' : '', title: v,
+            onclick: () => apply([[k, v]]) }, h('span', { text: t }), h('small', { class: 'fs-val', text: v })))))),
+        h('div', { class: 'fs-all' },
+          famRows.length ? h('button', { type: 'button', class: 'btn btn-outline btn-sm', onclick: () => apply(famRows.map(([k, , o]) => [k, o[1][1]])) }, 'Mind a főtermékre') : null,
+          h('button', { type: 'button', class: 'btn btn-ghost btn-sm', title: 'Cikkszám és cikknév, a gomb link pedig az eredeti (a cikktörzs termékoldala)',
+            onclick: () => apply(idRows.map(([k, , o]) => [k, o[0][1]]).concat([['url', artUrl]])) }, 'Mind vissza a cikkre'))));
+    det.addEventListener('toggle', () => { if (det.open) famOpen.add(pr); else famOpen.delete(pr); });
+    box.append(det);
+  };
+  famRender.set(pr, render);
+  render();
+  return box;
 }
 
 // Képváltó a termékkártyán: a cikktörzsben kitöltött képméretek közül lehet választani.

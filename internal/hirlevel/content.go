@@ -29,6 +29,17 @@ type Product struct {
 	Row   int    `json:"row,omitempty"` // Excel sor (tájékoztató)
 	// Images a cikktörzsben talált képváltozatok (a termékkártyán ezek közül lehet váltani).
 	Images []FeedImage `json:"images,omitempty"`
+	// Feed a cikk és a főterméke a cikktörzsben (a termékkártyán cikkenként főtermékre váltható).
+	Feed *FeedRef `json:"feed,omitempty"`
+}
+
+// FeedRef egy cikk és a főtermék adatai a cikktörzsből.
+type FeedRef struct {
+	Code     string `json:"code"`               // a cikk cikkszáma (CikkszamK)
+	Name     string `json:"name"`               // a cikk neve (Termeknev)
+	Family   string `json:"family,omitempty"`   // a főtermék neve (Fotermek)
+	FamilyID int    `json:"familyId,omitempty"` // a főtermék azonosítója (Fotermek id)
+	Link     string `json:"link,omitempty"`     // a főtermék webshop oldala (Termek_link)
 }
 
 // Partner egy címzett az Excel első munkalapjáról.

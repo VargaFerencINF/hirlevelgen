@@ -333,6 +333,9 @@ func TestAPIFeed(t *testing.T) {
 	if res["ready"] != true || len(imgs) != 1 || len(imgs["10000327"].([]any)) != 7 {
 		t.Errorf("képek: %v", res)
 	}
+	if refs := res["refs"].(map[string]any); len(refs) != 1 || refs["10000327"].(map[string]any)["familyId"] != float64(24021) {
+		t.Errorf("főtermék: %v", res["refs"])
+	}
 }
 
 func TestAPIB2B(t *testing.T) {
