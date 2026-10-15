@@ -412,6 +412,16 @@ func TestAPIB2B(t *testing.T) {
 		t.Fatalf("betöltés: %v", ex)
 	}
 
+	// automatikus bejelentkezés bekapcsolva: a token a felületre és az előnézetbe sem kerül
+	app.mu.Lock()
+	app.state.Content[h.AutoLoginKey] = "1"
+	app.mu.Unlock()
+	_, al := call(t, srv, app.token, "/api/autologin", nil)
+	noSecret("autologin", al)
+	if al["partners"].(float64) != 7 || al["withToken"].(float64) == 0 {
+		t.Errorf("autologin: %v", al)
+	}
+	withLogin := 0
 	// az előnézetben a valódi leiratkozó link nem szerepel
 	for i := range parts {
 		req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/api/preview?p=%d", srv.URL, i), nil)
@@ -425,7 +435,21 @@ func TestAPIB2B(t *testing.T) {
 		if strings.Contains(string(body), "leiratkozas.html") || !strings.Contains(string(body), previewUnsubscribe) {
 			t.Fatalf("előnézet %d: a valódi leiratkozó link látszik", i)
 		}
+		for _, p := range list {
+			if tok, _ := p["Token"].(string); len(tok) == 32 && strings.Contains(string(body), tok) {
+				t.Fatalf("előnézet %d: a partner tokenje látszik", i)
+			}
+		}
+		if strings.Contains(string(body), "v="+previewLoginToken) {
+			withLogin++
+		}
 	}
+	if withLogin == 0 {
+		t.Error("az előnézetben nincs automatikus bejelentkezés-helyettesítő")
+	}
+	app.mu.Lock()
+	app.state.Content[h.AutoLoginKey] = ""
+	app.mu.Unlock()
 	if code, r := call(t, srv, app.token, "/api/openurl", map[string]any{"url": "https://energofish.hu/leiratkozas.html?&c=0123456789abcdef0123"}); code != 400 || !strings.Contains(r["error"].(string), "leiratkoz") {
 		t.Errorf("leiratkozó link megnyitása: %d %v", code, r)
 	}

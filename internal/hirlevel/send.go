@@ -44,6 +44,10 @@ func SendModeLabel(m string) string {
 // tesztelő kattintása így nem iratkoztathat le egy partnert.
 const TestUnsubscribeURL = "https://energofish.hu/?teszt-level-leiratkozas-letiltva"
 
+// TestLoginToken a teszt módokban a partner tokenje helyett áll az automatikus bejelentkezés
+// paraméterében (nem érvényes token: senkit nem jelentet be).
+const TestLoginToken = "teszt-level-token-letiltva"
+
 // DefaultUTM a kiküldött levelek linkjeihez fűzött paraméterek alapértéke.
 const DefaultUTM = "utm_source=partnerbrief&utm_medium=email&utm_campaign={kampany}"
 
@@ -136,7 +140,7 @@ func AddLinkParams(doc, params, unsub string) string {
 		if skipLink(u, unsub) {
 			return m
 		}
-		return p[1] + EscapeHTML(AppendParams(u, params)) + p[3]
+		return p[1] + EscapeHTML(AppendKeepLogin(u, params)) + p[3]
 	})
 }
 
@@ -151,7 +155,7 @@ func AddTextLinkParams(text, params, unsub string) string {
 		if skipLink(u, unsub) {
 			return u
 		}
-		return AppendParams(u, params)
+		return AppendKeepLogin(u, params)
 	})
 }
 
@@ -290,7 +294,14 @@ func BuildSendPlan(in SendInput) *SendPlan {
 			excl(p, strings.SplitN(r, ":", 2)[0], strings.TrimSpace(strings.SplitN(r, ":", 2)[1])+" – a partner többi címére megy")
 		}
 
-		d := Build(in.Content, in.Products, p, in.Tpl, "")
+		bp := p
+		if !live && p.Token != "" {
+			// teszt módban a partner valódi tokenje (automatikus bejelentkezés) nem kerülhet a levélbe
+			cp := *p
+			cp.Token = TestLoginToken
+			bp = &cp
+		}
+		d := Build(in.Content, in.Products, bp, in.Tpl, "")
 		unsub := strings.TrimSpace(d.Values["footer.unsubscribe.url"])
 		if !(strings.HasPrefix(unsub, "https://") || strings.HasPrefix(unsub, "http://")) || strings.ContainsAny(unsub, "{} ") {
 			excl(p, p.Email, "nincs érvényes leiratkozó link")

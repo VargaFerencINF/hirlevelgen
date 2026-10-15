@@ -246,6 +246,16 @@ func Generate(assets fs.FS, tpl *Template, c Content, products []Product, partne
 			break
 		}
 	}
+	if strings.TrimSpace(c[AutoLoginKey]) == "1" {
+		for _, r := range rows {
+			if LoginParam(r.p) != "" {
+				ib.WriteString(`<p style="background:#FBEAE8;color:#6B1712;border-radius:10px;padding:12px 16px;font-size:14px;line-height:20px;margin:0 0 16px">` +
+					`<strong>Figyelem:</strong> a termékek linkjei a partnerek automatikus bejelentkezését tartalmazzák (&amp;v=…). A megnyitott levélben ne kattints ` +
+					`ezekre a linkekre – a partner nevében lépnél be a weboldalra. A fájlokat ne add tovább.</p>`)
+				break
+			}
+		}
+	}
 	for _, r := range rows {
 		company := ""
 		if r.p.Company != "" {

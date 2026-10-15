@@ -365,6 +365,7 @@ func (a *App) routes() http.Handler {
 		"/api/feed/search":            a.apiFeedSearch,
 		"/api/feed/products":          a.apiFeedProducts,
 		"/api/feed/images":            a.apiFeedImages,
+		"/api/autologin":              a.apiAutoLogin,
 		"/api/b2b/state":              a.apiB2BState,
 		"/api/b2b/sources":            a.apiB2BSources,
 		"/api/b2b/sync":               a.apiB2BSync,
@@ -649,6 +650,21 @@ func (a *App) apiState(w http.ResponseWriter, r *http.Request) (any, error) {
 	a.state.Feed = s.Feed
 	a.scheduleSave()
 	return map[string]any{"issues": a.issuesLocked()}, nil
+}
+
+// apiAutoLogin hány betöltött partnernek van tokenje (az automatikus bejelentkezés kapcsolójához;
+// magát a tokent soha nem adja ki).
+func (a *App) apiAutoLogin(w http.ResponseWriter, r *http.Request) (any, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	parts := a.partners()
+	n := 0
+	for i := range parts {
+		if h.LoginParam(&parts[i]) != "" {
+			n++
+		}
+	}
+	return map[string]any{"partners": len(parts), "withToken": n}, nil
 }
 
 func (a *App) apiIssues(w http.ResponseWriter, r *http.Request) (any, error) {
@@ -942,6 +958,9 @@ func (a *App) takeNoticesLocked() []map[string]string {
 // previewUnsubscribe a partner leiratkozó linkjének helyettesítője az előnézetben.
 const previewUnsubscribe = "#leiratkozo-link-az-elonezetben-letiltva"
 
+// previewLoginToken az előnézetben a partner tokenje helyett (nem érvényes token).
+const previewLoginToken = "elonezet-token-helye"
+
 // isUnsubscribeURL igaz, ha a link leiratkozásnak tűnik (ilyet a program soha nem hív meg).
 func isUnsubscribeURL(s string) bool {
 	l := strings.ToLower(s)
@@ -1047,6 +1066,10 @@ func (a *App) renderPreview(pIdx int, tplID string, assetsBase string) (string, 
 		// a partner valódi leiratkozó linkje az előnézetben nem szerepelhet: egy kattintás
 		// (vagy megnyitás a böngészőben) azonnal leiratkoztatná
 		p.Unsubscribe = previewUnsubscribe
+	}
+	if p.Token != "" {
+		// a partner tokenje (automatikus bejelentkezés) az előnézetben sem szerepelhet
+		p.Token = previewLoginToken
 	}
 	d := h.Build(a.state.Content, a.state.Products, &p, tpl, assetsBase)
 	html, missing := tpl.Render(d)

@@ -891,6 +891,7 @@ function renderProducts() {
       exN ? h('button', { class: 'btn btn-outline btn-sm', onclick: e => busy(e.currentTarget, reloadProducts) }, icon('refresh', 16), 'Újratöltés az Excelből') : null,
       list.length ? h('button', { class: 'btn btn-ghost btn-sm btn-danger', title: 'Az összes termék törlése a hírlevélből', onclick: () => resetData(true, false) }, icon('trash', 16), 'Összes törlése') : null,
       h('button', { class: 'btn btn-primary btn-sm', onclick: openPicker }, icon('plus', 16), 'Új termék')),
+    autoLoginCard(),
     h('div', { id: 'pGeneral' }),
     list.length > MAX_PRODUCT_CARDS ? h('div', { class: 'note warn' }, icon('alert'), h('div', null, `${list.length} termék van betöltve – ez nem hírlevél-terméklista (egy levélbe legfeljebb 48 kerülhet). Csak az első ${MAX_PRODUCT_CARDS} látszik. `,
       h('button', { class: 'linkbtn', text: 'Összes törlése', onclick: () => resetData(true, false) }))) : null,
@@ -898,6 +899,29 @@ function renderProducts() {
   updateProductIssues();
   renderSteps();
   lookupImages();
+}
+
+// Automatikus bejelentkezés kapcsoló: a saját domainre mutató termék- és „teljes ajánlat”
+// linkek végére a partner tokenje kerül (&v=<Token>). A tokent a felület soha nem kapja meg.
+function autoLoginCard() {
+  const c = S.state.content;
+  const on = c['offer.autoLogin'] === '1';
+  const info = h('div', { class: 'al-info' });
+  const box = h('input', { type: 'checkbox', checked: on, onchange: e => {
+    c['offer.autoLogin'] = e.target.checked ? '1' : '';
+    card.classList.toggle('on', e.target.checked);
+    syncSoon(0); // a mentés után az előnézet is frissül
+  } });
+  const card = h('label', { class: 'card al-card' + (on ? ' on' : '') }, box,
+    h('div', null,
+      h('div', { class: 't', text: 'Automatikus bejelentkezés a linkekben' }),
+      h('div', { class: 'd', text: 'Bekapcsolva a termék- és a „teljes ajánlat” linkek legvégére a partner tokenje kerül (&v=…), így a B2B partner belépve érkezik a weboldalra (pl. csak belépéssel elérhető kampányoldalnál). Csak energofish-domainre mutató linknél; ha a partnernek nincs tokenje, kimarad. Az előnézetben és a teszt küldésekben a valódi token helyett helyettesítő áll.' }),
+      info));
+  api('/api/autologin').then(r => {
+    info.textContent = r.partners ? `${r.withToken} / ${r.partners} betöltött partnernek van tokenje.` : 'Még nincs betöltött partner.';
+    info.classList.toggle('warn', r.partners > 0 && r.withToken < r.partners);
+  }).catch(() => {});
+  return card;
 }
 
 function productPos(i) {

@@ -133,6 +133,8 @@ var Fields = []Field{
 	{Key: "offer.linkParams", Label: "Link-kiegészítés (UTM-paraméterek)", Group: "halado", Kind: "text", Tokens: true,
 		Placeholder: "utm_source=hirlevel&utm_medium=email&utm_campaign=2026-10",
 		Help:        "A termék- és „teljes ajánlat” linkek végére fűzi a program. Üresen hagyva nem módosít."},
+	// a Termékek lépés kapcsolója (nem jelenik meg a Közös tartalom csoportjaiban): "1" = be
+	{Key: AutoLoginKey, Label: "Automatikus bejelentkezés a linkekben", Group: "kapcsolo", Kind: "text"},
 }
 
 // FieldByKey kulcs szerinti keresés.

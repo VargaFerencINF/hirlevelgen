@@ -1,6 +1,8 @@
 package hirlevel
 
 import (
+	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -86,9 +88,13 @@ func Build(c Content, products []Product, p *Partner, tpl *Template, assetsFallb
 		values["rep.email.url"] = "mailto:" + e
 	}
 
-	// link-kiegészítés
+	// link-kiegészítés (az automatikus bejelentkezés a legvégére kerül)
 	params, _, _ := Expand(c["offer.linkParams"], tokens, false)
-	values["offer.more.url"] = AppendParams(values["offer.more.url"], params)
+	login := ""
+	if strings.TrimSpace(c[AutoLoginKey]) == "1" {
+		login = LoginParam(p)
+	}
+	values["offer.more.url"] = AddLogin(AppendParams(values["offer.more.url"], params), login)
 
 	// partnerenkénti felülírások az Excelből (oszlopfejléc = sablonkulcs)
 	for k, v := range p.Overrides {
@@ -108,9 +114,62 @@ func Build(c Content, products []Product, p *Partner, tpl *Template, assetsFallb
 
 	items := make([]map[string]string, 0, len(sel))
 	for _, pr := range sel {
-		items = append(items, BuildItem(c, pr, tokens, params))
+		it := BuildItem(c, pr, tokens, params)
+		it["url"] = AddLogin(it["url"], login)
+		items = append(items, it)
 	}
 	return &RenderData{Values: values, Items: items}
+}
+
+// AutoLoginKey a közös tartalom kapcsolója ("1" = be): a saját domainre mutató termék- és
+// „teljes ajánlat” linkek végére a partner tokenje kerül (&v=<Token>), ami a B2B partnert
+// automatikusan bejelentkezteti. Token nélküli partnernél a paraméter kimarad.
+const AutoLoginKey = "offer.autoLogin"
+
+var (
+	loginTokenRx = regexp.MustCompile(`^[0-9A-Za-z_-]{1,64}$`)
+	ownDomainRx  = regexp.MustCompile(`(^|\.)energofish\.[a-z]{2,}$`)
+	loginTailRx  = regexp.MustCompile(`[?&]v=[0-9A-Za-z_-]{1,64}$`)
+)
+
+// LoginParam a partner olvasói paramétere („v=<Token>”); üres, ha nincs (érvényes) tokenje.
+// A token titkos: a programban csak a levél linkjeibe kerül, naplóba és hibaüzenetbe nem.
+func LoginParam(p *Partner) string {
+	if p == nil || !loginTokenRx.MatchString(p.Token) {
+		return ""
+	}
+	return "v=" + p.Token
+}
+
+// OwnDomain igaz, ha a link az Energofish saját domainjére (vagy aldomainjére) mutat.
+func OwnDomain(u string) bool {
+	pu, err := url.Parse(strings.TrimSpace(u))
+	if err != nil || (pu.Scheme != "https" && pu.Scheme != "http") {
+		return false
+	}
+	return ownDomainRx.MatchString(strings.ToLower(pu.Hostname()))
+}
+
+// AddLogin a link legvégére teszi az olvasói paramétert (csak saját domainnél).
+func AddLogin(u, login string) string {
+	if login == "" || !OwnDomain(u) {
+		return u
+	}
+	return AppendParams(u, login)
+}
+
+// AppendKeepLogin a paramétereket a link végén álló olvasói paraméter (v=…) elé fűzi, hogy az
+// maradjon a legvégén (a Postmark-küldés kampány-UTM-je így is a token elé kerül).
+func AppendKeepLogin(u, params string) string {
+	frag := ""
+	if i := strings.IndexByte(u, '#'); i >= 0 {
+		u, frag = u[:i], u[i:]
+	}
+	loc := loginTailRx.FindStringIndex(u)
+	if loc == nil || strings.TrimSpace(params) == "" {
+		return AppendParams(u+frag, params)
+	}
+	return AppendParams(AppendParams(u[:loc[0]], params), u[loc[0]+1:]) + frag
 }
 
 // BuildItem egy terméktégla értékei.
