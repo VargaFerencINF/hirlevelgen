@@ -99,7 +99,7 @@ func LoadTemplates(fsys fs.FS, dir string) ([]*Template, error) {
 	return out, nil
 }
 
-// FindTemplate azonosító vagy rövid név (v1, v2, v4) szerint keres.
+// FindTemplate azonosító vagy rövid név (v1, v2) szerint keres.
 func FindTemplate(list []*Template, id string) *Template {
 	for _, t := range list {
 		if t.ID == id {

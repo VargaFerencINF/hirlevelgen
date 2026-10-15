@@ -271,7 +271,7 @@ func TestB2BToPartner(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rd := Build(c, nil, &p, FindTemplate(tpls, "v4"), "")
+	rd := Build(c, nil, &p, FindTemplate(tpls, "v1"), "")
 	if rd.Values["footer.unsubscribe.url"] != p.Unsubscribe || rd.Values["note.greeting"] != "Kedves Nagy Betű Bt.!" ||
 		rd.Values["note.body"] != "Nagy Betű Bt. | Nagy Betű Bt. | Gábor Bence | Bács-Kiskun megye | Bács-Kiskun | 10003 | Gyémánt | NAGY BETŰ BT." ||
 		rd.Values["rep.region"] != "Bács-Kiskun megye" || rd.Values["rep.name"] != "Gábor Bence" {
@@ -279,7 +279,7 @@ func TestB2BToPartner(t *testing.T) {
 	}
 	// „cégeknek tartalék” beállítással a cég a tartalék megszólítást kapja, a változók maradnak
 	pa := B2BToPartner(findB2B(list, "nagy.betu@example.com"), 3, "B2B_HU", B2BMapOptions{Greeting: "auto"})
-	rd = Build(c, nil, &pa, FindTemplate(tpls, "v4"), "")
+	rd = Build(c, nil, &pa, FindTemplate(tpls, "v1"), "")
 	if rd.Values["note.greeting"] != strings.TrimSpace(c["note.greetingFallback"]) || !strings.HasPrefix(rd.Values["note.body"], "Nagy Betű Bt. |") {
 		t.Errorf("tartalék megszólítás: %q %q", rd.Values["note.greeting"], rd.Values["note.body"])
 	}
@@ -291,13 +291,13 @@ func TestB2BToPartner(t *testing.T) {
 	for k := range p.Extra {
 		known[k] = true
 	}
-	for _, is := range ValidateContentFor(c, nil, FindTemplate(tpls, "v4"), known) {
+	for _, is := range ValidateContentFor(c, nil, FindTemplate(tpls, "v1"), known) {
 		if strings.Contains(is.Message, "ismeretlen változó") {
 			t.Errorf("ismert változó ismeretlennek jelölve: %s", is.Message)
 		}
 	}
 	unk := 0
-	for _, is := range ValidateContent(c, nil, FindTemplate(tpls, "v4")) {
+	for _, is := range ValidateContent(c, nil, FindTemplate(tpls, "v1")) {
 		if strings.Contains(is.Message, "ismeretlen változó") {
 			unk++
 		}

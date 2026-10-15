@@ -705,7 +705,6 @@ function renderContent() {
       h('div', { class: 'group-meta' }, h('span', { class: 'gstat' }), icon('chev', 18)));
     head.lastChild.lastChild.classList.add('chev');
     const body = h('div', { class: 'group-body' },
-      g.poll ? h('div', { class: 'inactive-note hidden', text: 'A kiválasztott sablon ezt a blokkot nem használja, a mezők értéke megmarad.' }) : null,
       h('div', { class: 'fields' }, fields.map(fieldRow)));
     card.append(head, body);
     p.append(card);
@@ -788,18 +787,16 @@ function showTokenBar(wrap, input) {
   input.addEventListener('blur', () => setTimeout(() => { if (document.activeElement !== input) bar.remove(); }, 150), { once: true });
 }
 
+// Az „Egy kérdés” csoport és a kérdéshez tartozó mezők csak kérdés-blokkos (hozzáadott) sablonnál látszanak.
 function updateTemplateDependent() {
   const hasPoll = !!curTpl().hasPoll;
   $$('.group').forEach(card => {
     const g = S.groups.find(x => x.id === card.dataset.group);
-    const inactive = !!(g && g.poll && !hasPoll);
-    card.classList.toggle('inactive', inactive);
-    const note = $('.inactive-note', card);
-    if (note) note.classList.toggle('hidden', !inactive);
+    card.classList.toggle('gone', !!(g && g.poll && !hasPoll));
   });
   for (const f of S.fields) {
     const el = $(`.field[data-key="${f.key}"]`, pane('tartalom'));
-    if (el) el.classList.toggle('dim', !!(f.poll && !hasPoll));
+    if (el) el.classList.toggle('gone', !!(f.poll && !hasPoll));
   }
 }
 
@@ -2215,7 +2212,7 @@ function templatesCard() {
     h('div', { class: 'ds', text: '.html sablon vagy a tervezőtől kapott .zip csomag – az ablakba húzva is működik.' }));
   return h('div', { class: 'card card-pad' },
     h('div', { class: 'card-title' }, icon('mail'), 'Sablon'),
-    h('p', { class: 'card-sub', text: 'Válaszd ki, melyik sablonnal készüljenek a levelek. Új sablon a tervezői formátumban ({{kulcs}} helyőrzőkkel) adható hozzá, és a gépen megmarad. Ha a v1/v2/v4 új változatát kapod, ugyanazzal a fájlnévvel hozzáadva frissíti a beépítettet; törlésével az eredeti tér vissza.' }),
+    h('p', { class: 'card-sub', text: 'Válaszd ki, melyik sablonnal készüljenek a levelek. Új sablon a tervezői formátumban ({{kulcs}} helyőrzőkkel) adható hozzá, és a gépen megmarad. Ha a v1/v2 új változatát kapod, ugyanazzal a fájlnévvel hozzáadva frissíti a beépítettet; törlésével az eredeti tér vissza.' }),
     h('div', { class: 'tpl-cards' }, cards, add));
 }
 

@@ -37,7 +37,7 @@ func sendFixture(t *testing.T) SendInput {
 		{Row: 7, Email: "rossz-cim", Name: "Hibás"},
 		{Row: 8, Email: "nincstk@example.com", Name: "Képviselő nélkül", Unsubscribe: "https://energofish.hu/leiratkozas.html?&c=00000000000000000008"},
 	}
-	return SendInput{Content: c, Products: products, Partners: partners, Only: []int{0, 1, 2, 3, 4, 5, 6, 7}, Tpl: FindTemplate(tpls, "v4"),
+	return SendInput{Content: c, Products: products, Partners: partners, Only: []int{0, 1, 2, 3, 4, 5, 6, 7}, Tpl: FindTemplate(tpls, "v1"),
 		Config: SendConfig{From: "Energofish Partner Brief <hirlevel@energofish.hu>", Stream: "broadcast", UTM: DefaultUTM, TrackOpens: true,
 			TrackLinks: "None", OneClick: true, ReplyToRep: true, TestAddresses: []string{"teszt1@energofish.hu", "teszt2@energofish.hu"}, TestCount: 2},
 		Campaign: "2026-10 őszi", Mode: ModeLive, Handling: "Custom",

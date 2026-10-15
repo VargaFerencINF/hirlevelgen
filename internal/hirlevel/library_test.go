@@ -28,12 +28,13 @@ func TestLibraryImportDesignerZip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// a 3 sablon (az elonezet/ kitöltött fájljai kimaradnak), mind a beépítetteket frissíti
+	// a 3 sablon (az elonezet/ kitöltött fájljai kimaradnak): a v1 és a v2 a beépítettet frissíti,
+	// a csomag v4-e (már nem beépített) saját sablonként kerül be
 	if len(res) != 3 {
 		t.Fatalf("%+v", res)
 	}
 	for _, r := range res {
-		if !r.OK || !r.Override || len(r.Notes) > 0 {
+		if !r.OK || r.Override != (r.ID != "v4-partnerjelentes") || len(r.Notes) > 0 {
 			t.Errorf("%+v", r)
 		}
 	}
@@ -79,7 +80,7 @@ func TestLibraryCustomTemplateLifecycle(t *testing.T) {
 	}
 	all := l.All()
 	c := all[len(all)-1]
-	if len(all) != 4 || c.Short != "v5" || !c.Custom || c.AssetsDir == "" {
+	if len(all) != 3 || c.Short != "v5" || !c.Custom || c.AssetsDir == "" {
 		t.Fatalf("%+v", c)
 	}
 	if b, ok := l.AssetFile("tavaszi-hullam.png"); !ok || string(b) != string(img) {
@@ -94,18 +95,18 @@ func TestLibraryCustomTemplateLifecycle(t *testing.T) {
 	// újranyitás lemezről
 	l2 := newTestLibrary(t, dir)
 	all = l2.All()
-	if len(all) != 4 || all[3].Name != "Tavaszi akció 2027" || all[3].Desc != "új leírás" || all[3].AssetsDir == "" {
-		t.Fatalf("%+v", all[3])
+	if len(all) != 3 || all[2].Name != "Tavaszi akció 2027" || all[2].Desc != "új leírás" || all[2].AssetsDir == "" {
+		t.Fatalf("%+v", all[2])
 	}
 	// ugyanaz a fájl újra: frissítés, a név marad
 	res, _ = l2.ImportFile("v5-tavaszi-akció.html", []byte(src), find)
-	if !res[0].Replaced || l2.All()[3].Name != "Tavaszi akció 2027" {
+	if !res[0].Replaced || l2.All()[2].Name != "Tavaszi akció 2027" {
 		t.Errorf("%+v", res[0])
 	}
 	// hiányzó kép jelzése
 	res, _ = l2.ImportFile("masik.html", []byte(src), nil)
-	if !res[0].OK || len(res[0].Notes) != 1 || !strings.Contains(res[0].Notes[0], "tavaszi-hullam.png") || l2.All()[4].Short != "S1" {
-		t.Errorf("%+v %+v", res[0], l2.All()[4])
+	if !res[0].OK || len(res[0].Notes) != 1 || !strings.Contains(res[0].Notes[0], "tavaszi-hullam.png") || l2.All()[3].Short != "S1" {
+		t.Errorf("%+v %+v", res[0], l2.All()[3])
 	}
 	// generálás a saját sablonnal: a saját kép is a kimenetbe kerül
 	c5 := FindTemplate(l2.All(), "v5-tavaszi-akcio")

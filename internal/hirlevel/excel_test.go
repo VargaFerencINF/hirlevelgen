@@ -218,10 +218,10 @@ func TestBuildPerPartner(t *testing.T) {
 			}
 		}
 	}
-	// v4 preheader kiegészítés
-	d := Build(c, products, &SamplePartner, FindTemplate(tpls, "v4"), "")
+	// kérdés-blokkos (hozzáadott) sablon: preheader kiegészítés
+	d := Build(c, products, &SamplePartner, pollTemplate(t), "")
 	if !strings.HasSuffix(d.Values["meta.preheader"], "Plusz egy kérdés.") {
-		t.Errorf("v4 preheader: %q", d.Values["meta.preheader"])
+		t.Errorf("kérdéses preheader: %q", d.Values["meta.preheader"])
 	}
 	d = Build(c, products, &SamplePartner, FindTemplate(tpls, "v1"), "")
 	if strings.HasSuffix(d.Values["meta.preheader"], "Plusz egy kérdés.") {
@@ -255,7 +255,7 @@ func TestValidateDefaults(t *testing.T) {
 	c["poll.answers.2.url"] = ""
 	c["meta.subject"] = ""
 	errs := 0
-	for _, is := range ValidateContent(c, products, FindTemplate(tpls, "v4")) {
+	for _, is := range ValidateContent(c, products, pollTemplate(t)) {
 		if is.Level == LevelError {
 			errs++
 		}
@@ -272,7 +272,7 @@ func TestGenerate(t *testing.T) {
 	partners := append([]Partner{}, ex.Partners...)
 	partners = append(partners, Partner{Row: 99, Email: "hibas", Name: "Hibás"})
 	dir := t.TempDir()
-	res, err := Generate(os.DirFS("../../assets"), FindTemplate(tpls, "v4"), c, ex.Products, partners,
+	res, err := Generate(os.DirFS("../../assets"), FindTemplate(tpls, "v1"), c, ex.Products, partners,
 		GenerateOptions{OutputDir: dir, EML: true, From: "Energofish <hirlevel@energofish.hu>"})
 	if err != nil {
 		t.Fatal(err)
@@ -360,5 +360,44 @@ func TestHelpers(t *testing.T) {
 	}
 	if SafeFileName(`a/b:c*?.`) != "a_b_c_" {
 		t.Errorf("fájlnév: %q", SafeFileName(`a/b:c*?.`))
+	}
+}
+
+// pollTemplate a korábbi beépített v4 (kérdés-blokkos) sablon, hozzáadott sablonként betöltve:
+// a kérdés-blokk kezelése a hozzáadott sablonokhoz megmaradt.
+func pollTemplate(t *testing.T) *Template {
+	t.Helper()
+	raw, err := os.ReadFile("testdata/kerdes-sablon.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tpl, err := NewTemplate("kerdes-sablon", string(raw))
+	if err != nil || !tpl.HasPoll {
+		t.Fatalf("kérdéses sablon: %v", err)
+	}
+	return tpl
+}
+
+// A beépített sablonok között nincs kérdés-blokkos; a kérdés mezői nem okoznak hibát.
+func TestNoBuiltinPoll(t *testing.T) {
+	tpls, _ := LoadTemplates(os.DirFS("../.."), "sablonok")
+	if len(tpls) != 2 || FindTemplate(tpls, "v4") != nil {
+		t.Fatalf("beépített sablonok: %d", len(tpls))
+	}
+	c, products := testContent(t)
+	c["poll.answers.2.url"] = ""
+	for _, tpl := range tpls {
+		if tpl.HasPoll {
+			t.Errorf("%s: kérdés-blokk", tpl.ID)
+		}
+		for _, is := range ValidateContent(c, products, tpl) {
+			if strings.HasPrefix(is.Key, "poll.") || is.Key == "cover.meta.poll" {
+				t.Errorf("%s: kérdés-hiba: %s", tpl.ID, is.Message)
+			}
+		}
+		d := Build(c, products, &SamplePartner, tpl, "")
+		if strings.HasSuffix(d.Values["meta.preheader"], "Plusz egy kérdés.") {
+			t.Errorf("%s: preheader: %q", tpl.ID, d.Values["meta.preheader"])
+		}
 	}
 }

@@ -157,6 +157,7 @@ code,.mono{font-family:Consolas,'Cascadia Mono',Menlo,monospace;font-size:12px}
 .pill.warn{background:var(--warn-bg);color:var(--warn)}
 .pill.ok{background:var(--ok-bg);color:var(--ok)}
 .pill.muted{background:var(--soft);color:var(--muted)}
+.group.gone,.field.gone{display:none!important}
 .inactive-note{margin-top:14px;padding:10px 12px;border-radius:8px;background:var(--soft);font-size:13px;color:var(--muted)}
 
 /* megjegyzés-sáv */

@@ -7,7 +7,7 @@ export/
   sablonok/            ← a generátor bemenete ({{kulcs}} helyőrzőkkel)
     v1-sotet-lemez.html
     v2-waterside.html
-    v4-partnerjelentes.html
+    v4-partnerjelentes.html   (az 1.4.7-től nem beépített sablon; hozzáadott sablonként használható)
   elonezet/            ← a mintatartalommal legenerált, böngészőben megnyitható változat
   assets/              ← a sablonok saját képei (fel kell tölteni https tárhelyre)
   tartalom-minta.json  ← teljes mintatartalom, minden kulccsal

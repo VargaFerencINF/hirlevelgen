@@ -64,7 +64,7 @@ jobs:
       - name: Batch generálás a minta Excelből
         shell: pwsh
         run: |
-          $p = Start-Process -FilePath dist\EnergofishHirlevel.exe -ArgumentList '-batch','-excel','dist\Energofish_partner_hirlevel_minta.xlsx','-sablon','v4','-kimenet',"$env:RUNNER_TEMP\kimenet",'-eml','-beallitasok',"$env:RUNNER_TEMP\cfg2" -Wait -PassThru
+          $p = Start-Process -FilePath dist\EnergofishHirlevel.exe -ArgumentList '-batch','-excel','dist\Energofish_partner_hirlevel_minta.xlsx','-sablon','v1','-kimenet',"$env:RUNNER_TEMP\kimenet",'-eml','-beallitasok',"$env:RUNNER_TEMP\cfg2" -Wait -PassThru
           Get-Content "$env:RUNNER_TEMP\cfg2\naplo.txt" -ErrorAction SilentlyContinue
           if ($p.ExitCode -ne 0) { throw "batch hiba: $($p.ExitCode)" }
           Get-ChildItem -Recurse "$env:RUNNER_TEMP\kimenet" | Select-Object -First 12 FullName

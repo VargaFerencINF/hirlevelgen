@@ -32,7 +32,7 @@ var Groups = []Group{
 	{ID: "borito", Title: "Borító", Icon: "image", Desc: "A nagy borítókép és a főcím blokkja."},
 	{ID: "level", Title: "Személyes levél", Icon: "pen", Desc: "Megszólítás és a vezetői levél. A megszólítás partnerenként töltődik ki."},
 	{ID: "ajanlat", Title: "Ajánlat", Icon: "grid", Desc: "Az ajánlatblokk szövegei. Maguk a termékek a Termékek fülön vannak."},
-	{ID: "kerdes", Title: "Egy kérdés", Icon: "poll", Poll: true, Desc: "Csak a kérdés-blokkos sablonokban (pl. v4 Partnerjelentés). Üres kérdésnél a blokk elmarad."},
+	{ID: "kerdes", Title: "Egy kérdés", Icon: "poll", Poll: true, Desc: "Csak a kérdés-blokkos (hozzáadott) sablonokban. Üres kérdésnél a blokk elmarad."},
 	{ID: "kepviselo", Title: "Képviselő-blokk", Icon: "user", Desc: "A képviselő neve, fotója és elérhetősége az Excelből jön, itt a közös szövegek vannak."},
 	{ID: "lablec", Title: "Lábléc és közösségi linkek", Icon: "footer", Desc: "Cégadatok, leiratkozás, közösségi oldalak."},
 	{ID: "halado", Title: "Termék-linkek és követés", Icon: "link", Desc: "Alapértelmezett kép- és termékoldal-minták, UTM-paraméterek."},
@@ -45,7 +45,7 @@ var Fields = []Field{
 	{Key: "meta.preheader", Label: "Előnézeti szöveg (preheader)", Group: "alap", Kind: "textarea", Required: true, Min: 80, Soft: 110, Tokens: true,
 		Help: "A postafiókban a tárgy mellett látszó rejtett szöveg, ideálisan 80-110 karakter."},
 	{Key: "meta.preheaderPoll", Label: "Preheader kiegészítés kérdéses sablonhoz", Group: "alap", Kind: "text", Poll: true, Soft: 30,
-		Help: "A kérdés-blokkos sablonoknál (pl. v4) a preheader végére kerül, ha van kérdés."},
+		Help: "A kérdés-blokkos sablonoknál a preheader végére kerül, ha van kérdés."},
 	{Key: "utility.label", Label: "Felső címke", Group: "alap", Kind: "text", Required: true, Soft: 50, Half: true,
 		Help: "A levél legtetején, pl. „Partnerjelentés · 10. szám”."},
 	{Key: "utility.browserLink", Label: "Webes verzió link felirata", Group: "alap", Kind: "text", Soft: 30, Half: true},
@@ -93,7 +93,7 @@ var Fields = []Field{
 	{Key: "offer.more.url", Label: "„Teljes ajánlat” link címe", Group: "ajanlat", Kind: "url", Tokens: true,
 		Help: "Üresen hagyva a link elmarad."},
 
-	// --- Egy kérdés (v4) ---
+	// --- Egy kérdés (csak kérdés-blokkos, hozzáadott sablonnál látszik) ---
 	{Key: "poll.label", Label: "Blokk címkéje", Group: "kerdes", Kind: "text", Poll: true, Soft: 40},
 	{Key: "poll.question", Label: "Kérdés", Group: "kerdes", Kind: "text", Poll: true, Soft: 90,
 		Help: "Üresen hagyva a teljes kérdés-blokk elmarad."},
@@ -153,11 +153,11 @@ func (f *Field) UsedIn(t *Template) bool { return !f.Poll || t == nil || t.HasPo
 // IsURLKind igaz, ha a mező értéke link vagy kép címe.
 func (f *Field) IsURLKind() bool { return f.Kind == "url" || f.Kind == "image" }
 
-// TemplateInfos a három sablon leírása.
+// TemplateInfos a beépített sablonok leírása (a v4 kérdés-blokkos sablon az 1.4.7-től nincs benne;
+// a kérdés-blokk kezelése megmaradt a hozzáadott sablonokhoz).
 var TemplateInfos = []Template{
 	{ID: "v1-sotet-lemez", Short: "v1", Name: "Sötét lemez", Desc: "Sötét fejléc, narancs csíkok, szögletes téglák."},
 	{ID: "v2-waterside", Short: "v2", Name: "Waterside", Desc: "Krémszínű borító, hullámok, lekerekített téglák."},
-	{ID: "v4-partnerjelentes", Short: "v4", Name: "Partnerjelentés", Desc: "Sötét borító mélységtérképpel és „Egy kérdés” blokkal."},
 }
 
 // Partner-változók (a felületen beszúrható tokenek).

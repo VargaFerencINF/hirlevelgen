@@ -1,7 +1,7 @@
 // Energofish Partnerhírlevél-generátor
 //
 // Excel-partnerlistából és a programban megadott közös tartalomból partnerenként
-// legenerálja a hírlevelet a tervezett sablonok (v1, v2, v4) valamelyikével.
+// legenerálja a hírlevelet a tervezett sablonok (v1, v2) valamelyikével.
 package main
 
 import (
@@ -22,7 +22,7 @@ import (
 	h "energofish/hirlevel/internal/hirlevel"
 )
 
-var version = "1.4.6"
+var version = "1.4.7"
 
 const appTitle = "Energofish Partnerhírlevél-generátor"
 
@@ -36,7 +36,7 @@ func main() {
 		batch    = flag.Bool("batch", false, "felület nélküli generálás (lásd -excel, -sablon, -kimenet)")
 		excel    = flag.String("excel", "", "batch: a partnerlista (xlsx)")
 		content  = flag.String("tartalom", "", "batch: tartalom JSON (üresen a mentett beállítások)")
-		tplFlag  = flag.String("sablon", "", "batch: v1, v2 vagy v4 (üresen a mentett)")
+		tplFlag  = flag.String("sablon", "", "batch: v1 vagy v2 (üresen a mentett)")
 		outDir   = flag.String("kimenet", "", "batch: kimeneti mappa")
 		eml      = flag.Bool("eml", false, "batch: EML fájlok is")
 		from     = flag.String("felado", "", "batch: feladó az EML-hez")
@@ -258,7 +258,7 @@ func runBatch(app *App, excelPath, contentPath, tpl, out string, eml bool, from 
 	if tpl != "" {
 		t := h.FindTemplate(app.tpls(), tpl)
 		if t == nil {
-			return fmt.Errorf("ismeretlen sablon: %s (v1, v2 vagy v4)", tpl)
+			return fmt.Errorf("ismeretlen sablon: %s (v1 vagy v2)", tpl)
 		}
 		app.state.Template = t.ID
 	}

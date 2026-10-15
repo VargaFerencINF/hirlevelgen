@@ -1,10 +1,10 @@
 # Energofish Partnerhírlevél-generátor
 
-Windowsos asztali program, amely egy partnerlistából **partnerenként legenerálja a hírlevelet** a tervezett Energofish-sablonok (v1 Sötét lemez, v2 Waterside, v4 Partnerjelentés) valamelyikével.
+Windowsos asztali program, amely egy partnerlistából **partnerenként legenerálja a hírlevelet** a tervezett Energofish-sablonok (v1 Sötét lemez, v2 Waterside) valamelyikével.
 
 - Ami partnerenként más (e-mail, név, területi képviselő és a fotója, elérhetőségei), az a **B2B partnertörzsből** (célcsoport, képviselő, megye, besorolás… szerint összeállított halmaz, 1.3) vagy **Excelből** jön.
 - A termékek az Excel **második munkalapjáról** jönnek (cikkszám, cikknév, kép link, gomb link…).
-- Minden más, ami minden partnernél ugyanaz (tárgy, borító, levél, ajánlat szövegei, kérdés, lábléc…), a **programban** adható meg.
+- Minden más, ami minden partnernél ugyanaz (tárgy, borító, levél, ajánlat szövegei, lábléc…), a **programban** adható meg.
 - Gépelés közben **élő előnézet** mutatja a levelet bármelyik partnerre, asztali és mobil nézetben.
 
 ![Lépések: Adatok → Tartalom → Termékek → Ellenőrzés → Generálás](docs/kepernyo-adatok.png)
@@ -29,7 +29,7 @@ Windowsos asztali program, amely egy partnerlistából **partnerenként legener�
 | Lépés | Mit csinálsz |
 |---|---|
 | **1. Adatok** | *Partnerhalmaz összeállítása…* a B2B partnertörzsből (lásd lent), vagy húzd be az Excelt az ablakba / *Excel kiválasztása…*. Nincs még Excel? *Minta Excel mentése* – kész, kitöltött példa. A program kiírja, melyik oszlopot minek ismerte fel, és jelzi a hibás sorokat. A partnerek egyenként ki-be kapcsolhatók; egy sorra kattintva az előnézet arra a partnerre vált. |
-| **2. Tartalom** | A közös szövegek, blokkonként (Alapadatok, Borító, Személyes levél, Ajánlat, Egy kérdés, Képviselő-blokk, Lábléc, Termék-linkek). A karakterszámláló a tervezői hosszkorlátokat figyeli. |
+| **2. Tartalom** | A közös szövegek, blokkonként (Alapadatok, Borító, Személyes levél, Ajánlat, Képviselő-blokk, Lábléc, Termék-linkek). A karakterszámláló a tervezői hosszkorlátokat figyeli. |
 | **3. Termékek** | Az Excelből betöltött termékek: ki-be kapcsolás, sorrend, szövegjavítás. *Új termék:* keresés a friss cikktörzsben cikkszámra vagy névre, a mezők kitöltésével (lásd lent). Az Excel-fájlt nem módosítja. |
 | **4. Ellenőrzés** | Hibák és figyelmeztetések „Ugrás” gombbal a hibás mezőhöz; *Képek ellenőrzése* – letölti és méri a képeket. |
 | **5. Generálás** | Sablon, kimeneti mappa, fájlnév-minta, EML-piszkozatok. Egy gomb, és kész. |
@@ -230,7 +230,7 @@ Linkekben az értékek automatikusan URL-kódolódnak, pl. a kérdés válaszlin
 Minden generálás egy új, dátummal jelölt mappába kerül a kimeneti mappán belül:
 
 ```
-2026-10-01_09-30_v4-partnerjelentes\
+2026-10-01_09-30_v1-sotet-lemez\
   attekinto.html          ← áttekintő: minden partner, egy kattintással megnyitható levelek
   kuldesi-lista.csv       ← e-mail, név, cég, képviselő, tárgy, fájl (Excelben megnyitható)
   tartalom.json           ← a felhasznált közös tartalom (archívum, újra betölthető)
@@ -258,7 +258,7 @@ A sablonok a tervezői formátumot követik ([`docs/MEZOK-ES-GENERATOR.md`](docs
 - a fix terméktéglák helyett 1–12 termék (Outlookban is a sablon oszlopszámával);
 - **képviselő fotója** kör alakban, narancs kerettel; ha nincs fotó, a monogram;
 - a telefon- és e-mail-gomb, a „teljes ajánlat” link, a webes verzió linkje és a közösségi ikonok üres érték esetén elmaradnak;
-- kérdés-blokkos sablon (v4): üres kérdésnél a blokk elmarad, a preheaderhez automatikusan hozzáfűzi a „Plusz egy kérdés.” szöveget.
+- kérdés-blokkos (hozzáadott) sablon: az „Egy kérdés” csoport csak ilyen sablonnál jelenik meg; üres kérdésnél a blokk elmarad, a preheaderhez automatikusan hozzáfűzi a „Plusz egy kérdés.” szöveget.
 
 ### Új sablon hozzáadása (1.1)
 
@@ -271,13 +271,15 @@ A sablonok a tervezői formátumot követik ([`docs/MEZOK-ES-GENERATOR.md`](docs
 
 A program ellenőrzi a sablont: ismeretlen `{{mezőt}}` használó fájlt nem vesz fel, a hiányzó képeket és a nem átalakítható részeket (pl. nem szabványos termékrács → fix termékhelyek) jelzi. A hozzáadott sablonok a gépen maradnak (`%APPDATA%\EnergofishHirlevel\sablonok\`), átnevezhetők és törölhetők.
 
-**A beépített sablonok frissítése:** ha a tervező a v1/v2/v4 új változatát küldi, ugyanazzal a fájlnévvel (pl. `v4-partnerjelentes.html`) hozzáadva lecseréli a beépítettet – nem kell új program. A frissített változat törlésével az eredeti tér vissza.
+**A beépített sablonok frissítése:** ha a tervező a v1/v2 új változatát küldi, ugyanazzal a fájlnévvel (pl. `v1-sotet-lemez.html`) hozzáadva lecseréli a beépítettet – nem kell új program. A frissített változat törlésével az eredeti tér vissza.
 
 > Saját képet (`{{assets.base}}/sajat-kep.png`) használó sablonnál a képet is fel kell tölteni a képtár webcímére. A program a kimenetbe is kimásolja.
 
 ---
 
 ## Változások
+
+**1.4.7** – A v4 Partnerjelentés (kérdés-blokkos) sablon kikerült a beépített sablonok közül, és vele a Közös tartalom „Egy kérdés” csoportja is; az alapértelmezett sablon a v1 Sötét lemez (a v4-et használóknál is erre áll át). A kérdés-blokk kezelése a hozzáadott sablonokhoz megmaradt: ilyen sablonnál a csoport újra megjelenik.
 
 **1.4.6** – Termékek: „Automatikus bejelentkezés a linkekben” kapcsoló. Bekapcsolva a saját (energofish) domainre mutató termék- és „teljes ajánlat” linkek legvégére a B2B partner tokenje kerül (`&v=<Token>`, a UTM-paraméterek után), így a partner belépve érkezik a weboldalra. Token nélküli partnernél kimarad; a leiratkozó, a közösségi és a külső linkekre nem kerül. Az előnézetben és a teszt küldésekben helyettesítő áll a valódi token helyett.
 
@@ -340,7 +342,7 @@ Beállítások és napló: `%APPDATA%\EnergofishHirlevel\` (`beallitasok.json`, 
 ## Parancssor (haladóknak)
 
 ```
-EnergofishHirlevel.exe -batch -excel partnerek.xlsx -sablon v4 -kimenet D:\Hirlevel [-tartalom tartalom.json] [-eml] [-felado "Energofish <hirlevel@energofish.hu>"]
+EnergofishHirlevel.exe -batch -excel partnerek.xlsx -sablon v1 -kimenet D:\Hirlevel [-tartalom tartalom.json] [-eml] [-felado "Energofish <hirlevel@energofish.hu>"]
 ```
 
 Felület nélkül generál (pl. ütemezett feladatból); a közös tartalom a mentett beállításokból vagy a `-tartalom` JSON-ból jön, az eredmény a naplóba kerül. `-bongeszo`: saját ablak helyett böngészőben nyílik meg. `-feedteszt [-feed <cím>]`: letölti és feldolgozza a cikktörzset, statisztikát és mintákat ír (a CI is ezzel ellenőrzi az élő feedet). `-partnerteszt B2B_HU`: a partnertörzs élő exportjának ellenőrzése (a token csak a `WEBGALAMB_TOKEN_B2B_HU` környezeti változóból jöhet; a kimenetben csak darabszámok vannak). A CI is lefuttatja, ha a repóban be van állítva a `WEBGALAMB_TOKEN_B2B_HU` titok (*Settings › Secrets and variables › Actions*).

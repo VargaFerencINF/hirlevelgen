@@ -138,10 +138,13 @@ func NewApp(configDir string) (*App, error) {
 	return a, nil
 }
 
+// defaultTemplate az alapértelmezett sablon (a korábbi v4 helyett is ez lép életbe).
+const defaultTemplate = "v1-sotet-lemez"
+
 // defaultState az első indításkori (alap) állapot.
 func (a *App) defaultState() ClientState {
 	return ClientState{
-		Content: cloneContent(a.defaults), Products: append([]h.Product{}, a.defProds...), Template: "v4-partnerjelentes",
+		Content: cloneContent(a.defaults), Products: append([]h.Product{}, a.defProds...), Template: defaultTemplate,
 		Output: OutputSettings{Dir: defaultOutputDir(), FilePattern: h.DefaultFilePattern},
 	}
 }
@@ -249,7 +252,7 @@ func (a *App) template() *h.Template {
 	if t := h.FindTemplate(a.tpls(), a.state.Template); t != nil {
 		return t
 	}
-	if t := h.FindTemplate(a.tpls(), "v4-partnerjelentes"); t != nil {
+	if t := h.FindTemplate(a.tpls(), defaultTemplate); t != nil {
 		return t
 	}
 	return a.tpls()[0]
