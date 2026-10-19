@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"regexp"
 	"sort"
 	"strconv"
@@ -914,6 +915,16 @@ var B2BTokens = []TokenInfo{
 	{"{celcsoport}", "Célcsoport (pl. B2B HU)"},
 }
 
+// RepPhotoFile a képviselő fotójának fájlneve a képtárban: a monogram kisbetűvel, .webp
+// kiterjesztéssel (pl. ZSO → zso.webp). Üres monogramnál üres.
+func RepPhotoFile(mono string) string {
+	m := strings.ToLower(strings.TrimSpace(mono))
+	if m == "" || strings.ContainsAny(m, `/\`) {
+		return ""
+	}
+	return m + ".webp"
+}
+
 // B2BToPartner a hírlevél-partner (az Excel-oszlopokkal azonos mezőkkel). A Nev mező a
 // {nev} és a {ceg} változóba is bekerül, a képviselő területe a partner megyéje.
 func B2BToPartner(p *B2BPartner, row int, group string, o B2BMapOptions) Partner {
@@ -935,7 +946,9 @@ func B2BToPartner(p *B2BPartner, row int, group string, o B2BMapOptions) Partner
 		out.RepName = CleanRepName(p.RepName)
 	}
 	if ph := strings.TrimSpace(o.RepPhotos[p.RepMono]); ph != "" {
-		out.RepPhoto = ph
+		out.RepPhoto = ph // kézzel megadott fotó (Képviselő-fotók)
+	} else if f := RepPhotoFile(p.RepMono); f != "" {
+		out.RepPhoto = "{assets}/" + url.PathEscape(f) // alapból a képtárból: <monogram kisbetűvel>.webp
 	}
 	out.RepRegion = B2BRegion(group, p.County)
 	extra := map[string]string{

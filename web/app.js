@@ -3463,11 +3463,19 @@ async function openRepPhotos(group, after) {
   const options = JSON.parse(JSON.stringify(st.settings.options || {}));
   options.repPhotos = options.repPhotos || {};
   const rows = reps.reps.map(r => {
-    const prev = avatar(r.name, r.photo, 40);
-    const inp = h('input', { class: 'inp', type: 'url', value: options.repPhotos[r.mono] || '', placeholder: 'https://… (négyzetes, min. 128×128)', spellcheck: false });
-    inp.addEventListener('input', debounce(() => { options.repPhotos[r.mono] = inp.value.trim(); prev.replaceWith(Object.assign(avatar(r.name, inp.value.trim(), 40), {})); }, 400));
+    let prev = avatar(r.name, r.photo || r.auto, 40);
+    const inp = h('input', { class: 'inp', type: 'url', value: options.repPhotos[r.mono] || '', spellcheck: false,
+      placeholder: r.file ? `automatikus: képtár/${r.file}` : 'https://… (négyzetes, min. 128×128)' });
+    inp.addEventListener('input', debounce(() => {
+      options.repPhotos[r.mono] = inp.value.trim();
+      const next = avatar(r.name, inp.value.trim() || r.auto, 40);
+      prev.replaceWith(next);
+      prev = next;
+    }, 400));
     return h('div', { class: 'rep-row' }, prev,
-      h('div', { class: 'rep-who' }, h('b', { text: r.name || r.mono }), h('div', { class: 'p-sub', text: `${r.mono} · ${r.partners} partner · ${r.email || ''}` })), inp);
+      h('div', { class: 'rep-who' }, h('b', { text: r.name || r.mono }),
+        h('div', { class: 'p-sub', text: `${r.mono} · ${r.partners} partner · ${r.email || ''}` }),
+        r.file ? h('div', { class: 'p-sub', text: inp.value ? 'Kézi link (a képtár helyett)' : `Fotó: képtár/${r.file}` }) : null), inp);
   });
   const done = () => bg.remove();
   const save = async () => {
@@ -3483,7 +3491,7 @@ async function openRepPhotos(group, after) {
     h('div', { class: 'modal wide', role: 'dialog' },
       h('div', { class: 'mh', text: 'Képviselő-fotók' }),
       h('div', { class: 'mb' },
-        h('p', { class: 'card-sub', text: 'A partnertörzsben nincs képviselő-fotó: itt adhatod meg monogramonként (https:// kép link). Fotó nélkül a levélben a monogram jelenik meg.' }),
+        h('p', { class: 'card-sub', text: 'A képviselő fotója alapból a képtárból jön: a monogram kisbetűvel, .webp kiterjesztéssel (pl. ZSO → zso.webp) – ezt a fájlt kell az assets mappába (FTP-re) feltölteni. A küldés előtti ellenőrzés jelzi, ha valamelyik hiányzik. A mezőbe csak akkor írj linket, ha egy képviselőnél ettől el akarsz térni.' }),
         rows.length ? h('div', { class: 'rep-list' }, rows) : h('div', { class: 'note info' }, icon('info'), h('div', { text: 'Előbb töltsd le a partnertörzset.' }))),
       h('div', { class: 'mf' }, h('button', { class: 'btn btn-ghost', text: 'Mégse', onclick: done }), h('button', { class: 'btn btn-primary', text: 'Mentés', onclick: save }))));
   document.body.append(bg);

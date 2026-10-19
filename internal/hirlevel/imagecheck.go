@@ -13,6 +13,7 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"path"
 	"strings"
 	"sync"
 	"time"
@@ -72,7 +73,11 @@ func CollectImageTargets(c Content, products []Product, partners []Partner, tpl 
 			continue
 		}
 		pd := Build(c, products, p, tpl, "")
-		add(ImageTarget{URL: pd.Values["rep.photo"], Where: "Képviselő fotója: " + p.RepName, Kind: "rep", Key: "repPhoto", Index: i})
+		where := "Képviselő fotója: " + p.RepName
+		if u, err := url.PathUnescape(path.Base(pd.Values["rep.photo"])); err == nil && u != "" && u != "." && u != "/" {
+			where += " (" + u + ")"
+		}
+		add(ImageTarget{URL: pd.Values["rep.photo"], Where: where, Kind: "rep", Key: "repPhoto", Index: i})
 	}
 	if base := strings.TrimRight(strings.TrimSpace(c["assets.base"]), "/"); base != "" && tpl != nil {
 		for _, name := range tpl.AssetRefs {

@@ -279,6 +279,8 @@ A program ellenőrzi a sablont: ismeretlen `{{mezőt}}` használó fájlt nem ve
 
 ## Változások
 
+**1.4.8** – Képviselő-fotók a képtárból: a B2B partnerek képviselőjének fotója alapból `<képtár webcíme>/<monogram kisbetűvel>.webp` (pl. ZSO → `zso.webp`); a Képviselő-fotók ablakban megadott kézi link felülírja. A képellenőrzés (Ellenőrzés lépés és a küldés előtti ellenőrzés) képviselőnként, fájlnévvel jelzi a hiányzó fotót; éles küldésnél ez blokkoló hiba.
+
 **1.4.7** – A v4 Partnerjelentés (kérdés-blokkos) sablon kikerült a beépített sablonok közül, és vele a Közös tartalom „Egy kérdés” csoportja is; az alapértelmezett sablon a v1 Sötét lemez (a v4-et használóknál is erre áll át). A kérdés-blokk kezelése a hozzáadott sablonokhoz megmaradt: ilyen sablonnál a csoport újra megjelenik.
 
 **1.4.6** – Termékek: „Automatikus bejelentkezés a linkekben” kapcsoló. Bekapcsolva a saját (energofish) domainre mutató termék- és „teljes ajánlat” linkek legvégére a B2B partner tokenje kerül (`&v=<Token>`, a UTM-paraméterek után), így a partner belépve érkezik a weboldalra. Token nélküli partnernél kimarad; a leiratkozó, a közösségi és a külső linkekre nem kerül. Az előnézetben és a teszt küldésekben helyettesítő áll a valódi token helyett.

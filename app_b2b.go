@@ -431,9 +431,12 @@ func (a *App) apiB2BReps(w http.ResponseWriter, r *http.Request) (any, error) {
 		Phone    string `json:"phone"`
 		Partners int    `json:"partners"`
 		Photo    string `json:"photo"`
+		File     string `json:"file"` // az automatikus fotó fájlneve a képtárban (pl. zso.webp)
+		Auto     string `json:"auto"` // az automatikus fotó webcíme (üres, ha nincs megadva a képtár webcíme)
 	}
 	a.mu.Lock()
 	photos := a.b2bSet.Options.RepPhotos
+	base := h.ResolveAssets(a.state.Content, "")
 	a.mu.Unlock()
 	m := map[string]*rep{}
 	for _, p := range db.Partners {
@@ -442,7 +445,11 @@ func (a *App) apiB2BReps(w http.ResponseWriter, r *http.Request) (any, error) {
 		}
 		x := m[p.RepMono]
 		if x == nil {
-			x = &rep{Mono: p.RepMono, Name: h.CleanRepName(p.RepName), Email: p.RepEmail, Phone: p.RepPhone, Photo: photos[p.RepMono]}
+			x = &rep{Mono: p.RepMono, Name: h.CleanRepName(p.RepName), Email: p.RepEmail, Phone: p.RepPhone, Photo: photos[p.RepMono],
+				File: h.RepPhotoFile(p.RepMono)}
+			if x.File != "" && strings.HasPrefix(base, "http") {
+				x.Auto = base + "/" + url.PathEscape(x.File)
+			}
 			m[p.RepMono] = x
 		}
 		x.Partners++
