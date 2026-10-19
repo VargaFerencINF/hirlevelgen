@@ -431,7 +431,7 @@ func (a *App) apiB2BReps(w http.ResponseWriter, r *http.Request) (any, error) {
 		Phone    string `json:"phone"`
 		Partners int    `json:"partners"`
 		Photo    string `json:"photo"`
-		File     string `json:"file"` // az automatikus fotó fájlneve a képtárban (pl. zso.webp)
+		File     string `json:"file"` // az automatikus fotó fájlneve a képtárban (pl. zso.webp, gal.webp)
 		Auto     string `json:"auto"` // az automatikus fotó webcíme (üres, ha nincs megadva a képtár webcíme)
 	}
 	a.mu.Lock()

@@ -12,7 +12,7 @@ import (
 )
 
 func TestRepPhotoFromAssets(t *testing.T) {
-	for in, want := range map[string]string{"ZSO": "zso.webp", " GÁL ": "gál.webp", "": "", "A/B": ""} {
+	for in, want := range map[string]string{"ZSO": "zso.webp", " GÁL ": "gal.webp", "ŐRY": "ory.webp", "SZ AN": "szan.webp", "": "", "/": ""} {
 		if got := RepPhotoFile(in); got != want {
 			t.Errorf("%q → %q", in, got)
 		}
@@ -22,11 +22,11 @@ func TestRepPhotoFromAssets(t *testing.T) {
 	a := B2BToPartner(&B2BPartner{Email: "a@example.com", RepName: "Gál János", RepMono: "GÁL"}, 1, "B2B_HU", o)
 	b := B2BToPartner(&B2BPartner{Email: "b@example.com", RepName: "Halmos Mihály", RepMono: "HIM"}, 2, "B2B_HU", o)
 	c := B2BToPartner(&B2BPartner{Email: "c@example.com"}, 3, "B2B_HU", o)
-	if a.RepPhoto != "{assets}/g%C3%A1l.webp" || b.RepPhoto != "https://kep.example.com/him.jpg" || c.RepPhoto != "" {
+	if a.RepPhoto != "{assets}/gal.webp" || b.RepPhoto != "https://kep.example.com/him.jpg" || c.RepPhoto != "" {
 		t.Errorf("%q %q %q", a.RepPhoto, b.RepPhoto, c.RepPhoto)
 	}
 	content := Content{"assets.base": "https://energofish.hu/hirlevel/b2b/assets/"}
-	if d := Build(content, nil, &a, nil, ""); d.Values["rep.photo"] != "https://energofish.hu/hirlevel/b2b/assets/g%C3%A1l.webp" {
+	if d := Build(content, nil, &a, nil, ""); d.Values["rep.photo"] != "https://energofish.hu/hirlevel/b2b/assets/gal.webp" {
 		t.Errorf("levélben: %q", d.Values["rep.photo"])
 	}
 }
@@ -56,7 +56,7 @@ func TestRepPhotoCheck(t *testing.T) {
 		}
 	}
 	// képviselőnként egyszer, a fájlnévvel
-	if len(reps) != 2 || reps[0].Where != "Képviselő fotója: Szabó Zsolt (zso.webp)" || reps[1].Where != "Képviselő fotója: Gál János (gál.webp)" {
+	if len(reps) != 2 || reps[0].Where != "Képviselő fotója: Szabó Zsolt (zso.webp)" || reps[1].Where != "Képviselő fotója: Gál János (gal.webp)" {
 		t.Fatalf("%+v", reps)
 	}
 	res := CheckImages(context.Background(), reps)

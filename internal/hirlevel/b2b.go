@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"golang.org/x/text/unicode/norm"
 	"net/url"
 	"regexp"
 	"sort"
@@ -915,14 +916,22 @@ var B2BTokens = []TokenInfo{
 	{"{celcsoport}", "Célcsoport (pl. B2B HU)"},
 }
 
-// RepPhotoFile a képviselő fotójának fájlneve a képtárban: a monogram kisbetűvel, .webp
-// kiterjesztéssel (pl. ZSO → zso.webp). Üres monogramnál üres.
+// RepPhotoFile a képviselő fotójának fájlneve a képtárban: a monogram kisbetűvel, ékezet
+// nélkül, .webp kiterjesztéssel (pl. ZSO → zso.webp, GÁL → gal.webp). A betűkön, számokon,
+// kötőjelen és aláhúzáson kívüli jelek kimaradnak; üres monogramnál üres.
 func RepPhotoFile(mono string) string {
-	m := strings.ToLower(strings.TrimSpace(mono))
-	if m == "" || strings.ContainsAny(m, `/\`) {
+	var b strings.Builder
+	for _, r := range norm.NFD.String(mapFold.Replace(strings.TrimSpace(mono))) {
+		switch {
+		case unicode.Is(unicode.Mn, r):
+		case r < 128 && (unicode.IsLetter(r) || unicode.IsDigit(r) || r == '-' || r == '_'):
+			b.WriteRune(unicode.ToLower(r))
+		}
+	}
+	if b.Len() == 0 {
 		return ""
 	}
-	return m + ".webp"
+	return b.String() + ".webp"
 }
 
 // B2BToPartner a hírlevél-partner (az Excel-oszlopokkal azonos mezőkkel). A Nev mező a

@@ -3491,7 +3491,7 @@ async function openRepPhotos(group, after) {
     h('div', { class: 'modal wide', role: 'dialog' },
       h('div', { class: 'mh', text: 'Képviselő-fotók' }),
       h('div', { class: 'mb' },
-        h('p', { class: 'card-sub', text: 'A képviselő fotója alapból a képtárból jön: a monogram kisbetűvel, .webp kiterjesztéssel (pl. ZSO → zso.webp) – ezt a fájlt kell az assets mappába (FTP-re) feltölteni. A küldés előtti ellenőrzés jelzi, ha valamelyik hiányzik. A mezőbe csak akkor írj linket, ha egy képviselőnél ettől el akarsz térni.' }),
+        h('p', { class: 'card-sub', text: 'A képviselő fotója alapból a képtárból jön: a monogram kisbetűvel, ékezet nélkül, .webp kiterjesztéssel (pl. ZSO → zso.webp, GÁL → gal.webp) – ezt a fájlt kell az assets mappába (FTP-re) feltölteni. A küldés előtti ellenőrzés jelzi, ha valamelyik hiányzik. A mezőbe csak akkor írj linket, ha egy képviselőnél ettől el akarsz térni.' }),
         rows.length ? h('div', { class: 'rep-list' }, rows) : h('div', { class: 'note info' }, icon('info'), h('div', { text: 'Előbb töltsd le a partnertörzset.' }))),
       h('div', { class: 'mf' }, h('button', { class: 'btn btn-ghost', text: 'Mégse', onclick: done }), h('button', { class: 'btn btn-primary', text: 'Mentés', onclick: save }))));
   document.body.append(bg);
