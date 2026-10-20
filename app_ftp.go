@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -478,6 +479,14 @@ func (a *App) uploadAssets(ctx context.Context) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
+	a.mu.Lock()
+	outlook := h.OutlookSafeOn(a.state.Content)
+	a.mu.Unlock()
+	var twinWarns []string
+	if outlook {
+		// a WEBP képek PNG párja (a levélben az Outlook miatt ez szerepel)
+		files, twinWarns = h.AddWebpTwins(files)
+	}
 	c, secure, note, err := a.ftpConnect(ctx, s, pw)
 	if err != nil {
 		return nil, err
@@ -489,6 +498,9 @@ func (a *App) uploadAssets(ctx context.Context) (map[string]any, error) {
 		return nil, err
 	}
 	out := map[string]any{"result": res, "files": len(files), "secure": secure, "note": note, "millis": time.Since(start).Milliseconds()}
+	if len(twinWarns) > 0 {
+		out["twinWarnings"] = twinWarns
+	}
 	log.Printf("képtár feltöltése FTP-re: %d fájl, %d új, %d felülírt, %d már fent volt, %d eltérő (kihagyva), %d hiba",
 		len(files), len(res.Uploaded), len(res.Replaced), len(res.Skipped), len(res.Changed), len(res.Failed))
 	if s.PublicURL != "" {
@@ -542,4 +554,92 @@ func (a *App) apiFTPUpload(w http.ResponseWriter, r *http.Request) (any, error) 
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Minute)
 	defer cancel()
 	return a.uploadAssets(ctx)
+}
+
+// apiRepPhoto a Képviselő-fotók ablakban feltöltött fotó (a felület már négyzetesre vágta,
+// átméretezte és WEBP-be tömörítette): <monogram>.webp és a PNG párja a saját képek mappájába
+// kerül (ha nincs ilyen mappa, a beállítások mellé jön létre), majd – ha az FTP be van
+// állítva – azonnal felmegy a képtárba (az azonos nevű régi fotót felülírja).
+func (a *App) apiRepPhoto(w http.ResponseWriter, r *http.Request) (any, error) {
+	var req struct {
+		Mono string `json:"mono"`
+		Data string `json:"data"` // base64 WEBP
+	}
+	if err := decode(r, &req); err != nil {
+		return nil, err
+	}
+	name := h.RepPhotoFile(req.Mono)
+	if name == "" {
+		return nil, errors.New("a képviselőnek nincs monogramja, a fotó nem nevezhető el")
+	}
+	data, err := base64.StdEncoding.DecodeString(req.Data)
+	if err != nil {
+		return nil, errors.New("hibás képadat")
+	}
+	if err := h.CheckRepPhoto(data); err != nil {
+		return nil, err
+	}
+	twinData, err := h.WebpToPNG(data)
+	if err != nil {
+		return nil, err
+	}
+	twin, _ := h.WebpTwin(name)
+	s := a.loadFTPSettings()
+	dir, created := strings.TrimSpace(s.LocalDir), false
+	if dir == "" {
+		if a.configDir == "" {
+			return nil, errors.New("nincs hova menteni a fotót: add meg az FTP-beállításokban a saját képek mappáját")
+		}
+		dir, created = filepath.Join(a.configDir, "sajat-kepek"), true
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return nil, fmt.Errorf("a saját képek mappája nem hozható létre: %v", err)
+	}
+	for n, b := range map[string][]byte{name: data, twin: twinData} {
+		if err := os.WriteFile(filepath.Join(dir, n), b, 0o644); err != nil {
+			return nil, fmt.Errorf("a fotó nem menthető (%s): %v", n, err)
+		}
+	}
+	if created {
+		s.LocalDir = dir
+		if err := a.saveFTPSettings(s); err != nil {
+			return nil, err
+		}
+	}
+	log.Printf("képviselő-fotó mentve: %s (%d bájt) és %s", name, len(data), twin)
+	out := map[string]any{"file": name, "png": twin, "dir": dir, "dirCreated": created, "uploaded": false}
+	pw := a.loadFTPPassword()
+	if !s.configured() || pw == "" {
+		out["ftpNote"] = "Az FTP nincs beállítva: a fotót töltsd fel a képtárba (vagy állítsd be az FTP-t, és a küldés előtti ellenőrzés feltölti)."
+		return out, nil
+	}
+	all, err := h.CollectAssets(nil, nil, dir)
+	if err != nil {
+		out["ftpError"] = err.Error()
+		return out, nil
+	}
+	var files []h.AssetFile
+	for _, f := range all {
+		if f.Rel == name || f.Rel == twin {
+			files = append(files, f)
+		}
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Minute)
+	defer cancel()
+	c, _, _, err := a.ftpConnect(ctx, s, pw)
+	if err != nil {
+		out["ftpError"] = err.Error()
+		return out, nil
+	}
+	defer c.Quit()
+	res, err := h.SyncAssets(ftpRemote{c}, s.RemoteDir, files, true, nil)
+	switch {
+	case err != nil:
+		out["ftpError"] = err.Error()
+	case len(res.Failed) > 0:
+		out["ftpError"] = strings.Join(res.Failed, "; ")
+	default:
+		out["uploaded"] = true
+	}
+	return out, nil
 }

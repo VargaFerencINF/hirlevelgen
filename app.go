@@ -375,6 +375,7 @@ func (a *App) routes() http.Handler {
 		"/api/b2b/query":              a.apiB2BQuery,
 		"/api/b2b/reps":               a.apiB2BReps,
 		"/api/b2b/options":            a.apiB2BOptions,
+		"/api/b2b/repphoto":           a.apiRepPhoto,
 		"/api/b2b/presets":            a.apiB2BPresets,
 		"/api/b2b/load":               a.apiB2BLoad,
 		"/api/b2b/import":             a.apiB2BImport,

@@ -135,6 +135,8 @@ var Fields = []Field{
 		Help:        "A termék- és „teljes ajánlat” linkek végére fűzi a program. Üresen hagyva nem módosít."},
 	// a Termékek lépés kapcsolója (nem jelenik meg a Közös tartalom csoportjaiban): "1" = be
 	{Key: AutoLoginKey, Label: "Automatikus bejelentkezés a linkekben", Group: "kapcsolo", Kind: "text"},
+	// a képtár kapcsolója (FTP-beállítások): "1" = a WEBP képek maradnak a levélben (nincs PNG-csere)
+	{Key: KeepWebpKey, Label: "WEBP képek megtartása a levélben", Group: "kapcsolo", Kind: "text"},
 }
 
 // FieldByKey kulcs szerinti keresés.

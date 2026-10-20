@@ -191,6 +191,9 @@ func Generate(assets fs.FS, tpl *Template, c Content, products []Product, partne
 		if len(missing) > 0 {
 			return nil, fmt.Errorf("a sablon ismeretlen mezőket használ: %s", strings.Join(missing, ", "))
 		}
+		if OutlookSafeOn(c) {
+			html = OutlookSafeHTML(html, c["assets.base"]) // csak a webes képtárnál
+		}
 		name := FileBaseName(opt.FilePattern, p, seq+1, total)
 		for n := 2; used[strings.ToLower(name)]; n++ {
 			name = fmt.Sprintf("%s_%d", FileBaseName(opt.FilePattern, p, seq+1, total), n)

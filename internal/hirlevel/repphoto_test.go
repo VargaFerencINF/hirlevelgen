@@ -35,7 +35,7 @@ func TestRepPhotoCheck(t *testing.T) {
 	var buf bytes.Buffer
 	_ = png.Encode(&buf, image.NewRGBA(image.Rect(0, 0, 200, 200)))
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/assets/zso.webp" {
+		if r.URL.Path == "/assets/zso.png" {
 			_, _ = w.Write(buf.Bytes())
 			return
 		}
@@ -55,12 +55,19 @@ func TestRepPhotoCheck(t *testing.T) {
 			reps = append(reps, tg)
 		}
 	}
-	// képviselőnként egyszer, a fájlnévvel
-	if len(reps) != 2 || reps[0].Where != "Képviselő fotója: Szabó Zsolt (zso.webp)" || reps[1].Where != "Képviselő fotója: Gál János (gal.webp)" {
+	// képviselőnként egyszer, a fájlnévvel; Outlook-barát módban (alap) a PNG párt nézi
+	if len(reps) != 2 || reps[0].Where != "Képviselő fotója: Szabó Zsolt (zso.png)" || reps[1].Where != "Képviselő fotója: Gál János (gal.png)" {
 		t.Fatalf("%+v", reps)
 	}
 	res := CheckImages(context.Background(), reps)
 	if res[0].Status == "error" || res[1].Status != "error" || !strings.Contains(res[1].Message, "404") {
 		t.Errorf("%+v", res)
+	}
+	// a WEBP megtartásával a .webp fájlt nézi
+	content[KeepWebpKey] = "1"
+	for _, tg := range CollectImageTargets(content, nil, partners[:1], nil) {
+		if tg.Kind == "rep" && tg.Where != "Képviselő fotója: Szabó Zsolt (zso.webp)" {
+			t.Errorf("WEBP megtartva: %+v", tg)
+		}
 	}
 }

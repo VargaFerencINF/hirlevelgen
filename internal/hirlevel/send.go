@@ -322,6 +322,9 @@ func BuildSendPlan(in SendInput) *SendPlan {
 			errf("A sablon ismeretlen mezőket használ: %s", strings.Join(missing, ", "))
 			return plan
 		}
+		if OutlookSafeOn(in.Content) {
+			body = OutlookSafeHTML(body, in.Content["assets.base"]) // WEBP → PNG pár (Outlook)
+		}
 		if strings.Contains(strings.ToLower(body), `"cid:`) || strings.Contains(strings.ToLower(body), `'cid:`) {
 			excl(p, p.Email, "a levélben beágyazott (cid:) kép van")
 			continue

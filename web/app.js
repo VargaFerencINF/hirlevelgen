@@ -1753,7 +1753,9 @@ function ftpResultBox(r) {
         r.assetsBaseSet ? h('div', { text: `A képtár webcíme beállítva: ${r.assetsBase}` }) : null,
         r.probe ? h('div', { text: `Ellenőrzés: ${r.probeUrl} – ${r.probe}` }) : r.probeUrl ? h('div', { text: 'A képek elérhetők a megadott webcímen.' }) : null)),
     list('uploaded', 'Feltöltött új fájlok'), list('replaced', 'Felülírt fájlok'), list('changed', 'Eltérő méretű, fent hagyott fájlok', 'warn'),
-    list('failed', 'Hibák', 'err'), list('skipped', 'Már fent volt'));
+    list('failed', 'Hibák', 'err'), list('skipped', 'Már fent volt'),
+    (r.twinWarnings || []).length ? h('details', { class: 'ftp-list warn' }, h('summary', { text: `WEBP képek, amelyekhez nem készült PNG pár (${r.twinWarnings.length})` }),
+      h('ul', null, r.twinWarnings.map(f => h('li', { text: f })))) : null);
 }
 
 async function openFtp() {
@@ -1774,6 +1776,9 @@ async function openFtp() {
   const overwrite = h('input', { type: 'checkbox', checked: !!st.overwrite });
   const setBase = h('input', { type: 'checkbox', checked: !!st.setBase });
   const auto = h('input', { type: 'checkbox', checked: !!st.autoUpload });
+  // a közös tartalom kapcsolója (assets.keepWebp: "1" = a WEBP marad a levélben)
+  const outlook = h('input', { type: 'checkbox', checked: S.state.content['assets.keepWebp'] !== '1',
+    onchange: e => { S.state.content['assets.keepWebp'] = e.target.checked ? '' : '1'; syncSoon(0); } });
   const out = h('div', { class: 'ftp-out' });
   const settings = () => ({ host: host.value.trim(), port: +port.value || 21, user: user.value.trim(), tls: tlsSel.value, verify: verify.checked,
     remoteDir: remote.value.trim(), publicUrl: pub.value.trim(), localDir: local.value.trim(), overwrite: overwrite.checked, setBase: setBase.checked, autoUpload: auto.checked });
@@ -1806,7 +1811,8 @@ async function openFtp() {
       h('div', { style: { marginTop: '8px' } },
         chk(overwrite, 'A módosított képek felülírása', 'Ha egy fájl már fent van, de más a mérete, felülírja. Kikapcsolva a fent lévő fájlokhoz nem nyúl.'),
         chk(setBase, 'A képtár webcímének beállítása feltöltés után', 'A Tartalom › Alapadatok „Képtár webcíme” mezője a fenti webcímre áll.'),
-        chk(auto, 'Automatikus feltöltés a küldés előtti ellenőrzésnél', 'A Küldés lépés Ellenőrzés gombja előbb feltölti a hiányzó képeket.')),
+        chk(auto, 'Automatikus feltöltés a küldés előtti ellenőrzésnél', 'A Küldés lépés Ellenőrzés gombja előbb feltölti a hiányzó képeket.'),
+        chk(outlook, 'Outlook-barát képek (WEBP helyett PNG a levélben)', 'Az asztali Outlook nem jeleníti meg a WEBP képeket: feltöltéskor minden WEBP mellé PNG pár készül (pl. zso.webp → zso.png), és a levélbe az kerül. Kikapcsolva a WEBP marad a levélben.')),
       out),
     h('div', { class: 'mf' },
       h('button', { class: 'btn btn-ghost', text: 'Bezárás', onclick: done }),
@@ -3456,26 +3462,75 @@ async function openSettings(focus) {
   if (focus) { const el = document.getElementById('set-' + focus); if (el) el.scrollIntoView({ block: 'start' }); }
 }
 
-// Képviselő-fotók (a partnertörzsben nincs kép): monogramonként egy kép link.
+// Feltöltött képviselő-fotó: négyzetesre vágva (álló képnél inkább a felső részből, ahol az
+// arc van), 192×192 px-re méretezve, fehér háttérrel WEBP-be tömörítve.
+async function repPhotoWebp(file) {
+  if (!/^image\//.test(file.type || '')) throw new Error('Ez nem képfájl.');
+  let bmp;
+  try { bmp = await createImageBitmap(file); } catch (e) { throw new Error('A kép nem nyitható meg (JPG, PNG vagy WEBP kell).'); }
+  const side = Math.min(bmp.width, bmp.height);
+  if (side < 64) throw new Error(`A kép túl kicsi (${bmp.width}×${bmp.height}); legalább 128×128 javasolt.`);
+  const size = 192;
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = size;
+  const ctx = cv.getContext('2d');
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, size, size);
+  ctx.drawImage(bmp, (bmp.width - side) / 2, (bmp.height - side) * 0.25, side, side, 0, 0, size, size);
+  const blob = await new Promise(res => cv.toBlob(res, 'image/webp', 0.9));
+  if (!blob || blob.type !== 'image/webp') throw new Error('Ez a böngésző nem tud WEBP képet készíteni.');
+  const b64 = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(',')[1]); fr.onerror = rej; fr.readAsDataURL(blob); });
+  return { blob, b64, small: side < 128 };
+}
+
+// Képviselő-fotók: alapból a képtárból (<monogram>.webp); itt fotó tölthető fel, vagy kézi link adható.
 async function openRepPhotos(group, after) {
   let reps, st;
   try { [reps, st] = await Promise.all([api('/api/b2b/reps', { group }), b2bLoadState()]); } catch (e) { toast(e.message, 'err'); return; }
   const options = JSON.parse(JSON.stringify(st.settings.options || {}));
   options.repPhotos = options.repPhotos || {};
+  const uploads = {}; // monogram → feltöltött fotó előnézete (object URL)
+  const rowFor = {};
   const rows = reps.reps.map(r => {
     let prev = avatar(r.name, r.photo || r.auto, 40);
+    const setPrev = url => {
+      const next = avatar(r.name, url, 40);
+      if (/^blob:/.test(url || '')) { next.textContent = ''; next.style.backgroundImage = `url("${url}")`; } // frissen feltöltött fotó
+      prev.replaceWith(next);
+      prev = next;
+    };
+    const status = h('div', { class: 'p-sub rep-st', text: r.file ? (options.repPhotos[r.mono] ? 'Kézi link (a képtár helyett)' : `Fotó: képtár/${r.file}`) : '' });
     const inp = h('input', { class: 'inp', type: 'url', value: options.repPhotos[r.mono] || '', spellcheck: false,
       placeholder: r.file ? `automatikus: képtár/${r.file}` : 'https://… (négyzetes, min. 128×128)' });
     inp.addEventListener('input', debounce(() => {
       options.repPhotos[r.mono] = inp.value.trim();
-      const next = avatar(r.name, inp.value.trim() || r.auto, 40);
-      prev.replaceWith(next);
-      prev = next;
+      setPrev(inp.value.trim() || uploads[r.mono] || r.auto);
     }, 400));
-    return h('div', { class: 'rep-row' }, prev,
+    const file = h('input', { type: 'file', accept: 'image/*', hidden: true, onchange: e => { if (e.target.files[0]) upload(e.target.files[0]); e.target.value = ''; } });
+    const btn = h('button', { type: 'button', class: 'btn btn-outline btn-sm', title: r.file ? `Fotó feltöltése ${r.file} néven (négyzetesre vágva, 192×192)` : 'Monogram nélkül nem tölthető fel fotó',
+      disabled: !r.file, dataset: { busy: 'Feltöltés…' }, onclick: () => file.click() }, icon('upload', 15), 'Fotó…');
+    async function upload(f) {
+      await busy(btn, async () => {
+        try {
+          const ph = await repPhotoWebp(f);
+          const res = await api('/api/b2b/repphoto', { mono: r.mono, data: ph.b64 });
+          uploads[r.mono] = URL.createObjectURL(ph.blob);
+          if (inp.value) { inp.value = ''; options.repPhotos[r.mono] = ''; } // a feltöltött fotó a kézi link helyére lép
+          setPrev(uploads[r.mono]);
+          status.textContent = res.uploaded ? `Feltöltve: képtár/${res.file} (+ ${res.png})` : `Mentve: ${res.file} – ${res.ftpError ? 'FTP-hiba: ' + res.ftpError : 'a küldés előtti ellenőrzés tölti fel'}`;
+          status.classList.toggle('warn', !res.uploaded);
+          if (res.dirCreated) toast(`A fotók mappája: ${res.dir} (beállítva az FTP „Saját képek mappája” mezőjébe).`, 'info', { timeout: 9000 });
+          if (ph.small) toast('A kép kisebb, mint 128×128 px, a levélben életlen lehet.', 'warn');
+        } catch (e) { toast(e.message, 'err', { timeout: 9000 }); }
+      });
+    }
+    const row = h('div', { class: 'rep-row', dataset: { mono: r.mono } }, prev,
       h('div', { class: 'rep-who' }, h('b', { text: r.name || r.mono }),
-        h('div', { class: 'p-sub', text: `${r.mono} · ${r.partners} partner · ${r.email || ''}` }),
-        r.file ? h('div', { class: 'p-sub', text: inp.value ? 'Kézi link (a képtár helyett)' : `Fotó: képtár/${r.file}` }) : null), inp);
+        h('div', { class: 'p-sub', text: `${r.mono} · ${r.partners} partner · ${r.email || ''}` }), status), inp, h('div', null, btn, file));
+    rowFor[r.mono] = { row, upload: f => r.file && upload(f) };
+    return row;
   });
   const done = () => bg.remove();
   const save = async () => {
@@ -3487,13 +3542,35 @@ async function openRepPhotos(group, after) {
       if (after) after(options);
     } catch (e) { toast(e.message, 'err'); }
   };
-  const bg = h('div', { class: 'modal-bg' },
+  const bg = h('div', { class: 'modal-bg rep-photos' },
     h('div', { class: 'modal wide', role: 'dialog' },
       h('div', { class: 'mh', text: 'Képviselő-fotók' }),
       h('div', { class: 'mb' },
-        h('p', { class: 'card-sub', text: 'A képviselő fotója alapból a képtárból jön: a monogram kisbetűvel, ékezet nélkül, .webp kiterjesztéssel (pl. ZSO → zso.webp, GÁL → gal.webp) – ezt a fájlt kell az assets mappába (FTP-re) feltölteni. A küldés előtti ellenőrzés jelzi, ha valamelyik hiányzik. A mezőbe csak akkor írj linket, ha egy képviselőnél ettől el akarsz térni.' }),
+        h('p', { class: 'card-sub', text: 'A képviselő fotója alapból a képtárból jön: a monogram kisbetűvel, ékezet nélkül, .webp kiterjesztéssel (pl. ZSO → zso.webp, GÁL → gal.webp). A „Fotó…” gombbal (vagy a képet a sorra húzva) a program négyzetesre vágja, elnevezi és – ha az FTP be van állítva – azonnal feltölti. A küldés előtti ellenőrzés jelzi, ha valamelyik hiányzik. A mezőbe csak akkor írj linket, ha egy képviselőnél ettől el akarsz térni.' }),
         rows.length ? h('div', { class: 'rep-list' }, rows) : h('div', { class: 'note info' }, icon('info'), h('div', { text: 'Előbb töltsd le a partnertörzset.' }))),
       h('div', { class: 'mf' }, h('button', { class: 'btn btn-ghost', text: 'Mégse', onclick: done }), h('button', { class: 'btn btn-primary', text: 'Mentés', onclick: save }))));
+  // fotó behúzása egy képviselő sorára (a program általános fájl-behúzása itt nem indul el)
+  const dragRow = e => e.target.closest && e.target.closest('.rep-row');
+  const clearHi = () => $$('.rep-row.drop', bg).forEach(x => x.classList.remove('drop'));
+  for (const t of ['dragenter', 'dragover', 'dragleave']) {
+    bg.addEventListener(t, e => {
+      e.preventDefault();
+      e.stopPropagation();
+      clearHi();
+      const row = t !== 'dragleave' && dragRow(e);
+      if (row && rowFor[row.dataset.mono]) row.classList.add('drop');
+    });
+  }
+  bg.addEventListener('drop', e => {
+    e.preventDefault();
+    e.stopPropagation();
+    clearHi();
+    const row = dragRow(e);
+    const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (!f) return;
+    if (!row) { toast('A fotót egy képviselő sorára húzd.', 'info'); return; }
+    rowFor[row.dataset.mono].upload(f);
+  });
   document.body.append(bg);
 }
 

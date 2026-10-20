@@ -279,6 +279,8 @@ A program ellenőrzi a sablont: ismeretlen `{{mezőt}}` használó fájlt nem ve
 
 ## Változások
 
+**1.4.11** – Képviselő-fotók feltöltése a programból: a Képviselő-fotók ablakban a „Fotó…” gombbal (vagy a képet a sorra húzva) a program négyzetesre vágja, 192×192 px-re méretezi, `<monogram>.webp` néven (PNG párral) a saját képek mappájába menti, és ha az FTP be van állítva, azonnal feltölti. Outlook-barát képek (FTP-beállítások, alapból bekapcsolva): az asztali Outlook nem mutatja a WEBP-t, ezért feltöltéskor minden WEBP mellé PNG pár készül, és a levélben a webes képtárra mutató WEBP képek helyett a PNG szerepel; a képellenőrzés is ezt nézi.
+
 **1.4.10** – Előnézet: a sablon képei mindig a program helyi képeiből jönnek (beépített képtár, hozzáadott sablonok képei, saját képek mappája), így egy új, még fel nem töltött sablon (pl. v6 Ősz) sem esik szét; ami helyben nincs meg (pl. képviselő-fotó), az a webes képtárból töltődik. A feltöltöttséget továbbra is a képellenőrzés és a küldés előtti ellenőrzés vizsgálja.
 
 **1.4.9** – Képviselő-fotók: a fájlnév mindig ékezet nélküli kisbetűs monogram (pl. GÁL → `gal.webp`).

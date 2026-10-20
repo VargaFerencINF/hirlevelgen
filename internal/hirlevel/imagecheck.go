@@ -45,6 +45,10 @@ func CollectImageTargets(c Content, products []Product, partners []Partner, tpl 
 	var out []ImageTarget
 	seen := map[string]bool{}
 	add := func(t ImageTarget) {
+		if OutlookSafeOn(c) {
+			// a levélben a webes képtár WEBP képei helyett a PNG párjuk szerepel: azt kell ellenőrizni
+			t.URL = OutlookSafeURL(t.URL, c["assets.base"])
+		}
 		if t.URL == "" || seen[t.URL] {
 			return
 		}
@@ -74,7 +78,11 @@ func CollectImageTargets(c Content, products []Product, partners []Partner, tpl 
 		}
 		pd := Build(c, products, p, tpl, "")
 		where := "Képviselő fotója: " + p.RepName
-		if u, err := url.PathUnescape(path.Base(pd.Values["rep.photo"])); err == nil && u != "" && u != "." && u != "/" {
+		photo := pd.Values["rep.photo"]
+		if OutlookSafeOn(c) {
+			photo = OutlookSafeURL(photo, c["assets.base"])
+		}
+		if u, err := url.PathUnescape(path.Base(photo)); err == nil && u != "" && u != "." && u != "/" {
 			where += " (" + u + ")"
 		}
 		add(ImageTarget{URL: pd.Values["rep.photo"], Where: where, Kind: "rep", Key: "repPhoto", Index: i})

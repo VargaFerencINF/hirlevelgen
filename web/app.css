@@ -626,7 +626,9 @@ input[type=checkbox]{width:17px;height:17px;accent-color:var(--orange);cursor:po
 .src-in{display:flex;gap:6px;align-items:center}
 .src-in .inp{padding:6px 10px;font-size:13px}
 .rep-list{display:flex;flex-direction:column;gap:10px;max-height:56vh;overflow:auto}
-.rep-row{display:grid;grid-template-columns:40px 220px minmax(0,1fr);gap:12px;align-items:center}
+.rep-row{display:grid;grid-template-columns:40px 220px minmax(0,1fr) auto;gap:12px;align-items:center;border-radius:10px;padding:2px 4px;transition:background .15s}
+.rep-row.drop{background:var(--soft);outline:2px dashed var(--orange)}
+.rep-who .rep-st.warn{color:#9A5B00}
 .rep-who{min-width:0;line-height:18px}
 .rep-who b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 @media (max-width:900px){.ps-body{grid-template-columns:1fr}.ps-left{max-height:40vh;border-right:0;border-bottom:1px solid var(--line)}.src-row{grid-template-columns:1fr}}
@@ -691,3 +693,4 @@ input[type=checkbox]{width:17px;height:17px;accent-color:var(--orange);cursor:po
 .ftp-list ul{margin:4px 0 0;padding-left:20px;max-height:160px;overflow:auto}
 .ftp-list.err summary{color:var(--err)}
 .ftp-list.warn summary{color:var(--rust)}
+.rep-photos .modal.wide{max-width:860px}
