@@ -1074,7 +1074,15 @@ func (a *App) renderPreview(pIdx int, tplID string, assetsBase string) (string, 
 		// a partner tokenje (automatikus bejelentkezés) az előnézetben sem szerepelhet
 		p.Token = previewLoginToken
 	}
-	d := h.Build(a.state.Content, a.state.Products, &p, tpl, assetsBase)
+	content := a.state.Content
+	if assetsBase != "" {
+		// az előnézet a program helyi képeit mutatja (a /assets/ a webes képtárra irányít, ha
+		// valami helyben nincs meg): így egy még fel nem töltött sablonkép sem esik szét;
+		// a feltöltöttséget a képellenőrzés és a küldés előtti ellenőrzés vizsgálja
+		content = cloneContent(a.state.Content)
+		content["assets.base"] = ""
+	}
+	d := h.Build(content, a.state.Products, &p, tpl, assetsBase)
 	html, missing := tpl.Render(d)
 	if len(missing) > 0 {
 		return "", fmt.Errorf("ismeretlen mezők: %s", strings.Join(missing, ", "))

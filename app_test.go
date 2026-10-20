@@ -1153,3 +1153,45 @@ func TestFTPModes(t *testing.T) {
 		t.Error(ftpError(e425))
 	}
 }
+
+// Az előnézet a helyi képeket mutatja (a webes képtár helyett); ami helyben nincs meg, az a
+// webes képtárra irányít. Így egy még fel nem töltött sablonkép sem esik szét az előnézetben.
+func TestPreviewLocalAssets(t *testing.T) {
+	app, srv := newTestServer(t)
+	flushOnCleanup(t, app)
+	local := t.TempDir()
+	_ = os.WriteFile(filepath.Join(local, "zso.webp"), []byte("RIFFxxxxWEBP"), 0o644)
+	if err := app.saveFTPSettings(FTPSettings{Port: 21, TLS: "auto", LocalDir: local}); err != nil {
+		t.Fatal(err)
+	}
+	app.mu.Lock()
+	app.state.Content["assets.base"] = "https://kep.example.com/hirlevel/assets/"
+	app.mu.Unlock()
+	get := func(u string) (int, string, string) {
+		c := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+		req, _ := http.NewRequest(http.MethodGet, srv.URL+u, nil)
+		req.Header.Set("X-Token", app.token)
+		res, err := c.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer res.Body.Close()
+		b, _ := io.ReadAll(res.Body)
+		return res.StatusCode, res.Header.Get("Location"), string(b)
+	}
+	if code, _, html := get("/api/preview?p=-1&tpl=v1-sotet-lemez"); code != 200 || !strings.Contains(html, `src="/assets/energofish-mark-light.png"`) || strings.Contains(html, "kep.example.com") {
+		t.Errorf("előnézet: %d", code)
+	}
+	if code, _, _ := get("/assets/energofish-mark-light.png"); code != 200 {
+		t.Errorf("beépített kép: %d", code)
+	}
+	if code, _, body := get("/assets/zso.webp"); code != 200 || body != "RIFFxxxxWEBP" {
+		t.Errorf("saját képek mappája: %d", code)
+	}
+	if code, loc, _ := get("/assets/gal.webp"); code != http.StatusFound || loc != "https://kep.example.com/hirlevel/assets/gal.webp" {
+		t.Errorf("webes képtár: %d %s", code, loc)
+	}
+	if code, _, _ := get("/assets/..%2Fftp.json"); code == 200 {
+		t.Error("mappán kívüli fájl")
+	}
+}

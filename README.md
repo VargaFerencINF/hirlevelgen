@@ -279,6 +279,8 @@ A program ellenőrzi a sablont: ismeretlen `{{mezőt}}` használó fájlt nem ve
 
 ## Változások
 
+**1.4.10** – Előnézet: a sablon képei mindig a program helyi képeiből jönnek (beépített képtár, hozzáadott sablonok képei, saját képek mappája), így egy új, még fel nem töltött sablon (pl. v6 Ősz) sem esik szét; ami helyben nincs meg (pl. képviselő-fotó), az a webes képtárból töltődik. A feltöltöttséget továbbra is a képellenőrzés és a küldés előtti ellenőrzés vizsgálja.
+
 **1.4.9** – Képviselő-fotók: a fájlnév mindig ékezet nélküli kisbetűs monogram (pl. GÁL → `gal.webp`).
 
 **1.4.8** – Képviselő-fotók a képtárból: a B2B partnerek képviselőjének fotója alapból `<képtár webcíme>/<monogram kisbetűvel>.webp` (pl. ZSO → `zso.webp`); a Képviselő-fotók ablakban megadott kézi link felülírja. A képellenőrzés (Ellenőrzés lépés és a küldés előtti ellenőrzés) képviselőnként, fájlnévvel jelzi a hiányzó fotót; éles küldésnél ez blokkoló hiba.

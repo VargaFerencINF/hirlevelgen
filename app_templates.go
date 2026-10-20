@@ -20,8 +20,22 @@ func (a *App) handleAsset(w http.ResponseWriter, r *http.Request) {
 	name := path.Base(strings.TrimPrefix(r.URL.Path, "/assets/"))
 	a.mu.Lock()
 	data, ok := a.lib.AssetFile(name)
+	web := strings.TrimRight(strings.TrimSpace(a.state.Content["assets.base"]), "/")
 	a.mu.Unlock()
+	if !ok && name != "." && name != "/" && !strings.HasPrefix(name, ".") {
+		// a saját képek mappája (FTP-beállítás), pl. a képviselők fotói
+		if dir := strings.TrimSpace(a.loadFTPSettings().LocalDir); dir != "" {
+			if b, err := os.ReadFile(filepath.Join(dir, name)); err == nil {
+				data, ok = b, true
+			}
+		}
+	}
 	if !ok {
+		// ami helyben nincs meg, az a webes képtárból jön (az előnézetben)
+		if strings.HasPrefix(web, "https://") || strings.HasPrefix(web, "http://") {
+			http.Redirect(w, r, web+"/"+url.PathEscape(name), http.StatusFound)
+			return
+		}
 		http.NotFound(w, r)
 		return
 	}
