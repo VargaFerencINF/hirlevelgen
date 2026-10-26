@@ -1366,3 +1366,36 @@ func TestScheduledSend(t *testing.T) {
 		t.Error("validálás ütemezése")
 	}
 }
+
+// A cikktörzs országa a betöltött partnerhalmaz célcsoportjából jön (kézzel felülírható).
+func TestActiveFeedCountry(t *testing.T) {
+	app, _ := newTestServer(t)
+	flushOnCleanup(t, app)
+	app.mu.Lock()
+	st, _ := app.activeFeedLocked()
+	if st != app.feed || st.Country != "hu" {
+		t.Error("alapból magyar")
+	}
+	app.excel = &h.ExcelData{B2B: &h.B2BSetInfo{Group: "B2B_CZ"}}
+	st, url := app.activeFeedLocked()
+	v := app.feedStatusLocked()
+	if st.Country != "cz" || url != "" || v["country"] != "cz" || v["currency"] != "Kč" || v["auto"] != "cz" || v["manual"] != false {
+		t.Errorf("CZ halmaz: %s %v", st.Country, v)
+	}
+	app.state.Feed.Country = "sk"
+	app.state.Feed.Currency = map[string]string{"sk": "EUR"}
+	app.state.Feed.URL = "https://sajat.example.com/feed.xml" // csak a magyarra vonatkozik
+	st, url = app.activeFeedLocked()
+	v = app.feedStatusLocked()
+	if st.Country != "sk" || url != "" || v["currency"] != "EUR" || v["manual"] != true || v["auto"] != "cz" {
+		t.Errorf("kézi SK: %s %v", st.Country, v)
+	}
+	app.state.Feed.Country = "hu"
+	if _, url = app.activeFeedLocked(); url != "https://sajat.example.com/feed.xml" {
+		t.Error("saját magyar cím")
+	}
+	app.mu.Unlock()
+	if app.feedStore("cz") != app.feedStore("cz") || app.feedStore("hu") != app.feed {
+		t.Error("tárolók")
+	}
+}

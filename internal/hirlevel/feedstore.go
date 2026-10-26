@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 )
@@ -17,8 +18,9 @@ import (
 // A letöltött XML tömörítve a gépre kerül; újraindításkor onnan töltődik, és a
 // szerverről csak akkor jön le újra, ha közben változott (ETag / Last-Modified).
 type FeedStore struct {
-	Dir    string
-	Client *http.Client
+	Dir     string
+	Country string // a cikktörzs országa (hu, cz, …): a cikkek árformájához
+	Client  *http.Client
 	// MinInterval: ennyi időn belül nem kérdezi le újra a szervert (kivéve kényszerített frissítés).
 	MinInterval time.Duration
 
@@ -54,6 +56,8 @@ type FeedStatus struct {
 	CheckedAt string `json:"checkedAt,omitempty"`
 	URL       string `json:"url"`
 	HTTP      int    `json:"http,omitempty"`
+	Country   string `json:"country"`
+	Label     string `json:"countryLabel"`
 }
 
 type feedMeta struct {
@@ -79,7 +83,8 @@ func (s *FeedStore) Status() FeedStatus {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	st := FeedStatus{Ready: len(s.products) > 0, Loading: s.loading, Phase: s.phase, Bytes: s.bytes, Total: s.total,
-		Count: len(s.products), Error: s.err, Source: s.source, URL: s.url, HTTP: s.http}
+		Count: len(s.products), Error: s.err, Source: s.source, URL: s.url, HTTP: s.http,
+		Country: FindFeedCountry(s.Country).Code, Label: FindFeedCountry(s.Country).Label}
 	if !s.dataTime.IsZero() {
 		st.DataTime = s.dataTime.Format(time.RFC3339)
 	}
@@ -100,7 +105,7 @@ func (s *FeedStore) Products() []FeedProduct {
 // a kérés utána fut le. A visszatérési érték jelzi, hogy lesz-e frissítés.
 func (s *FeedStore) Refresh(url string, force bool) bool {
 	if url == "" {
-		url = DefaultFeedURL
+		url = FeedURLFor(s.Country)
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -119,7 +124,7 @@ func (s *FeedStore) Refresh(url string, force bool) bool {
 // (induláskor, hogy a keresés azonnal működjön).
 func (s *FeedStore) LoadCached(url string) {
 	if url == "" {
-		url = DefaultFeedURL
+		url = FeedURLFor(s.Country)
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -187,6 +192,7 @@ func (s *FeedStore) run(url string, force, cacheOnly bool) {
 	if needCache && sameURL {
 		s.set(func() { s.phase = "cache" })
 		if list, err := s.loadCache(); err == nil {
+			s.markCountry(list)
 			s.set(func() {
 				s.products, s.source, s.url, s.dataTime = list, "cache", url, meta.FetchedAt
 			})
@@ -264,6 +270,7 @@ func (s *FeedStore) run(url string, force, cacheOnly bool) {
 		return
 	}
 	_, _ = io.Copy(io.Discard, body) // a fájl végéig, hogy a mentés teljes legyen
+	s.markCountry(list)
 	now := time.Now()
 	if tmpFile != nil {
 		if err := gz.Close(); err == nil {
@@ -280,6 +287,18 @@ func (s *FeedStore) run(url string, force, cacheOnly bool) {
 	s.set(func() {
 		s.products, s.source, s.url, s.dataTime, s.checkedAt = list, "net", url, now, now
 	})
+}
+
+// markCountry a cikkekre az ország kódja (az árforma és az akció-szöveg ehhez igazodik).
+func (s *FeedStore) markCountry(list []FeedProduct) {
+	c := FindFeedCountry(s.Country).Code
+	for i := range list {
+		list[i].Country = c
+		// a nemzetközi cikktörzs linkjei a nem létező energofish.en domainre mutatnak; a webshop
+		// ugyanezen az úton az energofish.com-on érhető el
+		list[i].Link = strings.Replace(list[i].Link, "://energofish.en/", "://energofish.com/", 1)
+		list[i].Link = strings.Replace(list[i].Link, "://www.energofish.en/", "://www.energofish.com/", 1)
+	}
 }
 
 type countingReader struct {

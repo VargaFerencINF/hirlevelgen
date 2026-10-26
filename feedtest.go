@@ -33,6 +33,11 @@ func runFeedTest(url string) error {
 	defer os.RemoveAll(dir)
 	s := h.NewFeedStore(dir)
 	s.MinInterval = 0
+	for _, c := range h.FeedCountries { // az ország a címből (termekadatok_cz.xml → cz)
+		if strings.HasSuffix(url, "termekadatok_"+c.Code+".xml") {
+			s.Country = c.Code
+		}
+	}
 	start := time.Now()
 	s.Refresh(url, false)
 	last := time.Now()

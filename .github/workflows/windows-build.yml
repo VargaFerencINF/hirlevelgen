@@ -49,6 +49,18 @@ jobs:
           Get-Content "$env:RUNNER_TEMP\cfgfeed\naplo.txt" -ErrorAction SilentlyContinue
           if ($p.ExitCode -ne 0) { throw "cikktörzs-teszt hiba: $($p.ExitCode)" }
 
+      - name: Élő külföldi cikktörzsek (AT, CZ, SK, EN, RO, ES)
+        continue-on-error: true   # a külső szerver elérhetetlensége ne akassza meg a kiadást
+        timeout-minutes: 20
+        shell: pwsh
+        run: |
+          foreach ($c in 'at','cz','sk','en','ro','es') {
+            $cfg = "$env:RUNNER_TEMP\cfgfeed_$c"
+            $p = Start-Process -FilePath dist\EnergofishHirlevel.exe -ArgumentList '-feedteszt','-feed',"https://energofish.hu/listak/feeds/wholesale/termekadatok_$c.xml",'-beallitasok',$cfg -Wait -PassThru
+            Get-Content "$cfg\naplo.txt" -ErrorAction SilentlyContinue | Select-Object -First 14
+            if ($p.ExitCode -ne 0) { throw "cikktörzs-teszt hiba ($c): $($p.ExitCode)" }
+          }
+
       - name: Élő B2B HU partnertörzs ellenőrzése (csak ha a WEBGALAMB_TOKEN_B2B_HU titok be van állítva)
         if: env.HAS_B2B_HU == 'true'
         continue-on-error: true

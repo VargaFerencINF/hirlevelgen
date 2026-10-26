@@ -46,11 +46,12 @@ type FeedProduct struct {
 	Category     string      `json:"category"`
 	Subcategory  string      `json:"subcategory"`
 	Brand        string      `json:"brand"`
-	Wholesale    int         `json:"wholesale"`     // nagyker nettó, Ft
-	WholesaleAkc int         `json:"wholesaleSale"` // nagyker nettó akciós (0 = nincs)
-	Retail       int         `json:"retail"`        // kisker bruttó, Ft
-	RetailAkc    int         `json:"retailSale"`    // kisker bruttó akciós (0 = nincs)
-	Stock        int         `json:"stock"`         // 0 = nincs, 1 = van, 2 = ismeretlen jelentés
+	Wholesale    float64     `json:"wholesale"`         // nagyker nettó (a cikktörzs pénznemében)
+	WholesaleAkc float64     `json:"wholesaleSale"`     // nagyker nettó akciós (0 = nincs)
+	Retail       float64     `json:"retail"`            // kisker bruttó
+	RetailAkc    float64     `json:"retailSale"`        // kisker bruttó akciós (0 = nincs)
+	Country      string      `json:"country,omitempty"` // a cikktörzs országa (hu, cz, …)
+	Stock        int         `json:"stock"`             // 0 = nincs, 1 = van, 2 = ismeretlen jelentés
 	LowStock     bool        `json:"lowStock"`
 	Badge        string      `json:"badge,omitempty"` // kifutó / készletcsökkentett / díjas
 	Images       []FeedImage `json:"images"`
@@ -87,6 +88,41 @@ type xmlTermek struct {
 	AltermekMatr  string    `xml:"Altermek_matrica"`
 }
 
+// xmlProduct a külföldi cikktörzsek (AT, CZ, SK, EN, RO, ES) rekordja: ugyanazok az adatok angol
+// mezőnevekkel (<Product>, Item_codeK, Product_name, Main_product, Wholesale_net_price, …).
+type xmlProduct struct {
+	ItemCode      string    `xml:"Item_code"`
+	ItemCodeK     string    `xml:"Item_codeK"`
+	ProductName   string    `xml:"Product_name"`
+	MainProduct   xmlText   `xml:"Main_product"`
+	ProductLink   string    `xml:"Product_link"`
+	Category      xmlText   `xml:"Category"`
+	Subcategory   xmlText   `xml:"Subcategory"`
+	Brand         string    `xml:"Brand_manufacturer"`
+	WholesaleNet  string    `xml:"Wholesale_net_price"`
+	WholesaleDisc string    `xml:"Wholesale_discount_net_price"`
+	RetailGross   string    `xml:"Retail_gross_price"`
+	RetailDisc    string    `xml:"Retail_discount_gross_price"`
+	OnStock       string    `xml:"On_stock"`
+	LowStock      string    `xml:"Low_stock"`
+	Images        []xmlText `xml:"Images>Image"`
+	Parameters    []xmlText `xml:"Parameters>Parameter"`
+	ProductStick  string    `xml:"Product_sticker"`
+	SubStick      string    `xml:"Subproduct_sticker"`
+}
+
+func (x *xmlProduct) termek() *xmlTermek {
+	return &xmlTermek{Cikkszam: x.ItemCode, CikkszamK: x.ItemCodeK, Termeknev: x.ProductName, Fotermek: x.MainProduct,
+		TermekLink: x.ProductLink, Kategoria: x.Category, Alkategoria: x.Subcategory, Marka: x.Brand,
+		NagykerNetto: x.WholesaleNet, NagykerAkc: x.WholesaleDisc, KiskerBrutto: x.RetailGross, KiskerAkc: x.RetailDisc,
+		Keszleten: x.OnStock, AlacsonyKeszl: x.LowStock, Kepek: x.Images, Parameterek: x.Parameters,
+		FotermekMatr: x.ProductStick, AltermekMatr: x.SubStick}
+}
+
+// a rövid leírásba nem kerülő paraméterek azonosítója (minden nyelvű cikktörzsben azonos):
+// 5 cikkszám, 8 egyéb, 29 szállítási méret, 35 tartalom, 40 akció
+var paramSkipID = map[string]bool{"5": true, "8": true, "29": true, "35": true, "40": true}
+
 // clean a spec szerinti strip (a nem törő szóközt is beleértve).
 func clean(s string) string { return strings.TrimFunc(s, unicode.IsSpace) }
 
@@ -118,8 +154,8 @@ func convertTermek(t *xmlTermek) FeedProduct {
 		Code: clean(t.CikkszamK), Plain: clean(t.Cikkszam), Name: strings.Join(strings.Fields(t.Termeknev), " "),
 		Family: clean(t.Fotermek.Value), FamilyID: atoi(t.Fotermek.ID), Link: clean(t.TermekLink),
 		Category: clean(t.Kategoria.Value), Subcategory: clean(t.Alkategoria.Value), Brand: clean(t.Marka),
-		Wholesale: atoi(t.NagykerNetto), WholesaleAkc: atoi(t.NagykerAkc),
-		Retail: atoi(t.KiskerBrutto), RetailAkc: atoi(t.KiskerAkc),
+		Wholesale: parseNum(t.NagykerNetto), WholesaleAkc: parseNum(t.NagykerAkc),
+		Retail: parseNum(t.KiskerBrutto), RetailAkc: parseNum(t.KiskerAkc),
 		Stock: atoi(t.Keszleten), LowStock: clean(t.AlacsonyKeszl) == "1",
 		Badge: badgeOf(clean(t.AltermekMatr), clean(t.FotermekMatr)),
 	}
@@ -133,7 +169,7 @@ func convertTermek(t *xmlTermek) FeedProduct {
 	}
 	for _, prm := range t.Parameterek {
 		v := clean(prm.Value)
-		if v == "" || clean(prm.ID) == "5" { // az 5-ös paraméter a cikkszám ismétlése
+		if v == "" || paramSkipID[clean(prm.ID)] { // cikkszám, akció, szállítási méret … (a leírásba nem kell)
 			continue
 		}
 		p.Params = append(p.Params, FeedParam{Name: clean(prm.Name), Value: v})
@@ -201,17 +237,26 @@ func ParseFeed(r io.Reader) ([]FeedProduct, error) {
 			}
 			continue
 		}
-		if se.Name.Local != "Termek" {
+		var t *xmlTermek
+		switch se.Name.Local {
+		case "Termek": // magyar cikktörzs
+			t = &xmlTermek{}
+			if err := dec.DecodeElement(t, &se); err != nil {
+				return nil, fmt.Errorf("hibás cikk a(z) %d. helyen: %w", len(out)+1, err)
+			}
+		case "Product": // külföldi cikktörzs (angol mezőnevek)
+			var x xmlProduct
+			if err := dec.DecodeElement(&x, &se); err != nil {
+				return nil, fmt.Errorf("hibás cikk a(z) %d. helyen: %w", len(out)+1, err)
+			}
+			t = x.termek()
+		default:
 			if err := dec.Skip(); err != nil {
 				return nil, err
 			}
 			continue
 		}
-		var t xmlTermek
-		if err := dec.DecodeElement(&t, &se); err != nil {
-			return nil, fmt.Errorf("hibás cikk a(z) %d. helyen: %w", len(out)+1, err)
-		}
-		p := convertTermek(&t)
+		p := convertTermek(t)
 		if p.Code == "" || seen[p.Code] {
 			continue
 		}
@@ -305,15 +350,26 @@ func FindFeed(list []FeedProduct, code string) *FeedProduct {
 }
 
 // DealText az akció kedvezménye („−23% akció”), ha van.
-func DealText(list, sale int) string {
+func DealText(list, sale float64) string {
+	return dealText(list, sale, "akció")
+}
+
+// dealText az ország akció-szavával (üres szónál csak a százalék: „−23%”).
+func dealText(list, sale float64, word string) string {
 	if sale <= 0 || list <= 0 || sale >= list {
 		return ""
 	}
-	pct := int(math.Round(float64(list-sale) / float64(list) * 100))
+	pct := int(math.Round((list - sale) / list * 100))
 	if pct < 1 {
-		return "akció"
+		if word == "" {
+			return ""
+		}
+		return word
 	}
-	return fmt.Sprintf("−%d%% akció", pct)
+	if word == "" {
+		return fmt.Sprintf("−%d%%", pct)
+	}
+	return fmt.Sprintf("−%d%% %s", pct, word)
 }
 
 // FeedOptions a cikktörzsből átvett adatok beállításai (a felületen állíthatók, mentődnek).
@@ -322,6 +378,10 @@ type FeedOptions struct {
 	Price string `json:"price,omitempty"` // retail (alap): kisker bruttó; wholesale: nagyker nettó; none
 	Image string `json:"image,omitempty"` // az előnyben részesített kép: code (alap), large, small, thumb
 	Link  string `json:"link,omitempty"`  // webshop (alap): a feed termékoldala; pattern: a Haladó beállítások mintája
+	// Country a cikktörzs országa ("" = a partnerhalmaz célcsoportja szerint, Excelnél magyar)
+	Country string `json:"country,omitempty"`
+	// Currency országonként felülírt pénznem-jel (pl. {"ro": "RON"}); üres = az alapértelmezett
+	Currency map[string]string `json:"currency,omitempty"`
 }
 
 var imageOrder = map[string][]string{
@@ -398,8 +458,12 @@ func FeedDesc(p *FeedProduct, max int) string {
 }
 
 // feedDeal az akció mező: kedvezmény és/vagy matrica (pl. „−55%, kifutó”).
-func feedDeal(list, sale int, badge string) string {
-	d := DealText(list, sale)
+func feedDeal(list, sale float64, badge, country string) string {
+	c := FindFeedCountry(country)
+	d := dealText(list, sale, c.Deal)
+	if c.Code != "hu" {
+		return d // a matricák (kifutó, kiárusítás) magyar szavak: külföldi cikktörzsnél csak a kedvezmény
+	}
 	tag := map[string]string{"kifutó": "kifutó", "készletcsökkentett": "kiárusítás", "EFTTEX díjas": "EFTTEX-díjas"}[badge]
 	switch {
 	case d != "" && tag != "":
@@ -423,18 +487,19 @@ func (p *FeedProduct) Ref() *FeedRef {
 func (p *FeedProduct) ToProduct(o FeedOptions) Product {
 	pr := Product{On: true, Code: p.Code, Name: p.Name, Desc: FeedDesc(p, 30), Alt: p.Name,
 		Images: append([]FeedImage(nil), p.Images...), Feed: p.Ref()}
+	country := FindFeedCountry(p.Country)
 	list, sale, suffix := p.Retail, p.RetailAkc, ""
 	if o.Price == "wholesale" {
-		list, sale, suffix = p.Wholesale, p.WholesaleAkc, " + áfa"
+		list, sale, suffix = p.Wholesale, p.WholesaleAkc, country.NetSuffix
 	}
 	cur := list
 	if sale > 0 && (sale < list || list == 0) {
 		cur = sale
 	}
 	if o.Price != "none" && cur > 0 {
-		pr.Price = FormatPrice(strconv.Itoa(cur)) + suffix
+		pr.Price = FormatMoney(cur, country.Code, o.Currency[country.Code]) + suffix
 	}
-	pr.Deal = feedDeal(list, sale, p.Badge)
+	pr.Deal = feedDeal(list, sale, p.Badge, country.Code)
 	pr.Image = PickImage(p.Images, o.Image)
 	if o.Link != "pattern" {
 		pr.URL = p.Link

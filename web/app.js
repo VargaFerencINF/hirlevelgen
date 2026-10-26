@@ -1070,6 +1070,17 @@ function codeKey(c) { return norm(c).replace(/-/g, '').trim(); }
 
 function fmtFt(n) { return n > 0 ? formatPrice(String(n)) : ''; }
 
+// Ár a cikktörzs országa szerint (magyar: „3 090 Ft”; máshol pl. „12,90 €”, „1 290 Kč”, „€12.90”).
+function fmtMoney(n) {
+  if (!(n > 0)) return '';
+  const f = S.feed || {};
+  const cur = f.currency || 'Ft';
+  if ((!f.country || f.country === 'hu') && cur === 'Ft') return formatPrice(String(n));
+  const en = f.country === 'en';
+  const s = n.toLocaleString(en ? 'en-GB' : 'hu-HU', { minimumFractionDigits: Math.round(n * 100) % 100 ? 2 : 0, maximumFractionDigits: 2 });
+  return en && /^[€$£]$/.test(cur) ? cur + s : s + '\u00a0' + cur;
+}
+
 function fmtMB(b) { return (b / 1e6).toLocaleString('hu-HU', { maximumFractionDigits: 1, minimumFractionDigits: 1 }) + ' MB'; }
 
 function feedOpts() {
@@ -1263,10 +1274,40 @@ function openPicker() {
   const seg = (label, key, opts, def) => h('div', { class: 'pk-opt' }, h('span', { class: 'label-caps', text: label }),
     h('div', { class: 'seg' }, opts.map(([v, t, tip]) => h('button', { type: 'button', class: (o[key] || def) === v ? 'on' : '', title: tip || null, text: t,
       onclick: e => { o[key] = v; $$('button', e.currentTarget.parentNode).forEach(b => b.classList.toggle('on', b === e.currentTarget)); syncSoon(); drawList(); } }))));
+  let feedCountryDraw = null; // a cikktörzs-választó újrarajzolása (lásd feedCountryOpt)
   const optsBar = h('div', { class: 'pk-opts' },
     seg('Ár', 'price', [['retail', 'Kisker bruttó', 'Kisker_brutto (akció esetén az akciós ár)'], ['wholesale', 'Nagyker nettó', 'Nagyker_netto „+ áfa” jelöléssel'], ['none', 'Ne töltse ki']], 'retail'),
     seg('Kép', 'image', [['code', 'Cikkkép', 'a változat saját képe (ha nincs: nagy, kis, bélyegkép)'], ['large', 'Nagy'], ['small', 'Kis'], ['thumb', 'Bélyeg']], 'code'),
-    seg('Gomb link', 'link', [['webshop', 'Webshop oldal', 'a cikktörzsben megadott termékoldal'], ['pattern', 'Haladó minta', 'a Tartalom › Haladó beállítások termékoldal-mintája']], 'webshop'));
+    seg('Gomb link', 'link', [['webshop', 'Webshop oldal', 'a cikktörzsben megadott termékoldal'], ['pattern', 'Haladó minta', 'a Tartalom › Haladó beállítások termékoldal-mintája']], 'webshop'),
+    feedCountryOpt());
+
+  // a cikktörzs országa: alapból a betöltött partnerhalmaz célcsoportja szerint; pénznem-jel felülírható
+  function feedCountryOpt() {
+    const box = h('div', { class: 'pk-opt pk-country' });
+    const draw = () => {
+      const f = S.feed || {};
+      const cur = f.country || 'hu';
+      const sel = h('select', { class: 'inp', title: 'Melyik ország cikktörzsében keres (ár, pénznem, termékoldal)', onchange: async e => {
+        o.country = e.target.value || undefined;
+        if (!o.country) delete o.country;
+        await syncNow();
+        await refreshFeed(false);
+        draw(); lastQ = null; doSearch();
+      } },
+        h('option', { value: '', selected: !f.manual, text: `Automatikus – ${f.autoLabel || 'Magyar (HU)'}` }),
+        (S.feedCountries || []).map(c => h('option', { value: c.code, selected: !!f.manual && c.code === cur, text: c.label })));
+      const curInp = cur !== 'hu' ? h('input', { class: 'inp pk-cur', value: f.currency || '', title: 'Pénznem-jel az árak mellett (pl. €, Kč, lei, RON)', spellcheck: false,
+        onchange: async e => {
+          o.currency = Object.assign({}, o.currency || {}, { [cur]: e.target.value.trim() });
+          if (!e.target.value.trim()) delete o.currency[cur];
+          await syncNow(); await pollFeed(); drawList();
+        } }) : null;
+      box.replaceChildren(h('span', { class: 'label-caps', text: 'Cikktörzs' }), h('div', { class: 'pk-country-row' }, sel, curInp));
+    };
+    feedCountryDraw = draw;
+    draw();
+    return box;
+  }
 
   const done = () => {
     feedListeners.delete(onFeed);
@@ -1292,7 +1333,7 @@ function openPicker() {
     } else {
       parts.push(h('div', { class: 'pk-ok' },
         h('span', { class: 'dot' + (st.lastError ? ' warn' : '') }),
-        h('span', null, h('b', { text: st.count.toLocaleString('hu-HU') + ' cikk' }), ' a cikktörzsben',
+        h('span', null, h('b', { text: st.count.toLocaleString('hu-HU') + ' cikk' }), st.countryLabel ? ` · ${st.countryLabel} cikktörzs` : ' a cikktörzsben',
           st.dataTime ? ` · letöltve: ${fmtTime(st.dataTime)}` : '',
           st.loading ? ' · frissítés keresése…' : ''),
         st.loading ? h('span', { class: 'spin dark' }) : null,
@@ -1304,6 +1345,7 @@ function openPicker() {
 
   function onFeed(st, becameReady) {
     statusLine(st);
+    if (feedCountryDraw && document.activeElement && !document.activeElement.closest('.pk-country')) feedCountryDraw();
     if (becameReady) { lastQ = null; doSearch(); }
   }
 
@@ -1313,10 +1355,10 @@ function openPicker() {
       if (!list && !sale) return null;
       const on = sale > 0 && (sale < list || !list);
       return h('div', { class: 'pk-price' }, h('span', { class: 'lbl', text: label }),
-        h('b', { text: fmtFt(on ? sale : list) + (suffix || '') }),
-        on && list ? h('s', { text: fmtFt(list) }) : null);
+        h('b', { text: fmtMoney(on ? sale : list) + (suffix || '') }),
+        on && list ? h('s', { text: fmtMoney(list) }) : null);
     };
-    rows.push(row('kisker', p.retail, p.retailSale), row('nagyker', p.wholesale, p.wholesaleSale, ' + áfa'));
+    rows.push(row('kisker', p.retail, p.retailSale), row('nagyker', p.wholesale, p.wholesaleSale, (S.feed && S.feed.netSuffix) || ' + áfa'));
     return h('div', { class: 'pk-prices' }, rows);
   };
 
@@ -1413,7 +1455,7 @@ function openPicker() {
         refreshFeed(true, o.url);
       } }),
       h('button', { class: 'btn btn-ghost btn-sm', text: 'Alapértelmezett', onclick: () => { urlInp.value = ''; o.url = ''; syncSoon(0); refreshFeed(true, ''); } })),
-    h('div', { class: 'help', text: 'Üresen az Energofish nagyker termékfeedje. A letöltött cikktörzs a gépre mentődik; legközelebb csak akkor töltődik le újra, ha a szerveren változott.' }));
+    h('div', { class: 'help', text: 'Üresen az Energofish nagyker termékfeedje. A saját cím csak a magyar cikktörzsre vonatkozik (a külföldi cikktörzsek címe rögzített). A letöltött cikktörzs a gépre mentődik; legközelebb csak akkor töltődik le újra, ha a szerveren változott.' }));
 
   const bg = h('div', { class: 'modal-bg', onclick: e => { if (e.target === bg) done(); } },
     h('div', { class: 'modal picker', role: 'dialog', 'aria-label': 'Termék hozzáadása a cikktörzsből' },
@@ -3765,7 +3807,7 @@ async function init() {
   }
   Object.assign(S, {
     fields: d.fields, groups: d.groups, templates: d.templates, tokens: d.tokens, defaults: d.defaults,
-    sample: d.sample, state: d.state, excel: d.excel, mode: d.mode, config: d.config, feedURL: d.feedURL, import: d.import,
+    sample: d.sample, state: d.state, excel: d.excel, mode: d.mode, config: d.config, feedURL: d.feedURL, import: d.import, feedCountries: d.feedCountries || [],
   });
   setInterval(() => api('/api/heartbeat').catch(() => {}), 20000);
   try {

@@ -717,3 +717,6 @@ input[type=checkbox]{width:17px;height:17px;accent-color:var(--orange);cursor:po
 .sched-card.info{border-left-color:var(--orange)}
 .sched-card.ok{border-left-color:#2E8B57}
 .sched-card.err{border-left-color:#C0392B}
+.pk-country-row{display:flex;gap:6px;align-items:center}
+.pk-country-row select.inp{padding:4px 8px;font-size:12px;height:30px;max-width:230px}
+.pk-country-row .pk-cur{width:64px;padding:4px 8px;font-size:12px;height:30px}

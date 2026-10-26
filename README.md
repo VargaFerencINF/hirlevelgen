@@ -279,6 +279,8 @@ A program ellenőrzi a sablont: ismeretlen `{{mezőt}}` használó fájlt nem ve
 
 ## Változások
 
+**1.4.14** – Országonkénti cikktörzs: a magyar mellett az osztrák, cseh, szlovák, nemzetközi (EN), román és spanyol cikktörzs (`termekadatok_<kód>.xml`). Hogy melyikben keres az „Új termék” ablak, azt a betöltött partnerhalmaz célcsoportja dönti el (AT/DE → at, CZ → cz, SK → sk, COM/RS → en, RO → ro, ES → es; Excel-partnerlistánál a magyar), kézzel is átállítható. A külföldi cikktörzsek angol mezőnevűek (`<Product>`, `Item_codeK`, `Wholesale_net_price` …) és tizedesvesszős árúak – a program mindkét szerkezetet olvassa. Az ár az ország pénznemében jelenik meg (Ft, €, Kč, lei – felülírható), a nettó ár az ország ÁFA-feliratával; külföldi cikknél az akció csak a százalék. Minden ország cikktörzse külön mentődik a gépre. Az EN cikktörzs nem létező `energofish.en` linkjeit a program `energofish.com`-ra javítja.
+
 **1.4.13** – Partnerhalmaz: a keresőmező nem veszít el karaktereket gépelés közben (eddig a találatok frissülésekor a mező a korábbi keresőszöveget kapta vissza, és a közben begépelt betűk elvesztek).
 
 **1.4.12** –

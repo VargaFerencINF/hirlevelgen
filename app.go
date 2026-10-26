@@ -79,6 +79,9 @@ type App struct {
 	smoke      bool // füstteszt: az első betöltés után kilép
 	inited     bool
 	quit       chan struct{}
+	feedDir    string                  // a cikktörzsek gyorsítótára (a magyar közvetlenül benne)
+	feeds      map[string]*h.FeedStore // országonkénti cikktörzs (a „hu” = a.feed)
+	feedMu     sync.Mutex
 	schedMu    sync.Mutex // az időzített küldés fájlja (idozites.json)
 	quitOnce   sync.Once
 	mapsOnce   sync.Once
@@ -128,6 +131,8 @@ func NewApp(configDir string) (*App, error) {
 		feedDir = filepath.Join(configDir, "cikktorzs")
 	}
 	a.feed = h.NewFeedStore(feedDir)
+	a.feed.Country = "hu"
+	a.feedDir, a.feeds = feedDir, map[string]*h.FeedStore{"hu": a.feed}
 	a.configDir = configDir
 	a.b2b = h.NewB2BStore(configDir)
 	a.b2b.Protect, a.b2b.Unprotect = protectSecret, unprotectSecret
@@ -608,7 +613,8 @@ func (a *App) apiInit(w http.ResponseWriter, r *http.Request) (any, error) {
 	if !a.inited {
 		// a gépre mentett cikktörzs betöltése (hálózat nélkül) csak akkor, amikor a felület
 		// már betöltődött: induláskor ne versenyezzen az ablak létrehozásával
-		go a.feed.LoadCached(strings.TrimSpace(a.state.Feed.URL))
+		st, url := a.activeFeedLocked()
+		go st.LoadCached(url)
 	}
 	a.inited = true
 	if a.smoke {
@@ -620,22 +626,23 @@ func (a *App) apiInit(w http.ResponseWriter, r *http.Request) (any, error) {
 		tpls = append(tpls, *t)
 	}
 	return map[string]any{
-		"version":   version,
-		"mode":      a.mode,
-		"fields":    h.Fields,
-		"groups":    h.Groups,
-		"templates": tpls,
-		"tokens":    h.Tokens,
-		"state":     a.state,
-		"defaults":  a.defaults,
-		"excel":     a.excelViewLocked(),
-		"issues":    a.issuesLocked(),
-		"sample":    h.SamplePartner,
-		"config":    a.configPath,
-		"feed":      a.feed.Status(),
-		"feedURL":   h.DefaultFeedURL,
-		"notices":   a.takeNoticesLocked(),
-		"import":    a.importInfoLocked(),
+		"version":       version,
+		"mode":          a.mode,
+		"fields":        h.Fields,
+		"groups":        h.Groups,
+		"templates":     tpls,
+		"tokens":        h.Tokens,
+		"state":         a.state,
+		"defaults":      a.defaults,
+		"excel":         a.excelViewLocked(),
+		"issues":        a.issuesLocked(),
+		"sample":        h.SamplePartner,
+		"config":        a.configPath,
+		"feed":          a.feedStatusLocked(),
+		"feedCountries": h.FeedCountries,
+		"feedURL":       h.DefaultFeedURL,
+		"notices":       a.takeNoticesLocked(),
+		"import":        a.importInfoLocked(),
 	}, nil
 }
 
