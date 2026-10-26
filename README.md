@@ -128,7 +128,7 @@ Teszt módokban (1–3) a levelekben a partner **valódi leiratkozó linkje hely
 
 **A Postmark fiók teszt módjában** (jóváhagyásig) összesen legfeljebb 100 levél küldhető, és csak `@energofish.hu` címekre – ilyenkor a *Belső teszt* használható, az éles küldés a Postmark jóváhagyása és a „Manage unsubscribes on your own” (Custom) beállítás után.
 
-## Képtár feltöltése FTP-re (1.4.2)
+## Képtár feltöltése FTP-re (1.4.22)
 
 A levelek képei (logó, hullámok, borító, portré, a hozzáadott sablonok képei) kiküldéshez egy webes tárhelyen kell legyenek. A *Képtár feltöltése (FTP)* ablak (⚙ Beállítások › Képtár, a ⋮ menü, a Küldés lépés vagy a Generálás figyelmeztetése) ezt elvégzi:
 
@@ -279,39 +279,41 @@ A program ellenőrzi a sablont: ismeretlen `{{mezőt}}` használó fájlt nem ve
 
 ## Változások
 
-**1.4.15** – Külföldi cikktörzsek: a név nélküli cikkek (a valódi fájlokban pl. a szlováknál 29%, a csehnél 20%) a főtermék nevét és a változat méretét / kiszerelését / színét kapják cikknévként (pl. „MUSTAD KAIJU … HÁČEK 8/0”), így a Cikk / Főtermék váltó náluk is működik; ha a két név azonos, a váltó egy gombot mutat. Beállítások › Cikktörzs: országonként saját cikktörzs-cím adható meg (az „Új termék” ablak „Cikktörzs címe” sora az épp használt országra vonatkozik).
+A verziószám a kiadás száma (`v1.4.<build>`): ugyanez látszik a programban, a kiadás címében és a Windows-fájltulajdonságokban. (A régebbi, 1.4.1–1.4.15 belső számokat ez a lista már a kiadás számával mutatja.)
 
-**1.4.14** – Országonkénti cikktörzs: a magyar mellett az osztrák, cseh, szlovák, nemzetközi (EN), román és spanyol cikktörzs (`termekadatok_<kód>.xml`). Hogy melyikben keres az „Új termék” ablak, azt a betöltött partnerhalmaz célcsoportja dönti el (AT/DE → at, CZ → cz, SK → sk, COM/RS → en, RO → ro, ES → es; Excel-partnerlistánál a magyar), kézzel is átállítható. A külföldi cikktörzsek angol mezőnevűek (`<Product>`, `Item_codeK`, `Wholesale_net_price` …) és tizedesvesszős árúak – a program mindkét szerkezetet olvassa. Az ár az ország pénznemében jelenik meg (Ft, €, Kč, lei – felülírható), a nettó ár az ország ÁFA-feliratával; külföldi cikknél az akció csak a százalék. Minden ország cikktörzse külön mentődik a gépre. Az EN cikktörzs nem létező `energofish.en` linkjeit a program `energofish.com`-ra javítja.
+**1.4.35** – Külföldi cikktörzsek: a név nélküli cikkek (a valódi fájlokban pl. a szlováknál 29%, a csehnél 20%) a főtermék nevét és a változat méretét / kiszerelését / színét kapják cikknévként (pl. „MUSTAD KAIJU … HÁČEK 8/0”), így a Cikk / Főtermék váltó náluk is működik; ha a két név azonos, a váltó egy gombot mutat. Beállítások › Cikktörzs: országonként saját cikktörzs-cím adható meg (az „Új termék” ablak „Cikktörzs címe” sora az épp használt országra vonatkozik).
 
-**1.4.13** – Partnerhalmaz: a keresőmező nem veszít el karaktereket gépelés közben (eddig a találatok frissülésekor a mező a korábbi keresőszöveget kapta vissza, és a közben begépelt betűk elvesztek).
+**1.4.34** – Országonkénti cikktörzs: a magyar mellett az osztrák, cseh, szlovák, nemzetközi (EN), román és spanyol cikktörzs (`termekadatok_<kód>.xml`). Hogy melyikben keres az „Új termék” ablak, azt a betöltött partnerhalmaz célcsoportja dönti el (AT/DE → at, CZ → cz, SK → sk, COM/RS → en, RO → ro, ES → es; Excel-partnerlistánál a magyar), kézzel is átállítható. A külföldi cikktörzsek angol mezőnevűek (`<Product>`, `Item_codeK`, `Wholesale_net_price` …) és tizedesvesszős árúak – a program mindkét szerkezetet olvassa. Az ár az ország pénznemében jelenik meg (Ft, €, Kč, lei – felülírható), a nettó ár az ország ÁFA-feliratával; külföldi cikknél az akció csak a százalék. Minden ország cikktörzse külön mentődik a gépre. Az EN cikktörzs nem létező `energofish.en` linkjeit a program `energofish.com`-ra javítja.
 
-**1.4.12** –
+**1.4.33** – Partnerhalmaz: a keresőmező nem veszít el karaktereket gépelés közben (eddig a találatok frissülésekor a mező a korábbi keresőszöveget kapta vissza, és a közben begépelt betűk elvesztek).
+
+**1.4.32** –
 - **Időzített küldés** (Küldés lépés, „Időzítés…”): ellenőrzés után megadható a kiküldés időpontja (legfeljebb 31 nappal előre). A beütemezéskori tartalom, termékek, sablon és címzettek rögzülnek; az időpontban a program frissíti a partnertörzset, feltölti a képeket, újra ellenőriz, és csak hibátlan állapotban küld. A programnak futnia kell (amíg az időzítés vár, Windowson nem engedi elaludni a gépet); ha az időpontban nem futott, a küldés később sem indul el magától („elmaradt”).
 - **A személyes levelet a területi képviselő írja alá** (Tartalom › Személyes levél, kapcsoló): az aláíró neve, beosztása („Beosztás, ha a képviselő írja alá”) és fotója partnerenként a képviselőé; képviselő nélküli partnernél a közös aláíró marad.
 - **Képtár-böngésző**: a képmezők (borítókép, aláíró portréja, termékkép) melletti „Képtár…” gombbal a webes assets mappa (FTP) és a csak helyben meglévő képek közül lehet választani; a kép `{assets}/…` formában kerül a mezőbe.
 - A B2B partnereknél a képviselő neve alatt nem jelenik meg a partner megyéje (a `{terulet}` változó megmarad).
 
-**1.4.11** – Képviselő-fotók feltöltése a programból: a Képviselő-fotók ablakban a „Fotó…” gombbal (vagy a képet a sorra húzva) a program négyzetesre vágja, 192×192 px-re méretezi, `<monogram>.webp` néven (PNG párral) a saját képek mappájába menti, és ha az FTP be van állítva, azonnal feltölti. Outlook-barát képek (FTP-beállítások, alapból bekapcsolva): az asztali Outlook nem mutatja a WEBP-t, ezért feltöltéskor minden WEBP mellé PNG pár készül, és a levélben a webes képtárra mutató WEBP képek helyett a PNG szerepel; a képellenőrzés is ezt nézi.
+**1.4.31** – Képviselő-fotók feltöltése a programból: a Képviselő-fotók ablakban a „Fotó…” gombbal (vagy a képet a sorra húzva) a program négyzetesre vágja, 192×192 px-re méretezi, `<monogram>.webp` néven (PNG párral) a saját képek mappájába menti, és ha az FTP be van állítva, azonnal feltölti. Outlook-barát képek (FTP-beállítások, alapból bekapcsolva): az asztali Outlook nem mutatja a WEBP-t, ezért feltöltéskor minden WEBP mellé PNG pár készül, és a levélben a webes képtárra mutató WEBP képek helyett a PNG szerepel; a képellenőrzés is ezt nézi.
 
-**1.4.10** – Előnézet: a sablon képei mindig a program helyi képeiből jönnek (beépített képtár, hozzáadott sablonok képei, saját képek mappája), így egy új, még fel nem töltött sablon (pl. v6 Ősz) sem esik szét; ami helyben nincs meg (pl. képviselő-fotó), az a webes képtárból töltődik. A feltöltöttséget továbbra is a képellenőrzés és a küldés előtti ellenőrzés vizsgálja.
+**1.4.30** – Előnézet: a sablon képei mindig a program helyi képeiből jönnek (beépített képtár, hozzáadott sablonok képei, saját képek mappája), így egy új, még fel nem töltött sablon (pl. v6 Ősz) sem esik szét; ami helyben nincs meg (pl. képviselő-fotó), az a webes képtárból töltődik. A feltöltöttséget továbbra is a képellenőrzés és a küldés előtti ellenőrzés vizsgálja.
 
-**1.4.9** – Képviselő-fotók: a fájlnév mindig ékezet nélküli kisbetűs monogram (pl. GÁL → `gal.webp`).
+**1.4.29** – Képviselő-fotók: a fájlnév mindig ékezet nélküli kisbetűs monogram (pl. GÁL → `gal.webp`).
 
-**1.4.8** – Képviselő-fotók a képtárból: a B2B partnerek képviselőjének fotója alapból `<képtár webcíme>/<monogram kisbetűvel>.webp` (pl. ZSO → `zso.webp`); a Képviselő-fotók ablakban megadott kézi link felülírja. A képellenőrzés (Ellenőrzés lépés és a küldés előtti ellenőrzés) képviselőnként, fájlnévvel jelzi a hiányzó fotót; éles küldésnél ez blokkoló hiba.
+**1.4.28** – Képviselő-fotók a képtárból: a B2B partnerek képviselőjének fotója alapból `<képtár webcíme>/<monogram kisbetűvel>.webp` (pl. ZSO → `zso.webp`); a Képviselő-fotók ablakban megadott kézi link felülírja. A képellenőrzés (Ellenőrzés lépés és a küldés előtti ellenőrzés) képviselőnként, fájlnévvel jelzi a hiányzó fotót; éles küldésnél ez blokkoló hiba.
 
-**1.4.7** – A v4 Partnerjelentés (kérdés-blokkos) sablon kikerült a beépített sablonok közül, és vele a Közös tartalom „Egy kérdés” csoportja is; az alapértelmezett sablon a v1 Sötét lemez (a v4-et használóknál is erre áll át). A kérdés-blokk kezelése a hozzáadott sablonokhoz megmaradt: ilyen sablonnál a csoport újra megjelenik.
+**1.4.27** – A v4 Partnerjelentés (kérdés-blokkos) sablon kikerült a beépített sablonok közül, és vele a Közös tartalom „Egy kérdés” csoportja is; az alapértelmezett sablon a v1 Sötét lemez (a v4-et használóknál is erre áll át). A kérdés-blokk kezelése a hozzáadott sablonokhoz megmaradt: ilyen sablonnál a csoport újra megjelenik.
 
-**1.4.6** – Termékek: „Automatikus bejelentkezés a linkekben” kapcsoló. Bekapcsolva a saját (energofish) domainre mutató termék- és „teljes ajánlat” linkek legvégére a B2B partner tokenje kerül (`&v=<Token>`, a UTM-paraméterek után), így a partner belépve érkezik a weboldalra. Token nélküli partnernél kimarad; a leiratkozó, a közösségi és a külső linkekre nem kerül. Az előnézetben és a teszt küldésekben helyettesítő áll a valódi token helyett.
+**1.4.26** – Termékek: „Automatikus bejelentkezés a linkekben” kapcsoló. Bekapcsolva a saját (energofish) domainre mutató termék- és „teljes ajánlat” linkek legvégére a B2B partner tokenje kerül (`&v=<Token>`, a UTM-paraméterek után), így a partner belépve érkezik a weboldalra. Token nélküli partnernél kimarad; a leiratkozó, a közösségi és a külső linkekre nem kerül. Az előnézetben és a teszt küldésekben helyettesítő áll a valódi token helyett.
 
-**1.4.5** – Termékek: a cikktörzsből jött cikkek kártyáján lenyitható „Cikk / Főtermék” fül – cikkenként átrakható a név (Fotermek), az azonosító (Fotermek id) és a gomb link (Termek_link) a főtermékre, és vissza.
+**1.4.25** – Termékek: a cikktörzsből jött cikkek kártyáján lenyitható „Cikk / Főtermék” fül – cikkenként átrakható a név (Fotermek), az azonosító (Fotermek id) és a gomb link (Termek_link) a főtermékre, és vissza.
 
-**1.4.4** – Az FTP és a Postmark beállítások ablaka a fejlécben X gombbal (és Esc billentyűvel) is bezárható; kis képernyőn a gombsor mindig látszik, a tartalom görgethető.
+**1.4.24** – Az FTP és a Postmark beállítások ablaka a fejlécben X gombbal (és Esc billentyűvel) is bezárható; kis képernyőn a gombsor mindig látszik, a tartalom görgethető.
 
-**1.4.3** – FTP: ha a szerver nem engedi a titkosított adatkapcsolatot (425 – pl. ProFTPD, amely a TLS-munkamenet újrahasználatát kéri), automatikus módban a program magától TLS 1.2-vel, majd titkosítás nélkül próbálkozik, és kiírja, melyikkel sikerült.
+**1.4.23** – FTP: ha a szerver nem engedi a titkosított adatkapcsolatot (425 – pl. ProFTPD, amely a TLS-munkamenet újrahasználatát kéri), automatikus módban a program magától TLS 1.2-vel, majd titkosítás nélkül próbálkozik, és kiírja, melyikkel sikerült.
 
-**1.4.2** – képtár feltöltése FTP-re (FTPS-sel is): beállító ablak titkosított jelszóval, a sablonok képei és saját képek feltöltése, a már fent lévő fájlok kihagyása, a képtár webcímének beállítása és ellenőrzése, automatikus feltöltés a küldés előtti ellenőrzésnél.
+**1.4.22** – képtár feltöltése FTP-re (FTPS-sel is): beállító ablak titkosított jelszóval, a sablonok képei és saját képek feltöltése, a már fent lévő fájlok kihagyása, a képtár webcímének beállítása és ellenőrzése, automatikus feltöltés a küldés előtti ellenőrzésnél.
 
-**1.4.1** – a Webgalamb export beolvasása robusztus: lista és számozott kulcsú objektum (lyukakkal, numerikus sorrendben), BOM, burkoló objektum; csak az e-mail cím kötelező, a hiányzó / null / számként érkező mezők nem okoznak hibát; magyar hibaüzenetek sor- és oszlopszámmal; az Ellenőrzés lépésben a beolvasás formátuma és a duplikált címek (melyik rekord maradt ki).
+**1.4.21** – a Webgalamb export beolvasása robusztus: lista és számozott kulcsú objektum (lyukakkal, numerikus sorrendben), BOM, burkoló objektum; csak az e-mail cím kötelező, a hiányzó / null / számként érkező mezők nem okoznak hibát; magyar hibaüzenetek sor- és oszlopszámmal; az Ellenőrzés lépésben a beolvasás formátuma és a duplikált címek (melyik rekord maradt ki).
 
 **1.4** – 6. lépés: **Küldés Postmarkon** – négy mód (validálás, sandbox, belső teszt, éles), küldés előtti ellenőrzés (stream-beállítás, letiltott címek, leiratkozottak, képek, méret), kötegelt küldés újrapróbálással, levelenkénti hibakezelés, CSV-napló a dupla küldés ellen, visszajelzések exportja; titkosított tokenek.
 
