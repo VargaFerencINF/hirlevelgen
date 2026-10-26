@@ -279,6 +279,8 @@ A program ellenőrzi a sablont: ismeretlen `{{mezőt}}` használó fájlt nem ve
 
 ## Változások
 
+**1.4.13** – Partnerhalmaz: a keresőmező nem veszít el karaktereket gépelés közben (eddig a találatok frissülésekor a mező a korábbi keresőszöveget kapta vissza, és a közben begépelt betűk elvesztek).
+
 **1.4.12** –
 - **Időzített küldés** (Küldés lépés, „Időzítés…”): ellenőrzés után megadható a kiküldés időpontja (legfeljebb 31 nappal előre). A beütemezéskori tartalom, termékek, sablon és címzettek rögzülnek; az időpontban a program frissíti a partnertörzset, feltölti a képeket, újra ellenőriz, és csak hibátlan állapotban küld. A programnak futnia kell (amíg az időzítés vár, Windowson nem engedi elaludni a gépet); ha az időpontban nem futott, a küldés később sem indul el magától („elmaradt”).
 - **A személyes levelet a területi képviselő írja alá** (Tartalom › Személyes levél, kapcsoló): az aláíró neve, beosztása („Beosztás, ha a képviselő írja alá”) és fotója partnerenként a képviselőé; képviselő nélküli partnernél a közös aláíró marad.

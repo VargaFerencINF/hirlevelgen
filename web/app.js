@@ -3136,6 +3136,7 @@ async function openPartnerSet(groupId, loaded) {
   let options = JSON.parse(JSON.stringify(set.options || {}));
   let presetName = (loaded && loaded.name) || '';
   let tab = '', last = null, seq = 0;
+  let searchEl = null; // a kereső (lásd renderLeft)
   const open = {};
 
   const groupSel = h('select', { class: 'inp ps-group' });
@@ -3245,11 +3246,18 @@ async function openPartnerSet(groupId, loaded) {
       if (p.group !== group) { group = p.group; renderGroups(); }
       query();
     } }, h('option', { value: '', text: presets.length ? '— mentett halmazok —' : 'nincs mentett halmaz' }), presets.map(p => h('option', { value: p.name, selected: p.name === presetName, text: `${p.name} (${p.group.replace('_', ' ')})` })));
-    const search = h('input', { class: 'inp', type: 'search', placeholder: 'Név, e-mail vagy Nazon…', value: filter.query || '', spellcheck: false });
-    search.addEventListener('input', debounce(() => { if (search.value.trim()) filter.query = search.value; else delete filter.query; query(); }, 250));
+    // a keresőmező mindig ugyanaz az elem: az újrarajzolás nem írja felül, amit közben (a válaszra
+    // várva) begépeltek – különben karakterek vesznének el
+    if (!searchEl) {
+      searchEl = h('input', { class: 'inp', type: 'search', placeholder: 'Név, e-mail vagy Nazon…', spellcheck: false });
+      searchEl.addEventListener('input', debounce(() => { if (searchEl.value.trim()) filter.query = searchEl.value; else delete filter.query; query(); }, 250));
+    }
+    const search = searchEl;
+    const typing = document.activeElement === search;
+    if (!typing && search.value !== (filter.query || '')) search.value = filter.query || ''; // mentett halmaz, törlés
+    const selStart = search.selectionStart, selEnd = search.selectionEnd;
     const from = h('input', { class: 'inp', type: 'date', value: filter.subFrom || '', onchange: e => { if (e.target.value) filter.subFrom = e.target.value; else delete filter.subFrom; query(); } });
     const to = h('input', { class: 'inp', type: 'date', value: filter.subTo || '', onchange: e => { if (e.target.value) filter.subTo = e.target.value; else delete filter.subTo; query(); } });
-    const active = left.contains(document.activeElement) && document.activeElement.type === 'search';
     left.replaceChildren(
       h('div', { class: 'ps-presets' }, presetSel,
         h('button', { class: 'btn btn-ghost btn-sm', title: 'A jelenlegi feltételek mentése névvel', onclick: savePreset }, icon('save', 15)),
@@ -3264,7 +3272,7 @@ async function openPartnerSet(groupId, loaded) {
       h('div', { class: 'ps-dates' }, h('div', { class: 'ps-tri-t', text: 'Feliratkozás dátuma' }), h('div', { class: 'ps-daterow' }, from, h('span', { text: '–' }), to)),
       facet('Tulajdonság 6 (régi szűrő)', 'props', 'propsNot', f.props),
       h('button', { class: 'btn btn-ghost btn-sm ps-reset', onclick: () => { filter = {}; presetName = ''; query(); } }, icon('reset', 15), 'Minden feltétel törlése'));
-    if (active) { search.focus(); search.setSelectionRange(search.value.length, search.value.length); }
+    if (typing) { search.focus(); try { search.setSelectionRange(selStart, selEnd); } catch (e) { /* nem kijelölhető */ } }
   }
 
   function renderRight() {
