@@ -198,3 +198,59 @@ func SyncAssets(r RemoteFS, remoteDir string, files []AssetFile, overwrite bool,
 	}
 	return res, nil
 }
+
+// IsImageName igaz, ha a fájlnév képre utal (png, jpg, gif, webp, svg, ico).
+func IsImageName(name string) bool { return assetExt[strings.ToLower(path.Ext(name))] }
+
+// RemoteImage a webes képtár egy képe (a képválasztóhoz).
+type RemoteImage struct {
+	Rel  string `json:"rel"`  // relatív út a képtárban (pl. „zso.webp”, „osz/level.png”)
+	Size int64  `json:"size"` // bájt
+}
+
+// ListRemoteImages a távoli képtár képei, almappákkal együtt (legfeljebb maxDepth mélységig és
+// maxFiles képig; a rejtett fájlok és mappák kimaradnak). Nem létező mappára üres listát ad.
+func ListRemoteImages(r RemoteFS, remoteDir string, maxDepth, maxFiles int) ([]RemoteImage, bool, error) {
+	root := "/" + strings.Trim(path.Clean("/"+strings.ReplaceAll(remoteDir, "\\", "/")), "/")
+	var out []RemoteImage
+	truncated := false
+	var walk func(dir, rel string, depth int) error
+	walk = func(dir, rel string, depth int) error {
+		entries, err := r.List(dir)
+		if err != nil {
+			return err
+		}
+		names := make([]string, 0, len(entries))
+		for n := range entries {
+			names = append(names, n)
+		}
+		sort.Strings(names)
+		for _, n := range names {
+			if strings.HasPrefix(n, ".") {
+				continue
+			}
+			if strings.HasSuffix(n, "/") {
+				if depth < maxDepth {
+					sub := strings.TrimSuffix(n, "/")
+					if err := walk(path.Join(dir, sub), path.Join(rel, sub), depth+1); err != nil {
+						return err
+					}
+				}
+				continue
+			}
+			if !IsImageName(n) {
+				continue
+			}
+			if len(out) >= maxFiles {
+				truncated = true
+				return nil
+			}
+			out = append(out, RemoteImage{Rel: path.Join(rel, n), Size: entries[n]})
+		}
+		return nil
+	}
+	if err := walk(root, "", 0); err != nil {
+		return nil, false, err
+	}
+	return out, truncated, nil
+}

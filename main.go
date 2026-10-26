@@ -22,7 +22,7 @@ import (
 	h "energofish/hirlevel/internal/hirlevel"
 )
 
-var version = "1.4.11"
+var version = "1.4.12"
 
 const appTitle = "Energofish Partnerhírlevél-generátor"
 
@@ -113,6 +113,7 @@ func main() {
 		fatal(fmt.Errorf("a helyi szerver nem indítható: %w", err))
 	}
 	addr := ln.Addr().(*net.TCPAddr)
+	app.StartScheduler() // időzített küldés
 	srv := &http.Server{Handler: hostGuard(addr.Port, app.routes()), ReadHeaderTimeout: 10 * time.Second}
 	go func() {
 		if err := srv.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {

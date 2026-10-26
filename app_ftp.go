@@ -643,3 +643,54 @@ func (a *App) apiRepPhoto(w http.ResponseWriter, r *http.Request) (any, error) {
 	}
 	return out, nil
 }
+
+// apiAssetsBrowse a képválasztó: a webes képtár (FTP-mappa) képei és a csak helyben meglévők
+// (beépített képtár, hozzáadott sablonok képei, saját képek mappája).
+func (a *App) apiAssetsBrowse(w http.ResponseWriter, r *http.Request) (any, error) {
+	s := a.loadFTPSettings()
+	pw := a.loadFTPPassword()
+	var dirs []string
+	a.mu.Lock()
+	base := strings.TrimRight(strings.TrimSpace(a.state.Content["assets.base"]), "/")
+	for _, t := range a.tpls() {
+		if t.AssetsDir != "" {
+			dirs = append(dirs, t.AssetsDir)
+		}
+	}
+	a.mu.Unlock()
+	if base == "" {
+		base = s.PublicURL
+	}
+	type localImg struct {
+		Rel    string `json:"rel"`
+		Source string `json:"source"`
+	}
+	local := []localImg{}
+	files, err := h.CollectAssets(a.assets, dirs, s.LocalDir)
+	if err != nil {
+		files, _ = h.CollectAssets(a.assets, dirs, "") // a saját képek mappája nem érhető el
+	}
+	for _, f := range files {
+		if h.IsImageName(f.Rel) {
+			local = append(local, localImg{Rel: f.Rel, Source: f.Source})
+		}
+	}
+	out := map[string]any{"base": base, "local": local, "remote": []h.RemoteImage{}, "ftp": s.configured() && pw != ""}
+	if s.configured() && pw != "" {
+		ctx, cancel := context.WithTimeout(r.Context(), time.Minute)
+		defer cancel()
+		c, _, _, err := a.ftpConnect(ctx, s, pw)
+		if err != nil {
+			out["remoteError"] = err.Error()
+			return out, nil
+		}
+		defer c.Quit()
+		list, truncated, err := h.ListRemoteImages(ftpRemote{c}, s.RemoteDir, 3, 3000)
+		if err != nil {
+			out["remoteError"] = err.Error()
+			return out, nil
+		}
+		out["remote"], out["truncated"] = list, truncated
+	}
+	return out, nil
+}

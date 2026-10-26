@@ -159,6 +159,10 @@ func AddTextLinkParams(text, params, unsub string) string {
 	})
 }
 
+// PartnerKey a partner tartós azonosítója (az első e-mail címe kisbetűvel) – az időzített
+// küldés ezzel azonosítja a beütemezéskor kijelölt partnereket.
+func PartnerKey(p *Partner) string { return partnerID(p) }
+
 // partnerID a partner tartós azonosítója a naplóban és a metaadatokban: az első e-mail címe
 // kisbetűvel (a B2B partnertörzsben is az e-mail a kulcs).
 func partnerID(p *Partner) string {

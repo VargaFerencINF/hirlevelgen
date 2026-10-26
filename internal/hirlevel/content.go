@@ -85,6 +85,7 @@ func DefaultContent(sampleJSON []byte) (Content, []Product, error) {
 		"assets.base":           "",
 		"cover.image":           "{assets}/cover-balaton-1200x660.jpg",
 		"note.signer.portrait":  "{assets}/portre-helyettesito.png",
+		"note.signer.repTitle":  "területi képviselő, Energofish Kft.",
 		"note.greeting":         "Kedves {nev}!",
 		"note.greetingFallback": "Kedves Partnerünk!",
 		"meta.preheaderPoll":    "Plusz egy kérdés.",

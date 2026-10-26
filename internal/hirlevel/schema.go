@@ -82,6 +82,8 @@ var Fields = []Field{
 	{Key: "note.signer.title", Label: "Aláíró beosztása", Group: "level", Kind: "text", Required: true, Soft: 60, Half: true},
 	{Key: "note.signer.portrait", Label: "Aláíró portréja", Group: "level", Kind: "image", Required: true,
 		Help: "112×112 px PNG/JPG, kör alakban jelenik meg."},
+	{Key: "note.signer.repTitle", Label: "Beosztás, ha a képviselő írja alá", Group: "level", Kind: "text", Soft: 60, Tokens: true,
+		Help: "A „Képviselő írja alá” kapcsolónál ez kerül a képviselő neve alá."},
 
 	// --- Ajánlat ---
 	{Key: "offer.label", Label: "Blokk címkéje", Group: "ajanlat", Kind: "text", Required: true, Soft: 40, Half: true},
@@ -137,6 +139,8 @@ var Fields = []Field{
 	{Key: AutoLoginKey, Label: "Automatikus bejelentkezés a linkekben", Group: "kapcsolo", Kind: "text"},
 	// a képtár kapcsolója (FTP-beállítások): "1" = a WEBP képek maradnak a levélben (nincs PNG-csere)
 	{Key: KeepWebpKey, Label: "WEBP képek megtartása a levélben", Group: "kapcsolo", Kind: "text"},
+	// a Személyes levél csoport kapcsolója: "1" = a levelet a partner területi képviselője írja alá
+	{Key: SignerRepKey, Label: "A személyes levelet a területi képviselő írja alá", Group: "kapcsolo", Kind: "text"},
 }
 
 // FieldByKey kulcs szerinti keresés.

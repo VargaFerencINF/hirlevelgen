@@ -333,6 +333,8 @@ type sendRequest struct {
 	Only     []int  `json:"only"`
 	SkipSync bool   `json:"skipSync"`
 	Confirm  int    `json:"confirm"`
+	// snap: időzített küldésnél a beütemezéskor rögzített tartalom, termékek és sablon
+	snap *sendSchedule
 }
 
 type sendPrep struct {
@@ -407,7 +409,15 @@ func (a *App) prepareSend(ctx context.Context, req sendRequest, sync bool) (*sen
 	prep.content = cloneContent(a.state.Content)
 	prep.products = append([]h.Product{}, a.state.Products...)
 	prep.partners = append([]h.Partner{}, a.excel.Partners...)
+	if req.snap != nil {
+		prep.tpl = h.FindTemplate(a.tpls(), req.snap.Template)
+		prep.content = cloneContent(req.snap.Content)
+		prep.products = append([]h.Product{}, req.snap.Products...)
+	}
 	a.mu.Unlock()
+	if prep.tpl == nil {
+		return nil, nil, errors.New("a beütemezett kampány sablonja már nem található")
+	}
 
 	var extraErr, extraWarn []string
 	suppressed := map[string]string{}
@@ -506,17 +516,27 @@ func (a *App) apiPostmarkCheck(w http.ResponseWriter, r *http.Request) (any, err
 	if err := decode(r, &req); err != nil {
 		return nil, err
 	}
+	prep, extra, early, err := a.preflight(r.Context(), req, true)
+	if err != nil || early != nil {
+		return early, err
+	}
+	return a.sendResponse(prep, extra), nil
+}
+
+// preflight a küldés előtti teljes ellenőrzés (a kézi Ellenőrzés és az időzített küldés is ezt
+// futtatja): képtár feltöltése FTP-re (ha be van állítva), előkészítés, a képek elérhetősége.
+func (a *App) preflight(ctx context.Context, req sendRequest, sync bool) (*sendPrep, map[string]any, map[string]any, error) {
 	// képtár: ha be van állítva az FTP, a hiányzó képek feltöltése (a fent lévők kimaradnak)
 	var ftpRes map[string]any
 	var ftpErr error
 	if fs := a.loadFTPSettings(); fs.configured() && fs.AutoUpload && a.loadFTPPassword() != "" {
-		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Minute)
-		ftpRes, ftpErr = a.uploadAssets(ctx)
+		uctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+		ftpRes, ftpErr = a.uploadAssets(uctx)
 		cancel()
 	}
-	prep, early, err := a.prepareSend(r.Context(), req, true)
+	prep, early, err := a.prepareSend(ctx, req, sync)
 	if err != nil || early != nil {
-		return early, err
+		return nil, nil, early, err
 	}
 	if ftpErr != nil {
 		prep.plan.Warnings = append(prep.plan.Warnings, "A képtár FTP-feltöltése nem sikerült: "+ftpErr.Error())
@@ -530,12 +550,12 @@ func (a *App) apiPostmarkCheck(w http.ResponseWriter, r *http.Request) (any, err
 				sel = append(sel, prep.partners[i])
 			}
 		}
-		ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
+		ictx, cancel := context.WithTimeout(ctx, 60*time.Second)
 		check := h.CheckImages
 		if a.imageCheck != nil {
 			check = a.imageCheck
 		}
-		res := check(ctx, h.CollectImageTargets(prep.content, prep.products, sel, prep.tpl))
+		res := check(ictx, h.CollectImageTargets(prep.content, prep.products, sel, prep.tpl))
 		cancel()
 		var errs []string
 		warns := 0
@@ -561,7 +581,7 @@ func (a *App) apiPostmarkCheck(w http.ResponseWriter, r *http.Request) (any, err
 	if ftpRes != nil {
 		extra["ftp"] = ftpRes
 	}
-	return a.sendResponse(prep, extra), nil
+	return prep, extra, nil, nil
 }
 
 // apiPostmarkSend elindítja a küldést a háttérben (egyszerre csak egy futhat).
@@ -587,12 +607,18 @@ func (a *App) apiPostmarkSend(w http.ResponseWriter, r *http.Request) (any, erro
 	if req.Mode == h.ModeLive && req.Confirm != prep.plan.Recipients {
 		return nil, fmt.Errorf("a megerősítéshez a címzettek számát (%d) kell beírni – ha közben változott, ellenőrizz újra", prep.plan.Recipients)
 	}
+	job := a.startSendJob(prep, req.Mode, req.Campaign, nil)
+	return a.sendResponse(prep, map[string]any{"started": true, "job": job.view()}), nil
+}
+
+// startSendJob elindítja a küldést a háttérben; a done (ha van) a végén az eredménnyel hívódik.
+func (a *App) startSendJob(prep *sendPrep, mode, campaign string, done func(h.SendProgress, error, bool)) *sendJob {
 	s := a.loadPostmarkSettings()
-	s.Campaign = strings.TrimSpace(req.Campaign)
+	s.Campaign = strings.TrimSpace(campaign)
 	_ = a.savePostmarkSettings(s)
 
 	ctx, stop := context.WithCancel(context.Background())
-	job := &sendJob{Running: true, Mode: req.Mode, ModeLabel: h.SendModeLabel(req.Mode), Campaign: s.Campaign, LogPath: prep.logPath,
+	job := &sendJob{Running: true, Mode: mode, ModeLabel: h.SendModeLabel(mode), Campaign: s.Campaign, LogPath: prep.logPath,
 		Started: time.Now(), stop: stop, Progress: h.SendProgress{Total: prep.plan.Recipients, Batches: prep.plan.Batches}}
 	a.mu.Lock()
 	a.sendJob = job
@@ -601,7 +627,7 @@ func (a *App) apiPostmarkSend(w http.ResponseWriter, r *http.Request) (any, erro
 	items := prep.plan.Items
 	go func() {
 		defer stop()
-		pr, err := h.RunSend(ctx, client, items, prep.logPath, req.Mode,
+		pr, err := h.RunSend(ctx, client, items, prep.logPath, mode,
 			func() bool { job.mu.Lock(); defer job.mu.Unlock(); return job.cancelReq },
 			func(p h.SendProgress) { job.mu.Lock(); job.Progress = p; job.mu.Unlock() })
 		job.mu.Lock()
@@ -610,10 +636,14 @@ func (a *App) apiPostmarkSend(w http.ResponseWriter, r *http.Request) (any, erro
 		if err != nil {
 			job.Error = h.MaskSecrets(err.Error())
 		}
+		cancelled := job.Cancelled
 		job.mu.Unlock()
-		log.Printf("Postmark küldés (%s, %s): %d/%d kész, %d sikeres, %d hibás, %d bizonytalan", req.Mode, s.Campaign, pr.Done, pr.Total, pr.OK, pr.Failed, pr.Uncertain)
+		log.Printf("Postmark küldés (%s, %s): %d/%d kész, %d sikeres, %d hibás, %d bizonytalan", mode, s.Campaign, pr.Done, pr.Total, pr.OK, pr.Failed, pr.Uncertain)
+		if done != nil {
+			done(pr, err, cancelled)
+		}
 	}()
-	return a.sendResponse(prep, map[string]any{"started": true, "job": job.view()}), nil
+	return job
 }
 
 func (j *sendJob) isRunning() bool {

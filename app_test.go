@@ -1230,3 +1230,139 @@ func TestAPIRepPhoto(t *testing.T) {
 		}
 	}
 }
+
+// Időzített küldés: beütemezés (megerősítéssel), rögzített tartalom, küldés az időpontban,
+// elmaradt küldés.
+func TestScheduledSend(t *testing.T) {
+	const tok = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" // kitalált
+	var mu sync.Mutex
+	var sent []map[string]any
+	pm := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/message-streams/broadcast":
+			fmt.Fprint(w, `{"ID":"broadcast","Name":"Broadcasts","MessageStreamType":"Broadcasts","SubscriptionManagementConfiguration":{"UnsubscribeHandlingType":"Custom"}}`)
+		case "/message-streams/broadcast/suppressions/dump":
+			fmt.Fprint(w, `{"Suppressions":[]}`)
+		case "/email/batch":
+			var msgs []map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&msgs)
+			mu.Lock()
+			sent = append(sent, msgs...)
+			mu.Unlock()
+			out := make([]map[string]any, len(msgs))
+			for i := range msgs {
+				out[i] = map[string]any{"ErrorCode": 0, "Message": "OK", "MessageID": fmt.Sprintf("m-%d", i), "To": msgs[i]["To"]}
+			}
+			_ = json.NewEncoder(w).Encode(out)
+		default:
+			w.WriteHeader(404)
+		}
+	}))
+	defer pm.Close()
+	data, _ := os.ReadFile("internal/hirlevel/testdata/b2b-minta.json")
+	app, err := NewApp(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	flushOnCleanup(t, app)
+	app.postmarkBase = pm.URL
+	app.postmarkSleep = func(context.Context, time.Duration) error { return nil }
+	app.imageCheck = func(_ context.Context, ts []h.ImageTarget) []h.ImageCheck {
+		out := make([]h.ImageCheck, len(ts))
+		for i, x := range ts {
+			out[i] = h.ImageCheck{ImageTarget: x, Status: "ok"}
+		}
+		return out
+	}
+	app.state.Output.Dir = filepath.Join(t.TempDir(), "kimenet")
+	app.state.Content["assets.base"] = "https://kepek.example.com/hirlevel"
+	app.state.Content["note.body"] = "Beütemezett szöveg"
+	if _, err := app.b2b.ImportData("B2B_HU", data, "minta.json", false); err != nil {
+		t.Fatal(err)
+	}
+	if err := app.loadB2BSet("B2B_HU", h.PartnerFilter{Internal: "exclude"}, "", nil); err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(app.routes())
+	defer srv.Close()
+	call(t, srv, app.token, "/api/postmark/settings/save", map[string]any{"liveToken": tok,
+		"settings": map[string]any{"stream_id": "broadcast", "from": "Energofish <hirlevel@energofish.hu>", "track_links": "None", "utm": h.DefaultUTM}})
+	only := []int{0, 1, 2}
+	at := time.Now().Add(10 * time.Minute).Truncate(time.Second)
+	req := map[string]any{"mode": "eles", "campaign": "idozitett", "only": only, "skipSync": true, "at": at.Format(time.RFC3339), "confirm": 999}
+	if code, r := call(t, srv, app.token, "/api/postmark/schedule", req); code != 400 || !strings.Contains(r["error"].(string), "címzettek számát") {
+		t.Fatalf("megerősítés nélkül: %d %v", code, r)
+	}
+	req["at"] = time.Now().Add(time.Minute).Format(time.RFC3339)
+	if code, _ := call(t, srv, app.token, "/api/postmark/schedule", req); code != 400 {
+		t.Error("túl korai időpont")
+	}
+	req["at"] = at.Format(time.RFC3339)
+	req["confirm"] = 3
+	code, r := call(t, srv, app.token, "/api/postmark/schedule", req)
+	if code != 200 {
+		t.Fatalf("beütemezés: %d %v", code, r)
+	}
+	sv := r["schedule"].(map[string]any)
+	if sv["status"] != "waiting" || sv["letters"].(float64) != 3 || sv["partners"].(float64) != 3 {
+		t.Fatalf("%v", sv)
+	}
+	if code, _ := call(t, srv, app.token, "/api/postmark/schedule", req); code != 400 {
+		t.Error("második időzítés")
+	}
+	// a beütemezés után módosított tartalom nem kerül a levelekbe
+	app.mu.Lock()
+	app.state.Content["note.body"] = "Közben átírt szöveg"
+	app.mu.Unlock()
+	app.schedTick(at.Add(-time.Second))
+	if s := app.loadSchedule(); s.Status != schedWaiting {
+		t.Fatal("idő előtt elindult")
+	}
+	app.schedTick(at.Add(30 * time.Second))
+	deadline := time.Now().Add(20 * time.Second)
+	for {
+		s := app.loadSchedule()
+		if s.Status == schedDone || s.Status == schedFailed {
+			if s.Status != schedDone || !strings.Contains(s.Message, "3 sikeres") {
+				t.Fatalf("eredmény: %s %s", s.Status, s.Message)
+			}
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("nem fejeződött be: %s %s", s.Status, s.Message)
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	mu.Lock()
+	n := len(sent)
+	body := fmt.Sprint(sent[0]["HtmlBody"])
+	mu.Unlock()
+	if n != 3 || !strings.Contains(body, "Beütemezett szöveg") || strings.Contains(body, "Közben átírt") {
+		t.Errorf("levelek: %d", n)
+	}
+	call(t, srv, app.token, "/api/postmark/schedule/clear", nil)
+	if app.loadSchedule() != nil {
+		t.Error("törlés")
+	}
+	// elmaradt: a program nem futott az időpontban → később sem küld
+	req["campaign"] = "idozitett-2"
+	if code, r := call(t, srv, app.token, "/api/postmark/schedule", req); code != 200 {
+		t.Fatalf("%d %v", code, r)
+	}
+	app.schedTick(at.Add(scheduleGrace + time.Minute))
+	time.Sleep(200 * time.Millisecond)
+	if s := app.loadSchedule(); s.Status != schedMissed || !strings.Contains(s.Message, "nem indult el") {
+		t.Errorf("elmaradt: %s", s.Status)
+	}
+	mu.Lock()
+	if len(sent) != 3 {
+		t.Error("az elmaradt időzítés mégis küldött")
+	}
+	mu.Unlock()
+	// a validálás nem ütemezhető
+	req["mode"] = "validalas"
+	call(t, srv, app.token, "/api/postmark/schedule/clear", nil)
+	if code, _ := call(t, srv, app.token, "/api/postmark/schedule", req); code != 400 {
+		t.Error("validálás ütemezése")
+	}
+}

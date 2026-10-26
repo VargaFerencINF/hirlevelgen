@@ -71,3 +71,40 @@ func TestRepPhotoCheck(t *testing.T) {
 		}
 	}
 }
+
+// B2B partnernél a képviselő neve alatt nincs megye; Excel-partnernél a megadott terület marad.
+func TestRepRegionHiddenForB2B(t *testing.T) {
+	b := B2BToPartner(&B2BPartner{Email: "a@example.com", RepName: "Gál János", RepMono: "GÁL", County: "Pest"}, 1, "B2B_HU", B2BMapOptions{})
+	d := Build(Content{"note.body": "Üdv {terulet}"}, nil, &b, nil, "")
+	if d.Values["rep.region"] != "" || !strings.Contains(d.Values["note.body"], "Pest") {
+		t.Errorf("B2B: %q %q", d.Values["rep.region"], d.Values["note.body"])
+	}
+	e := Partner{Email: "e@example.com", RepName: "Nagy Attila", RepRegion: "Pest és Nógrád megye"}
+	if d := Build(Content{}, nil, &e, nil, ""); d.Values["rep.region"] != "Pest és Nógrád megye" {
+		t.Errorf("Excel: %q", d.Values["rep.region"])
+	}
+}
+
+// „A területi képviselő írja alá”: név, beosztás és fotó a képviselőé; képviselő nélkül a közös aláíró.
+func TestSignerRep(t *testing.T) {
+	c := Content{"assets.base": "https://kep.example.com/a", "note.signer.name": "Tóth Gábor", "note.signer.title": "értékesítési igazgató",
+		"note.signer.portrait": "{assets}/toth.png", "note.signer.repTitle": "területi képviselő ({terulet})"}
+	b := B2BToPartner(&B2BPartner{Email: "a@example.com", RepName: "Gál János - Energofish Kft.", RepMono: "GÁL", County: "Pest"}, 1, "B2B_HU", B2BMapOptions{})
+	none := Partner{Email: "x@example.com"}
+	nophoto := Partner{Email: "y@example.com", RepName: "Kiss Anna"}
+	if d := Build(c, nil, &b, nil, ""); d.Values["note.signer.name"] != "Tóth Gábor" {
+		t.Error("kikapcsolva")
+	}
+	c[SignerRepKey] = "1"
+	d := Build(c, nil, &b, nil, "")
+	if d.Values["note.signer.name"] != "Gál János" || d.Values["note.signer.title"] != "területi képviselő (Pest megye)" ||
+		d.Values["note.signer.portrait"] != "https://kep.example.com/a/gal.webp" {
+		t.Errorf("képviselő: %q %q %q", d.Values["note.signer.name"], d.Values["note.signer.title"], d.Values["note.signer.portrait"])
+	}
+	if d := Build(c, nil, &nophoto, nil, ""); d.Values["note.signer.name"] != "Kiss Anna" || d.Values["note.signer.portrait"] != "https://kep.example.com/a/portre-helyettesito.png" {
+		t.Errorf("fotó nélkül: %q", d.Values["note.signer.portrait"])
+	}
+	if d := Build(c, nil, &none, nil, ""); d.Values["note.signer.name"] != "Tóth Gábor" || d.Values["note.signer.portrait"] != "https://kep.example.com/a/toth.png" {
+		t.Errorf("képviselő nélkül: %q", d.Values["note.signer.name"])
+	}
+}

@@ -73,6 +73,10 @@ func Build(c Content, products []Product, p *Partner, tpl *Template, assetsFallb
 		values["rep.photo"] = photo
 	}
 	values["rep.region"] = strings.TrimSpace(p.RepRegion)
+	if p.Source != "" {
+		// B2B partnertörzs: a képviselő neve alá nem kerül a partner megyéje (a {terulet} változó megmarad)
+		values["rep.region"] = ""
+	}
 	values["rep.phone"], values["rep.phone.url"] = "", ""
 	if strings.TrimSpace(p.RepPhone) != "" {
 		disp := PhoneDisplay(p.RepPhone)
@@ -86,6 +90,19 @@ func Build(c Content, products []Product, p *Partner, tpl *Template, assetsFallb
 	if e := strings.TrimSpace(p.RepEmail); e != "" && ValidEmail(e) {
 		values["rep.email"] = e
 		values["rep.email.url"] = "mailto:" + e
+	}
+
+	// a személyes levelet a partner területi képviselője írja alá (kapcsoló): név, beosztás és
+	// fotó a képviselőé; fotó nélkül a helyettesítő portré. Képviselő nélkül marad a közös aláíró.
+	if strings.TrimSpace(c[SignerRepKey]) == "1" && strings.TrimSpace(p.RepName) != "" {
+		values["note.signer.name"] = strings.TrimSpace(p.RepName)
+		if t, _, _ := Expand(c["note.signer.repTitle"], tokens, false); strings.TrimSpace(t) != "" {
+			values["note.signer.title"] = strings.TrimSpace(t)
+		}
+		values["note.signer.portrait"] = values["rep.photo"]
+		if values["note.signer.portrait"] == "" {
+			values["note.signer.portrait"] = assets + "/portre-helyettesito.png"
+		}
 	}
 
 	// link-kiegészítés (az automatikus bejelentkezés a legvégére kerül)
@@ -120,6 +137,9 @@ func Build(c Content, products []Product, p *Partner, tpl *Template, assetsFallb
 	}
 	return &RenderData{Values: values, Items: items}
 }
+
+// SignerRepKey a Személyes levél kapcsolója ("1" = a partner területi képviselője írja alá).
+const SignerRepKey = "note.signerRep"
 
 // AutoLoginKey a közös tartalom kapcsolója ("1" = be): a saját domainre mutató termék- és
 // „teljes ajánlat” linkek végére a partner tokenje kerül (&v=<Token>), ami a B2B partnert

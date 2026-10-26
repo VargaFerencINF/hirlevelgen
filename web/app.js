@@ -90,6 +90,7 @@ const ICONS = {
   open: '<path d="M4 22h14a2 2 0 0 0 2-2V7.5L14.5 2H6a2 2 0 0 0-2 2v4"/><path d="M14 2v6h6"/><path d="M2 15h10M9 18l3-3-3-3"/>',
   reset: '<path d="M3 12a9 9 0 1 0 2.64-6.36"/><path d="M3 3v6h6"/>',
   zap: '<path d="M13 2L3 14h9l-1 8 10-12h-9z"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
   power: '<path d="M18.4 6.6a9 9 0 1 1-12.8 0"/><path d="M12 2v10"/>',
   box: '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.3 7L12 12l8.7-5M12 22V12"/>',
   shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/>',
@@ -705,6 +706,7 @@ function renderContent() {
       h('div', { class: 'group-meta' }, h('span', { class: 'gstat' }), icon('chev', 18)));
     head.lastChild.lastChild.classList.add('chev');
     const body = h('div', { class: 'group-body' },
+      g.id === 'level' ? signerRepToggle() : null,
       h('div', { class: 'fields' }, fields.map(fieldRow)));
     card.append(head, body);
     p.append(card);
@@ -755,7 +757,9 @@ function fieldRow(f) {
   }
   wrap.append(
     h('div', { class: 'field-top' }, h('label', { for: input.id }, f.label, f.required ? h('span', { class: 'req', text: '*' }) : null), counter),
-    thumb ? h('div', { class: 'img-field' }, input, thumb) : input,
+    thumb ? h('div', { class: 'img-field' }, input, thumb,
+      h('button', { type: 'button', class: 'btn btn-outline btn-sm img-pick', title: 'Kép választása a képtárból (webes assets mappa)',
+        onclick: () => openAssetPicker(v => { input.value = v; input.dispatchEvent(new Event('input')); updThumb(); }) }, icon('image', 15), 'Képtár…')) : input,
     f.help ? h('div', { class: 'help', text: f.help }) : null,
     h('div', { class: 'msg' }));
   updCounter(); updThumb();
@@ -785,6 +789,22 @@ function showTokenBar(wrap, input) {
   const msg = $('.msg', wrap);
   wrap.insertBefore(bar, msg);
   input.addEventListener('blur', () => setTimeout(() => { if (document.activeElement !== input) bar.remove(); }, 150), { once: true });
+}
+
+// „A területi képviselő írja alá” kapcsoló (note.signerRep): a személyes levél aláírója
+// partnerenként a képviselő (név, beosztás, fotó); képviselő nélküli partnernél a közös aláíró.
+function signerRepToggle() {
+  const c = S.state.content;
+  const box = h('input', { type: 'checkbox', checked: c['note.signerRep'] === '1', onchange: e => {
+    c['note.signerRep'] = e.target.checked ? '1' : '';
+    row.classList.toggle('on', e.target.checked);
+    syncSoon(0);
+  } });
+  const row = h('label', { class: 'check-row signer-rep' + (box.checked ? ' on' : '') }, box,
+    h('div', null,
+      h('div', { class: 't', text: 'A levelet a partner területi képviselője írja alá' }),
+      h('div', { class: 'd', text: 'Bekapcsolva az aláíró neve, beosztása („Beosztás, ha a képviselő írja alá”) és fotója partnerenként a képviselőé – mintha ő írná a levelet. Fotó nélküli képviselőnél helyettesítő portré jelenik meg; képviselő nélküli partnernél az alábbi közös aláíró marad.' })));
+  return row;
 }
 
 // Az „Egy kérdés” csoport és a kérdéshez tartozó mezők csak kérdés-blokkos (hozzáadott) sablonnál látszanak.
@@ -968,7 +988,10 @@ function productCard(pr, i) {
     upd();
     return h('div', { class: 'field' + (f.half ? ' half' : ''), dataset: { k: f.k } },
       h('div', { class: 'field-top' }, h('label', null, f.label, f.req ? h('span', { class: 'req', text: '*' }) : null), counter),
-      inp, f.k === 'image' ? imageSwitcher(pr, inp, updThumb) : null, h('div', { class: 'msg' }));
+      f.k === 'image' ? h('div', { class: 'img-field' }, inp,
+        h('button', { type: 'button', class: 'btn btn-outline btn-sm img-pick', title: 'Kép választása a képtárból (webes assets mappa)',
+          onclick: () => openAssetPicker(v => { inp.value = v; inp.dispatchEvent(new Event('input')); updThumb(); }) }, icon('image', 15), 'Képtár…')) : inp,
+      f.k === 'image' ? imageSwitcher(pr, inp, updThumb) : null, h('div', { class: 'msg' }));
   });
   const toggle = h('input', { type: 'checkbox', checked: pr.on, onchange: e => { pr.on = e.target.checked; renderProducts(); syncSoon(0); } });
   card.append(
@@ -1904,6 +1927,7 @@ async function renderSend() {
       h('div', { class: 'field' }, h('div', { class: 'field-top' }, h('label', { text: 'Kampány neve' })), campaign,
         h('div', { class: 'help', text: 'Ez lesz a Postmark Tag, az utm_campaign és a napló neve. Ugyanazzal a névvel újraindítva a már elküldött partnerek kimaradnak.' })),
       h('div', { class: 'label-caps', style: { margin: '16px 0 4px' }, text: 'Mód' }), modes),
+    h('div', { id: 'pmSched' }),
     h('div', { id: 'pmActions' }),
     h('div', { id: 'pmCheck' }),
     h('div', { id: 'pmJob' }),
@@ -1920,6 +1944,7 @@ async function renderSend() {
   renderSendCheck();
   renderSendJob();
   if (!S.pmPoll) pmPollStatus();
+  pmLoadSchedule();
 }
 
 function renderSendActions() {
@@ -1940,7 +1965,93 @@ function renderSendActions() {
       h('div', { class: 'ttl', text: `Mód: ${mode[1]}` }),
       h('div', { class: 'why', text: why.length ? why.join(' ') : ready ? `Ellenőrizve: ${S.pmCheck.r.plan.recipients} levél megy ki ${S.pmCheck.r.plan.batches} kötegben.` : 'Előbb ellenőrizz: a program összeállítja a leveleket, lekéri a Postmark beállításait és a letiltott címeket – még semmit nem küld.' })),
     h('button', { class: 'btn btn-outline btn-lg pm-light', disabled: !!why.length || running || S.pmBusy, dataset: { busy: 'Ellenőrzés…' }, onclick: e => busy(e.currentTarget, pmCheck) }, icon('shield'), 'Ellenőrzés'),
+    S.pmMode !== 'validalas' ? h('button', { class: 'btn btn-outline btn-lg', title: 'A kiküldés időpontjának megadása (a programnak akkor futnia kell)',
+      disabled: !!why.length || !ready || running || S.pmBusy || pmScheduleActive(), onclick: pmSchedule }, icon('clock'), 'Időzítés…') : null,
     h('button', { class: 'btn btn-primary btn-lg', disabled: !!why.length || !ready || running || S.pmBusy, onclick: pmSend }, icon('mail'), S.pmMode === 'validalas' ? 'Validálás indítása' : 'Küldés')));
+}
+
+/* időzített küldés */
+
+function pmScheduleActive() { return !!(S.pmSched && (S.pmSched.status === 'waiting' || S.pmSched.status === 'running')); }
+
+function fmtWhen(t) {
+  const d = new Date(t);
+  return d.toLocaleString('hu-HU', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long', hour: '2-digit', minute: '2-digit' });
+}
+
+async function pmLoadSchedule() {
+  clearTimeout(S.pmSchedTimer);
+  try { S.pmSched = (await api('/api/postmark/schedule/status')).schedule; } catch (e) { return; }
+  renderSchedule();
+  renderSendActions();
+  // várakozás / futás közben a lap frissül (amíg a Küldés lépés látszik)
+  if (pmScheduleActive() && S.tab === 'kuldes') S.pmSchedTimer = setTimeout(() => { pmLoadSchedule(); if (S.pmSched && S.pmSched.status === 'running') pmPollStatus(); }, 15000);
+}
+
+function renderSchedule() {
+  const box = $('#pmSched');
+  if (!box) return;
+  const s = S.pmSched;
+  if (!s) { box.replaceChildren(); return; }
+  const waiting = s.status === 'waiting', running = s.status === 'running';
+  const cls = waiting || running ? 'info' : s.status === 'done' ? 'ok' : 'err';
+  const title = waiting ? `Időzített küldés: ${fmtWhen(s.at)}` : running ? 'Az időzített küldés fut' :
+    s.status === 'done' ? 'Az időzített küldés lefutott' : s.status === 'missed' ? 'Az időzített küldés elmaradt' : 'Az időzített küldés nem sikerült';
+  const left = waiting ? Math.max(0, new Date(s.at) - Date.now()) : 0;
+  const leftTxt = left > 864e5 ? `${Math.floor(left / 864e5)} nap múlva` : left > 36e5 ? `${Math.floor(left / 36e5)} óra ${Math.round(left % 36e5 / 6e4)} perc múlva` : `${Math.round(left / 6e4)} perc múlva`;
+  box.replaceChildren(h('div', { class: 'card card-pad sched-card ' + cls },
+    h('div', { class: 'card-title' }, icon('clock'), title),
+    h('div', { class: 'pm-grid' },
+      h('div', { class: 'pm-kv' }, h('span', { text: 'Kampány' }), h('b', { text: `${s.campaign} · ${s.modeLabel}` })),
+      h('div', { class: 'pm-kv' }, h('span', { text: 'Címzettek' }), h('b', { text: `${s.letters} levél · ${s.partners} partner` })),
+      h('div', { class: 'pm-kv' }, h('span', { text: 'Tartalom' }), h('b', { text: `${s.template} sablon · ${s.products} termék (beütemezéskor rögzítve)` })),
+      waiting ? h('div', { class: 'pm-kv' }, h('span', { text: 'Indul' }), h('b', { text: leftTxt })) : null),
+    s.message ? h('div', { class: 'p-sub', style: { marginTop: '10px' }, text: s.message }) : null,
+    waiting ? h('div', { class: 'note warn', style: { margin: '12px 0 0' } }, icon('alert'), h('div', { text: 'A programnak futnia kell a megadott időpontban, és a gép nem lehet kikapcsolva (amíg az időzítés vár, a program nem engedi elaludni a gépet; laptopnál a fedelet ne csukd le). A küldés előtt a partnertörzs frissül, a képek feltöltődnek, és minden újra ellenőrződik – hiba esetén nem megy ki semmi.' })) : null,
+    h('div', { class: 'btn-row', style: { marginTop: '12px' } },
+      running ? null : h('button', { class: waiting ? 'btn btn-ghost btn-sm btn-danger' : 'btn btn-outline btn-sm', dataset: { busy: 'Törlés…' }, onclick: e => busy(e.currentTarget, async () => {
+        if (waiting && !await confirmBox('Időzítés törlése', `Törlöd a(z) ${fmtWhen(s.at)} időpontra ütemezett küldést? Semmi nem megy ki.`, 'Törlés', true)) return;
+        try { await api('/api/postmark/schedule/clear'); S.pmSched = null; renderSchedule(); renderSendActions(); } catch (err) { toast(err.message, 'err'); }
+      }) }, icon(waiting ? 'trash' : 'check', 15), waiting ? 'Időzítés törlése' : 'Rendben'))));
+}
+
+async function pmSchedule() {
+  const c = S.pmCheck;
+  if (!c || !c.r.ok) return;
+  const n = c.r.plan.recipients;
+  const live = S.pmMode === 'eles';
+  const def = new Date(Date.now() + 36e5);
+  def.setMinutes(0, 0, 0);
+  const pad = x => String(x).padStart(2, '0');
+  const local = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const when = h('input', { class: 'inp', type: 'datetime-local', value: local(def), min: local(new Date(Date.now() + 3 * 6e4)), max: local(new Date(Date.now() + 31 * 864e5)) });
+  const conf = live ? h('input', { class: 'inp', inputmode: 'numeric', placeholder: String(n) }) : null;
+  const res = await new Promise(resolve => {
+    const done = v => { bg.remove(); resolve(v); };
+    const bg = h('div', { class: 'modal-bg' }, h('div', { class: 'modal wide', role: 'dialog' },
+      h('div', { class: 'mh', text: 'Időzített küldés' }),
+      h('div', { class: 'mb' },
+        h('p', { style: { margin: 0 } }, 'A ', h('b', { text: `${n} levél` }), ` (${PM_MODES.find(m => m[0] === S.pmMode)[1]} mód, „${(S.pmCampaign || '').trim()}” kampány) a megadott időpontban megy ki. A mostani tartalom, termékek, sablon és címzettek rögzülnek – ha közben tovább dolgozol, az nem kerül bele.`),
+        h('div', { class: 'field', style: { marginTop: '14px' } }, h('div', { class: 'field-top' }, h('label', { text: 'Időpont' })), when),
+        h('p', { class: 'p-sub', text: 'A programnak ekkor futnia kell (a gép nem lehet kikapcsolva). Ha nem fut, a küldés később sem indul el magától.' }),
+        live ? h('div', { class: 'field', style: { marginTop: '10px' } }, h('div', { class: 'field-top' }, h('label', { text: 'Megerősítés: írd be a címzettek számát' })), conf) : null),
+      h('div', { class: 'mf' }, h('button', { class: 'btn btn-ghost', text: 'Mégse', onclick: () => done(null) }),
+        h('button', { class: 'btn btn-dark', onclick: () => done({ at: when.value, confirm: conf ? conf.value.trim() : '' }) }, icon('clock', 16), 'Beütemezés'))));
+    document.body.append(bg);
+    (conf || when).focus();
+  });
+  if (!res) return;
+  if (!res.at) { toast('Add meg az időpontot.', 'warn'); return; }
+  if (live && res.confirm !== String(n)) { toast('A beírt szám nem egyezik a címzettek számával – nem történt időzítés.', 'warn'); return; }
+  try {
+    const r = await api('/api/postmark/schedule', { mode: S.pmMode, campaign: (S.pmCampaign || '').trim(), only: pmSelected(), skipSync: c.skipSync,
+      confirm: live ? n : 0, at: new Date(res.at).toISOString() });
+    S.pmSched = r.schedule;
+    toast(`Beütemezve: ${fmtWhen(r.schedule.at)}.`, 'ok');
+    renderSchedule();
+    renderSendActions();
+    pmLoadSchedule();
+  } catch (e) { toast(e.message, 'err', { timeout: 12000 }); }
 }
 
 async function pmCheck() {
@@ -3462,6 +3573,64 @@ async function openSettings(focus) {
   if (focus) { const el = document.getElementById('set-' + focus); if (el) el.scrollIntoView({ block: 'start' }); }
 }
 
+// Képválasztó: a webes képtár (FTP-mappa) és a csak helyben meglévő képek; a választott kép
+// {assets}/<út> formában kerül a mezőbe, így a képtár webcímét követi.
+async function openAssetPicker(onPick) {
+  let data, filter = 'all', q = '';
+  const grid = h('div', { class: 'ap-grid' });
+  const info = h('div', { class: 'ap-info p-sub' });
+  const search = h('input', { class: 'inp', type: 'search', placeholder: 'Keresés fájlnévre, pl. zso vagy osz-', spellcheck: false,
+    oninput: debounce(() => { q = search.value.trim().toLowerCase(); draw(); }, 150) });
+  const enc = rel => rel.split('/').map(encodeURIComponent).join('/');
+  const items = () => {
+    const m = new Map();
+    for (const r of data.remote || []) m.set(r.rel, { rel: r.rel, remote: true, size: r.size });
+    for (const l of data.local || []) { const x = m.get(l.rel) || { rel: l.rel }; x.local = l.source; m.set(l.rel, x); }
+    return Array.from(m.values()).sort((a, b) => a.rel.localeCompare(b.rel, 'hu'));
+  };
+  const thumbUrl = it => it.remote && /^https?:\/\//.test(data.base || '') ? `${data.base}/${enc(it.rel)}` : `/assets/${encodeURIComponent(it.rel.split('/').pop())}`;
+  const seg = h('div', { class: 'seg' }, [['all', 'Mind'], ['remote', 'Webes képtár'], ['local', 'Csak helyben']].map(([v, t]) =>
+    h('button', { type: 'button', class: v === filter ? 'on' : '', text: t, onclick: e => { filter = v; $$('button', seg).forEach(b => b.classList.toggle('on', b === e.currentTarget)); draw(); } })));
+  function draw() {
+    const all = items();
+    let list = all.filter(it => (filter === 'all' || (filter === 'remote' ? it.remote : !it.remote)) && (!q || it.rel.toLowerCase().includes(q)));
+    const total = list.length;
+    list = list.slice(0, 400);
+    grid.replaceChildren(...list.map(it => {
+      const img = h('img', { src: thumbUrl(it), alt: '', loading: 'lazy' });
+      img.onerror = () => img.replaceWith(h('div', { class: 'ap-ph' }, icon('image', 22)));
+      return h('button', { type: 'button', class: 'ap-tile' + (it.remote ? '' : ' local'), title: it.rel + (it.remote ? '' : '\nCsak helyben: a következő FTP-feltöltéssel (vagy a küldés előtti ellenőrzéssel) kerül fel.'),
+        onclick: () => { done(); onPick('{assets}/' + enc(it.rel)); } },
+        h('div', { class: 'ap-img' }, img),
+        h('div', { class: 'ap-name', text: it.rel }),
+        h('div', { class: 'ap-meta', text: it.remote ? (it.size > 0 ? Math.max(1, Math.round(it.size / 1024)) + ' KB' : 'fent') : 'csak helyben' }));
+    }));
+    if (!total) grid.append(h('div', { class: 'p-sub', text: all.length ? 'Nincs találat.' : 'Nincs kép a képtárban.' }));
+    const parts = [`${total} kép` + (total > 400 ? ' (az első 400 látszik – szűkíts kereséssel)' : '')];
+    if (!data.ftp) parts.push('Az FTP nincs beállítva: csak a helyi képek látszanak.');
+    else if (data.remoteError) parts.push('A webes képtár nem olvasható: ' + data.remoteError);
+    else if (data.truncated) parts.push('A webes képtárban több kép van, mint amennyi listázható.');
+    info.textContent = parts.join(' · ');
+    info.classList.toggle('warn', !!(data.remoteError || !data.ftp));
+  }
+  const key = e => { if (e.key === 'Escape' && !bg.nextElementSibling?.classList.contains('modal-bg')) done(); };
+  const done = () => { document.removeEventListener('keydown', key); bg.remove(); };
+  const load = async () => {
+    grid.replaceChildren(h('div', { class: 'p-sub' }, h('span', { class: 'spin dark' }), ' A képtár betöltése…'));
+    try { data = await api('/api/assets/browse'); draw(); } catch (e) { grid.replaceChildren(h('div', { class: 'note err' }, icon('error'), h('div', { text: e.message }))); }
+  };
+  const bg = h('div', { class: 'modal-bg' }, h('div', { class: 'modal pm-modal ap-modal', role: 'dialog' },
+    h('div', { class: 'mh' }, h('span', { text: 'Képtár' }), h('button', { class: 'x', title: 'Bezárás', onclick: () => done() }, icon('x', 18))),
+    h('div', { class: 'mb' },
+      h('div', { class: 'ap-bar' }, search, seg, h('button', { type: 'button', class: 'btn btn-ghost btn-sm', title: 'Újratöltés', onclick: load }, icon('refresh', 15))),
+      info, grid),
+    h('div', { class: 'mf' }, h('button', { class: 'btn btn-ghost', text: 'Mégse', onclick: done }))));
+  document.body.append(bg);
+  document.addEventListener('keydown', key);
+  search.focus();
+  load();
+}
+
 // Feltöltött képviselő-fotó: négyzetesre vágva (álló képnél inkább a felső részből, ahol az
 // arc van), 192×192 px-re méretezve, fehér háttérrel WEBP-be tömörítve.
 async function repPhotoWebp(file) {
@@ -3610,6 +3779,16 @@ async function init() {
     renderPreviewSelect();
     const saved = ls('tab');
     setTab(STEPS.some(s => s.id === saved) ? saved : (S.excel ? 'tartalom' : 'adatok'));
+    // időzített küldés: induláskor jelezzük az állapotát (várakozik / elmaradt / lefutott)
+    api('/api/postmark/schedule/status').then(r => {
+      const sc = r.schedule;
+      if (!sc) return;
+      S.pmSched = sc;
+      const go = [{ label: 'Megnyitás', fn: () => setTab('kuldes') }];
+      if (sc.status === 'waiting') toast(`Időzített küldés: ${fmtWhen(sc.at)} – a programnak akkor futnia kell.`, 'info', { timeout: 9000, actions: go });
+      else if (sc.status === 'missed' || sc.status === 'failed') toast(sc.message || 'Az időzített küldés nem sikerült.', 'err', { timeout: 15000, actions: go });
+      else if (sc.status === 'done') toast(sc.message || 'Az időzített küldés lefutott.', 'ok', { timeout: 9000, actions: go });
+    }).catch(() => {});
     boot.remove();
     refreshPreview();
   } catch (e) {

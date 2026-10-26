@@ -274,7 +274,7 @@ func TestB2BToPartner(t *testing.T) {
 	rd := Build(c, nil, &p, FindTemplate(tpls, "v1"), "")
 	if rd.Values["footer.unsubscribe.url"] != p.Unsubscribe || rd.Values["note.greeting"] != "Kedves Nagy Betű Bt.!" ||
 		rd.Values["note.body"] != "Nagy Betű Bt. | Nagy Betű Bt. | Gábor Bence | Bács-Kiskun megye | Bács-Kiskun | 10003 | Gyémánt | NAGY BETŰ BT." ||
-		rd.Values["rep.region"] != "Bács-Kiskun megye" || rd.Values["rep.name"] != "Gábor Bence" {
+		rd.Values["rep.region"] != "" || rd.Values["rep.name"] != "Gábor Bence" { // B2B: a név alatt nincs megye
 		t.Errorf("levél: %q %q %q %q", rd.Values["footer.unsubscribe.url"], rd.Values["note.greeting"], rd.Values["note.body"], rd.Values["rep.region"])
 	}
 	// „cégeknek tartalék” beállítással a cég a tartalék megszólítást kapja, a változók maradnak

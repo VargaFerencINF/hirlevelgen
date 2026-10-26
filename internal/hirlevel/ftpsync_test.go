@@ -130,3 +130,25 @@ func TestSyncAssets(t *testing.T) {
 		t.Errorf("új mappa: %v %+v", err, res)
 	}
 }
+
+func TestListRemoteImages(t *testing.T) {
+	m := newMemRemote()
+	for _, d := range []string{"/www", "/www/assets", "/www/assets/osz", "/www/assets/osz/mely", "/www/assets/.rejtett"} {
+		m.dirs[d] = true
+	}
+	m.files["/www/assets/zso.webp"] = []byte("1234")
+	m.files["/www/assets/leiras.txt"] = []byte("x")
+	m.files["/www/assets/osz/level.PNG"] = []byte("12")
+	m.files["/www/assets/osz/mely/tul.png"] = []byte("1")
+	m.files["/www/assets/.rejtett/x.png"] = []byte("1")
+	list, trunc, err := ListRemoteImages(m, "www/assets/", 1, 100)
+	if err != nil || trunc || len(list) != 2 || list[0].Rel != "osz/level.PNG" || list[1].Rel != "zso.webp" || list[1].Size != 4 {
+		t.Errorf("%v %v %+v", err, trunc, list)
+	}
+	if list, trunc, _ := ListRemoteImages(m, "/www/assets", 3, 1); len(list) != 1 || !trunc {
+		t.Errorf("korlát: %+v", list)
+	}
+	if list, _, err := ListRemoteImages(m, "/nincs", 2, 10); err != nil || len(list) != 0 {
+		t.Error("nem létező mappa")
+	}
+}
