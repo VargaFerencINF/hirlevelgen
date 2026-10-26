@@ -10,7 +10,22 @@ import (
 // sampleRenderData a tervező mintatartalmából közvetlenül (Build nélkül) készít kitöltési adatot.
 func sampleRenderData(t *testing.T) *RenderData {
 	t.Helper()
-	data, err := os.ReadFile("testdata/tartalom-minta.json")
+	return sampleRenderDataFile(t, "testdata/tartalom-minta.json")
+}
+
+// sampleRenderDataFor a sablon saját mintatartalmával (testdata/tartalom-<id>.json, ha van;
+// a tervező az őszi sablon előnézetét őszi szövegekkel készítette).
+func sampleRenderDataFor(t *testing.T, id string) *RenderData {
+	t.Helper()
+	if _, err := os.Stat("testdata/tartalom-" + id + ".json"); err == nil {
+		return sampleRenderDataFile(t, "testdata/tartalom-"+id+".json")
+	}
+	return sampleRenderData(t)
+}
+
+func sampleRenderDataFile(t *testing.T, file string) *RenderData {
+	t.Helper()
+	data, err := os.ReadFile(file)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,8 +51,8 @@ func sampleRenderData(t *testing.T) *RenderData {
 }
 
 func TestOriginalTemplatesMatchDesignerPreview(t *testing.T) {
-	d := sampleRenderData(t)
 	for _, info := range TemplateInfos {
+		d := sampleRenderDataFor(t, info.ID)
 		src, _ := os.ReadFile("testdata/eredeti/" + info.ID + ".html")
 		nodes, _, err := ParseTemplate(lf(src))
 		if err != nil {
@@ -57,13 +72,12 @@ func TestOriginalTemplatesMatchDesignerPreview(t *testing.T) {
 
 // A saját (átalakított) sablonok alapesetben bájtra azonos kimenetet adnak.
 func TestConvertedTemplatesMatchDesignerPreview(t *testing.T) {
-	d := sampleRenderData(t)
 	tpls, err := LoadTemplates(os.DirFS("../.."), "sablonok")
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, tpl := range tpls {
-		got, missing := tpl.Render(d)
+		got, missing := tpl.Render(sampleRenderDataFor(t, tpl.ID))
 		wantB, _ := os.ReadFile("testdata/elonezet/" + tpl.ID + ".html")
 		want := lf(wantB)
 		if len(missing) > 0 {

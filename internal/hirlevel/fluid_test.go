@@ -32,7 +32,7 @@ func TestFluidTiles(t *testing.T) {
 // A beépített sablonok kész levelében minden termék rugalmas: a <style> blokkot eldobó vagy a
 // média-lekérdezést nem alkalmazó levelezőkben ettől kerülnek egymás alá a termékek.
 func TestFluidTilesBuiltin(t *testing.T) {
-	for _, id := range []string{"v1-sotet-lemez", "v2-waterside"} {
+	for _, id := range []string{"v1-sotet-lemez", "v2-waterside", "v6-osz-avar"} {
 		b, err := os.ReadFile("../../sablonok/" + id + ".html")
 		if err != nil {
 			t.Fatal(err)

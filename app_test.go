@@ -250,7 +250,9 @@ func TestAPITemplates(t *testing.T) {
 	}
 	_ = json.NewDecoder(res.Body).Decode(&out)
 	res.Body.Close()
-	if len(out.Results) != 3 || len(out.Templates) != 3 || !out.Templates[1].Overrides || out.Templates[2].ID != "v4-partnerjelentes" || out.Templates[2].Overrides {
+	// a beépítettek (v1, v2 frissítve a csomagból), majd a csomag v4-e saját sablonként
+	nb := len(h.TemplateInfos)
+	if len(out.Results) != 3 || len(out.Templates) != nb+1 || !out.Templates[1].Overrides || out.Templates[nb].ID != "v4-partnerjelentes" || out.Templates[nb].Overrides {
 		t.Fatalf("%+v", out)
 	}
 	// saját sablon + előnézet + saját kép kiszolgálása

@@ -381,7 +381,7 @@ func pollTemplate(t *testing.T) *Template {
 // A beépített sablonok között nincs kérdés-blokkos; a kérdés mezői nem okoznak hibát.
 func TestNoBuiltinPoll(t *testing.T) {
 	tpls, _ := LoadTemplates(os.DirFS("../.."), "sablonok")
-	if len(tpls) != 2 || FindTemplate(tpls, "v4") != nil {
+	if len(tpls) != len(TemplateInfos) || len(tpls) < 3 || FindTemplate(tpls, "v4") != nil || FindTemplate(tpls, "v6") == nil {
 		t.Fatalf("beépített sablonok: %d", len(tpls))
 	}
 	c, products := testContent(t)

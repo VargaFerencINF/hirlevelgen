@@ -164,6 +164,7 @@ func (f *Field) IsURLKind() bool { return f.Kind == "url" || f.Kind == "image" }
 var TemplateInfos = []Template{
 	{ID: "v1-sotet-lemez", Short: "v1", Name: "Sötét lemez", Desc: "Sötét fejléc, narancs csíkok, szögletes téglák."},
 	{ID: "v2-waterside", Short: "v2", Name: "Waterside", Desc: "Krémszínű borító, hullámok, lekerekített téglák."},
+	{ID: "v6-osz-avar", Short: "v6", Name: "Ősz (avar)", Desc: "Őszi színek: sötétbarna borító, krém lap, rozsda képviselő-blokk, levél ikonok."},
 }
 
 // Partner-változók (a felületen beszúrható tokenek).

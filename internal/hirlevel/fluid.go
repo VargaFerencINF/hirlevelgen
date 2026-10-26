@@ -31,8 +31,16 @@ var (
 // fluidBreak alatt (a rács szélessége px-ben) kerülnek a termékek egymás alá.
 const fluidBreak = 480
 
+// A képviselő gombsora (telefon + e-mail) két egymás melletti táblázatcella; <style> nélkül nem
+// tud egymás alá kerülni, és a hosszú e-mail-cím kitolja a levelet a telefon képernyőjéből.
+// A cellák inline-block-ok lesznek (ha nem férnek el, egymás alá törnek; Outlook asztali
+// változata a cellák display értékét figyelmen kívül hagyja), a gombok szövege pedig szükség
+// esetén törhet (a sablon média-lekérdezése is ezt teszi: .rep-btn a{white-space:normal}).
+var repBtnTdRe = regexp.MustCompile(`<td class="(?:[^"]*\s)?rep-btn(?:\s[^"]*)?" style="([^"]*)">`)
+
 // FluidTiles lásd fent; a már rugalmas (vagy tégla nélküli) levelet változatlanul adja vissza.
 func FluidTiles(doc string) string {
+	doc = fluidRepButtons(doc)
 	return tileDivRe.ReplaceAllStringFunc(doc, func(m string) string {
 		st := tileDivRe.FindStringSubmatch(m)[1]
 		pw := pctWidthRe.FindStringSubmatch(st)
@@ -52,4 +60,29 @@ func FluidTiles(doc string) string {
 		ns := strings.Join(keep, ";") + ";"
 		return strings.Replace(m, `style="`+st+`"`, `style="`+ns+`"`, 1)
 	})
+}
+
+func fluidRepButtons(doc string) string {
+	var b strings.Builder
+	for {
+		loc := repBtnTdRe.FindStringSubmatchIndex(doc)
+		if loc == nil {
+			b.WriteString(doc)
+			return b.String()
+		}
+		st := doc[loc[2]:loc[3]]
+		b.WriteString(doc[:loc[2]])
+		if !strings.Contains(st, "display:") {
+			b.WriteString("display:inline-block;vertical-align:top;")
+		}
+		b.WriteString(st)
+		doc = doc[loc[3]:]
+		// a cella gombja: a következő </a>-ig
+		end := strings.Index(doc, "</a>")
+		if end < 0 {
+			continue
+		}
+		b.WriteString(strings.Replace(doc[:end], "white-space:nowrap;", "white-space:normal;word-break:break-word;", 1))
+		doc = doc[end:]
+	}
 }

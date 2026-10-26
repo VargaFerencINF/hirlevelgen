@@ -25,21 +25,22 @@ a{color:#414242;}
 .pxg{padding-left:22px !important;padding-right:22px !important;}
 .h1-xl{font-size:40px !important;line-height:46px !important;}
 }
-/* Mobil (max. 480 px): 2 oszlopos rács, egymás alá rendezett sorok */
+/* Mobil (max. 480 px): a termékek egymás alatt (1 oszlop, kép balra, szöveg jobbra), egymás alá rendezett sorok */
 @media (max-width:480px){
 .outer{padding:8px 6px 24px !important;}
 .px{padding-left:20px !important;padding-right:20px !important;}
 .pxg{padding-left:12px !important;padding-right:12px !important;}
 .h1{font-size:28px !important;line-height:34px !important;}
 .h1-xl{font-size:34px !important;line-height:40px !important;}
-.tile{width:50% !important;max-width:50% !important;}
-.t-gap{padding:4px !important;}
-.t-img{height:124px !important;padding:8px !important;}
-.t-img img{max-width:108px !important;max-height:108px !important;}
-.t-code,.t-name,.t-desc,.t-price,.t-cta{padding-left:10px !important;padding-right:10px !important;}
-.t-name{height:66px !important;}
-.t-desc{height:72px !important;}
-.t-price{height:64px !important;}
+.tile{display:block !important;width:100% !important;max-width:100% !important;}
+.t-gap{padding:5px 0 !important;}
+.t-card{display:block !important;width:100% !important;overflow:hidden !important;}
+.t-card tbody,.t-card tr{display:block !important;width:100% !important;}
+.t-card td{display:block !important;}
+.t-img{float:left !important;width:96px !important;height:96px !important;padding:12px 10px !important;border-bottom:0 !important;}
+.t-img img{max-width:96px !important;max-height:96px !important;margin:0 auto !important;}
+.t-code,.t-name,.t-desc,.t-price,.t-cta{margin-left:116px !important;border-left:1px solid #E6E6E6 !important;padding-left:14px !important;padding-right:12px !important;height:auto !important;}
+.t-code{padding-top:14px !important;}
 .stack{display:block !important;width:100% !important;text-align:left !important;}
 .rep-btn{padding-right:0 !important;}
 .rep-btn table{width:100% !important;}
@@ -82,72 +83,72 @@ a{color:#414242;}
 <!--[if mso]><table role="presentation" cellpadding="0" cellspacing="0" border="0" width="532"><tr><td width="177" valign="top"><![endif]-->
 <div class="tile" style="display:inline-block;width:33.333%;max-width:177px;vertical-align:top;">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr><td class="t-gap" style="padding:6px;">
-<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#FFFFFF" style="background-color:#FFFFFF;border:1px solid #E6E6E6;border-radius:10px;border-collapse:separate;">
+<table class="t-card" role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#FFFFFF" style="background-color:#FFFFFF;border:1px solid #E6E6E6;border-radius:10px;border-collapse:separate;">
 <tr><td class="t-img" align="center" valign="middle" height="150" style="height:150px;padding:10px;border-bottom:1px solid #E6E6E6;"><a href="{{offer.items.1.url}}"><img src="{{offer.items.1.image}}" alt="{{offer.items.1.imageAlt}}" width="130" style="display:block;width:100%;max-width:130px;height:auto;max-height:130px;font-family:'Open Sans',Arial,Helvetica,sans-serif;font-size:13px;color:#555555;"></a></td></tr>
 <tr><td class="t-code" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;padding:12px 12px 4px;font-size:12px;line-height:16px;font-weight:700;letter-spacing:.08em;color:#555555;">{{offer.items.1.code}}</td></tr>
 <tr><td class="t-name" height="44" valign="top" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;height:44px;padding:2px 12px 0;font-size:16px;line-height:22px;font-weight:700;text-transform:uppercase;color:#1A171E;mso-line-height-rule:exactly;">{{offer.items.1.name}}</td></tr>
 <tr><td class="t-desc" height="48" valign="top" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;height:48px;padding:6px 12px 0;font-size:16px;line-height:24px;color:#414242;mso-line-height-rule:exactly;">{{offer.items.1.desc}}</td></tr>
-<tr><td class="t-price" height="44" valign="top" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;height:44px;padding:8px 12px 0;font-size:16px;line-height:22px;font-weight:700;color:#1A171E;mso-line-height-rule:exactly;">{{offer.items.1.price}}<br><span style="font-size:14px;line-height:20px;color:#9E5F0C;">{{offer.items.1.deal}}</span></td></tr>
+<tr><td class="t-price" height="54" valign="top" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;height:54px;padding:8px 12px 0;font-size:16px;line-height:22px;font-weight:700;color:#1A171E;mso-line-height-rule:exactly;">{{offer.items.1.price}}<br><span style="font-size:14px;line-height:20px;color:#9E5F0C;">{{offer.items.1.deal}}</span></td></tr>
 <tr><td class="t-cta" style="padding:12px 12px 14px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:separate;"><tr><td align="center" bgcolor="" style="border:2px solid #414242;border-radius:10px;mso-line-height-rule:exactly;"><a href="{{offer.items.1.url}}" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;display:block;padding:10px 8px;font-size:16px;line-height:20px;font-weight:700;color:#414242;text-decoration:none;text-transform:uppercase;letter-spacing:.04em;">{{offer.items.1.cta}}</a></td></tr></table></td></tr>
 </table>
 </td></tr></table>
 </div><!--[if mso]></td><td width="177" valign="top"><![endif]-->
 <div class="tile" style="display:inline-block;width:33.333%;max-width:177px;vertical-align:top;">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr><td class="t-gap" style="padding:6px;">
-<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#FFFFFF" style="background-color:#FFFFFF;border:1px solid #E6E6E6;border-radius:10px;border-collapse:separate;">
+<table class="t-card" role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#FFFFFF" style="background-color:#FFFFFF;border:1px solid #E6E6E6;border-radius:10px;border-collapse:separate;">
 <tr><td class="t-img" align="center" valign="middle" height="150" style="height:150px;padding:10px;border-bottom:1px solid #E6E6E6;"><a href="{{offer.items.2.url}}"><img src="{{offer.items.2.image}}" alt="{{offer.items.2.imageAlt}}" width="130" style="display:block;width:100%;max-width:130px;height:auto;max-height:130px;font-family:'Open Sans',Arial,Helvetica,sans-serif;font-size:13px;color:#555555;"></a></td></tr>
 <tr><td class="t-code" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;padding:12px 12px 4px;font-size:12px;line-height:16px;font-weight:700;letter-spacing:.08em;color:#555555;">{{offer.items.2.code}}</td></tr>
 <tr><td class="t-name" height="44" valign="top" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;height:44px;padding:2px 12px 0;font-size:16px;line-height:22px;font-weight:700;text-transform:uppercase;color:#1A171E;mso-line-height-rule:exactly;">{{offer.items.2.name}}</td></tr>
 <tr><td class="t-desc" height="48" valign="top" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;height:48px;padding:6px 12px 0;font-size:16px;line-height:24px;color:#414242;mso-line-height-rule:exactly;">{{offer.items.2.desc}}</td></tr>
-<tr><td class="t-price" height="44" valign="top" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;height:44px;padding:8px 12px 0;font-size:16px;line-height:22px;font-weight:700;color:#1A171E;mso-line-height-rule:exactly;">{{offer.items.2.price}}<br><span style="font-size:14px;line-height:20px;color:#9E5F0C;">{{offer.items.2.deal}}</span></td></tr>
+<tr><td class="t-price" height="54" valign="top" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;height:54px;padding:8px 12px 0;font-size:16px;line-height:22px;font-weight:700;color:#1A171E;mso-line-height-rule:exactly;">{{offer.items.2.price}}<br><span style="font-size:14px;line-height:20px;color:#9E5F0C;">{{offer.items.2.deal}}</span></td></tr>
 <tr><td class="t-cta" style="padding:12px 12px 14px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:separate;"><tr><td align="center" bgcolor="" style="border:2px solid #414242;border-radius:10px;mso-line-height-rule:exactly;"><a href="{{offer.items.2.url}}" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;display:block;padding:10px 8px;font-size:16px;line-height:20px;font-weight:700;color:#414242;text-decoration:none;text-transform:uppercase;letter-spacing:.04em;">{{offer.items.2.cta}}</a></td></tr></table></td></tr>
 </table>
 </td></tr></table>
 </div><!--[if mso]></td><td width="177" valign="top"><![endif]-->
 <div class="tile" style="display:inline-block;width:33.333%;max-width:177px;vertical-align:top;">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr><td class="t-gap" style="padding:6px;">
-<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#FFFFFF" style="background-color:#FFFFFF;border:1px solid #E6E6E6;border-radius:10px;border-collapse:separate;">
+<table class="t-card" role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#FFFFFF" style="background-color:#FFFFFF;border:1px solid #E6E6E6;border-radius:10px;border-collapse:separate;">
 <tr><td class="t-img" align="center" valign="middle" height="150" style="height:150px;padding:10px;border-bottom:1px solid #E6E6E6;"><a href="{{offer.items.3.url}}"><img src="{{offer.items.3.image}}" alt="{{offer.items.3.imageAlt}}" width="130" style="display:block;width:100%;max-width:130px;height:auto;max-height:130px;font-family:'Open Sans',Arial,Helvetica,sans-serif;font-size:13px;color:#555555;"></a></td></tr>
 <tr><td class="t-code" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;padding:12px 12px 4px;font-size:12px;line-height:16px;font-weight:700;letter-spacing:.08em;color:#555555;">{{offer.items.3.code}}</td></tr>
 <tr><td class="t-name" height="44" valign="top" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;height:44px;padding:2px 12px 0;font-size:16px;line-height:22px;font-weight:700;text-transform:uppercase;color:#1A171E;mso-line-height-rule:exactly;">{{offer.items.3.name}}</td></tr>
 <tr><td class="t-desc" height="48" valign="top" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;height:48px;padding:6px 12px 0;font-size:16px;line-height:24px;color:#414242;mso-line-height-rule:exactly;">{{offer.items.3.desc}}</td></tr>
-<tr><td class="t-price" height="44" valign="top" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;height:44px;padding:8px 12px 0;font-size:16px;line-height:22px;font-weight:700;color:#1A171E;mso-line-height-rule:exactly;">{{offer.items.3.price}}<br><span style="font-size:14px;line-height:20px;color:#9E5F0C;">{{offer.items.3.deal}}</span></td></tr>
+<tr><td class="t-price" height="54" valign="top" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;height:54px;padding:8px 12px 0;font-size:16px;line-height:22px;font-weight:700;color:#1A171E;mso-line-height-rule:exactly;">{{offer.items.3.price}}<br><span style="font-size:14px;line-height:20px;color:#9E5F0C;">{{offer.items.3.deal}}</span></td></tr>
 <tr><td class="t-cta" style="padding:12px 12px 14px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:separate;"><tr><td align="center" bgcolor="" style="border:2px solid #414242;border-radius:10px;mso-line-height-rule:exactly;"><a href="{{offer.items.3.url}}" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;display:block;padding:10px 8px;font-size:16px;line-height:20px;font-weight:700;color:#414242;text-decoration:none;text-transform:uppercase;letter-spacing:.04em;">{{offer.items.3.cta}}</a></td></tr></table></td></tr>
 </table>
 </td></tr></table>
 </div><!--[if mso]></td></tr><tr><td width="177" valign="top"><![endif]-->
 <div class="tile" style="display:inline-block;width:33.333%;max-width:177px;vertical-align:top;">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr><td class="t-gap" style="padding:6px;">
-<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#FFFFFF" style="background-color:#FFFFFF;border:1px solid #E6E6E6;border-radius:10px;border-collapse:separate;">
+<table class="t-card" role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#FFFFFF" style="background-color:#FFFFFF;border:1px solid #E6E6E6;border-radius:10px;border-collapse:separate;">
 <tr><td class="t-img" align="center" valign="middle" height="150" style="height:150px;padding:10px;border-bottom:1px solid #E6E6E6;"><a href="{{offer.items.4.url}}"><img src="{{offer.items.4.image}}" alt="{{offer.items.4.imageAlt}}" width="130" style="display:block;width:100%;max-width:130px;height:auto;max-height:130px;font-family:'Open Sans',Arial,Helvetica,sans-serif;font-size:13px;color:#555555;"></a></td></tr>
 <tr><td class="t-code" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;padding:12px 12px 4px;font-size:12px;line-height:16px;font-weight:700;letter-spacing:.08em;color:#555555;">{{offer.items.4.code}}</td></tr>
 <tr><td class="t-name" height="44" valign="top" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;height:44px;padding:2px 12px 0;font-size:16px;line-height:22px;font-weight:700;text-transform:uppercase;color:#1A171E;mso-line-height-rule:exactly;">{{offer.items.4.name}}</td></tr>
 <tr><td class="t-desc" height="48" valign="top" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;height:48px;padding:6px 12px 0;font-size:16px;line-height:24px;color:#414242;mso-line-height-rule:exactly;">{{offer.items.4.desc}}</td></tr>
-<tr><td class="t-price" height="44" valign="top" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;height:44px;padding:8px 12px 0;font-size:16px;line-height:22px;font-weight:700;color:#1A171E;mso-line-height-rule:exactly;">{{offer.items.4.price}}<br><span style="font-size:14px;line-height:20px;color:#9E5F0C;">{{offer.items.4.deal}}</span></td></tr>
+<tr><td class="t-price" height="54" valign="top" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;height:54px;padding:8px 12px 0;font-size:16px;line-height:22px;font-weight:700;color:#1A171E;mso-line-height-rule:exactly;">{{offer.items.4.price}}<br><span style="font-size:14px;line-height:20px;color:#9E5F0C;">{{offer.items.4.deal}}</span></td></tr>
 <tr><td class="t-cta" style="padding:12px 12px 14px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:separate;"><tr><td align="center" bgcolor="" style="border:2px solid #414242;border-radius:10px;mso-line-height-rule:exactly;"><a href="{{offer.items.4.url}}" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;display:block;padding:10px 8px;font-size:16px;line-height:20px;font-weight:700;color:#414242;text-decoration:none;text-transform:uppercase;letter-spacing:.04em;">{{offer.items.4.cta}}</a></td></tr></table></td></tr>
 </table>
 </td></tr></table>
 </div><!--[if mso]></td><td width="177" valign="top"><![endif]-->
 <div class="tile" style="display:inline-block;width:33.333%;max-width:177px;vertical-align:top;">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr><td class="t-gap" style="padding:6px;">
-<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#FFFFFF" style="background-color:#FFFFFF;border:1px solid #E6E6E6;border-radius:10px;border-collapse:separate;">
+<table class="t-card" role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#FFFFFF" style="background-color:#FFFFFF;border:1px solid #E6E6E6;border-radius:10px;border-collapse:separate;">
 <tr><td class="t-img" align="center" valign="middle" height="150" style="height:150px;padding:10px;border-bottom:1px solid #E6E6E6;"><a href="{{offer.items.5.url}}"><img src="{{offer.items.5.image}}" alt="{{offer.items.5.imageAlt}}" width="130" style="display:block;width:100%;max-width:130px;height:auto;max-height:130px;font-family:'Open Sans',Arial,Helvetica,sans-serif;font-size:13px;color:#555555;"></a></td></tr>
 <tr><td class="t-code" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;padding:12px 12px 4px;font-size:12px;line-height:16px;font-weight:700;letter-spacing:.08em;color:#555555;">{{offer.items.5.code}}</td></tr>
 <tr><td class="t-name" height="44" valign="top" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;height:44px;padding:2px 12px 0;font-size:16px;line-height:22px;font-weight:700;text-transform:uppercase;color:#1A171E;mso-line-height-rule:exactly;">{{offer.items.5.name}}</td></tr>
 <tr><td class="t-desc" height="48" valign="top" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;height:48px;padding:6px 12px 0;font-size:16px;line-height:24px;color:#414242;mso-line-height-rule:exactly;">{{offer.items.5.desc}}</td></tr>
-<tr><td class="t-price" height="44" valign="top" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;height:44px;padding:8px 12px 0;font-size:16px;line-height:22px;font-weight:700;color:#1A171E;mso-line-height-rule:exactly;">{{offer.items.5.price}}<br><span style="font-size:14px;line-height:20px;color:#9E5F0C;">{{offer.items.5.deal}}</span></td></tr>
+<tr><td class="t-price" height="54" valign="top" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;height:54px;padding:8px 12px 0;font-size:16px;line-height:22px;font-weight:700;color:#1A171E;mso-line-height-rule:exactly;">{{offer.items.5.price}}<br><span style="font-size:14px;line-height:20px;color:#9E5F0C;">{{offer.items.5.deal}}</span></td></tr>
 <tr><td class="t-cta" style="padding:12px 12px 14px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:separate;"><tr><td align="center" bgcolor="" style="border:2px solid #414242;border-radius:10px;mso-line-height-rule:exactly;"><a href="{{offer.items.5.url}}" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;display:block;padding:10px 8px;font-size:16px;line-height:20px;font-weight:700;color:#414242;text-decoration:none;text-transform:uppercase;letter-spacing:.04em;">{{offer.items.5.cta}}</a></td></tr></table></td></tr>
 </table>
 </td></tr></table>
 </div><!--[if mso]></td><td width="177" valign="top"><![endif]-->
 <div class="tile" style="display:inline-block;width:33.333%;max-width:177px;vertical-align:top;">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr><td class="t-gap" style="padding:6px;">
-<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#FFFFFF" style="background-color:#FFFFFF;border:1px solid #E6E6E6;border-radius:10px;border-collapse:separate;">
+<table class="t-card" role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#FFFFFF" style="background-color:#FFFFFF;border:1px solid #E6E6E6;border-radius:10px;border-collapse:separate;">
 <tr><td class="t-img" align="center" valign="middle" height="150" style="height:150px;padding:10px;border-bottom:1px solid #E6E6E6;"><a href="{{offer.items.6.url}}"><img src="{{offer.items.6.image}}" alt="{{offer.items.6.imageAlt}}" width="130" style="display:block;width:100%;max-width:130px;height:auto;max-height:130px;font-family:'Open Sans',Arial,Helvetica,sans-serif;font-size:13px;color:#555555;"></a></td></tr>
 <tr><td class="t-code" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;padding:12px 12px 4px;font-size:12px;line-height:16px;font-weight:700;letter-spacing:.08em;color:#555555;">{{offer.items.6.code}}</td></tr>
 <tr><td class="t-name" height="44" valign="top" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;height:44px;padding:2px 12px 0;font-size:16px;line-height:22px;font-weight:700;text-transform:uppercase;color:#1A171E;mso-line-height-rule:exactly;">{{offer.items.6.name}}</td></tr>
 <tr><td class="t-desc" height="48" valign="top" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;height:48px;padding:6px 12px 0;font-size:16px;line-height:24px;color:#414242;mso-line-height-rule:exactly;">{{offer.items.6.desc}}</td></tr>
-<tr><td class="t-price" height="44" valign="top" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;height:44px;padding:8px 12px 0;font-size:16px;line-height:22px;font-weight:700;color:#1A171E;mso-line-height-rule:exactly;">{{offer.items.6.price}}<br><span style="font-size:14px;line-height:20px;color:#9E5F0C;">{{offer.items.6.deal}}</span></td></tr>
+<tr><td class="t-price" height="54" valign="top" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;height:54px;padding:8px 12px 0;font-size:16px;line-height:22px;font-weight:700;color:#1A171E;mso-line-height-rule:exactly;">{{offer.items.6.price}}<br><span style="font-size:14px;line-height:20px;color:#9E5F0C;">{{offer.items.6.deal}}</span></td></tr>
 <tr><td class="t-cta" style="padding:12px 12px 14px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:separate;"><tr><td align="center" bgcolor="" style="border:2px solid #414242;border-radius:10px;mso-line-height-rule:exactly;"><a href="{{offer.items.6.url}}" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;display:block;padding:10px 8px;font-size:16px;line-height:20px;font-weight:700;color:#414242;text-decoration:none;text-transform:uppercase;letter-spacing:.04em;">{{offer.items.6.cta}}</a></td></tr></table></td></tr>
 </table>
 </td></tr></table>

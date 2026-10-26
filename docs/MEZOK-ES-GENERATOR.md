@@ -1,12 +1,15 @@
 # Energofish hírlevél-sablonok: mezők és generátor
 
-Három küldésre kész, táblázatos e-mail sablon, **közös mezőkulcsokkal**. Egy tartalomfájlból (JSON) mindhárom sablon egyszerre legenerálható.
+Küldésre kész, táblázatos e-mail sablonok, **közös mezőkulcsokkal**. Egy tartalomfájlból (JSON) mindegyik sablon egyszerre legenerálható.
+
+> **v6 Ősz (avar):** a v6 pontosan a v1 kulcskészletét használja. A táblázatokban ahol a v1 oszlopban ✓ áll, ott a v6-ban is. Nincs `poll.*` és `cover.meta.poll` mező. Csak a megjelenés és a mintatartalom (`tartalom-v6-osz.json`) más.
 
 ```
 export/
   sablonok/            ← a generátor bemenete ({{kulcs}} helyőrzőkkel)
     v1-sotet-lemez.html
     v2-waterside.html
+    v6-osz-avar.html
     v4-partnerjelentes.html   (az 1.4.7-től nem beépített sablon; hozzáadott sablonként használható)
   elonezet/            ← a mintatartalommal legenerált, böngészőben megnyitható változat
   assets/              ← a sablonok saját képei (fel kell tölteni https tárhelyre)
