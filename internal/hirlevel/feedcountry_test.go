@@ -115,3 +115,44 @@ func TestCountryFeedStore(t *testing.T) {
 		t.Errorf("EN link: %+v", l)
 	}
 }
+
+// Név nélküli külföldi cikk: a főterméknév és a változat mérete (a valódi CZ cikktörzs alapján).
+func TestForeignFallbackName(t *testing.T) {
+	feed := `<?xml version="1.0" encoding="utf-8"?><xml>
+<Product><Item_code>M4216800</Item_code><Item_codeK>M4216-800</Item_codeK><Product_name><![CDATA[]]></Product_name>
+<Main_product id="9001"><![CDATA[MUSTAD KAIJU SINGLE RING TITAN STEEL HÁČEK]]></Main_product>
+<Parameters><Parameter id="5" name="Kód zboží"><![CDATA[M4216-800]]></Parameter><Parameter id="19" name="Balení"><![CDATA[3 ks/bal]]></Parameter>
+<Parameter id="21" name="Velikost"><![CDATA[8/0]]></Parameter></Parameters></Product>
+<Product><Item_code>98004099</Item_code><Item_codeK>98004-099</Item_codeK><Product_name></Product_name>
+<Main_product id="9002"><![CDATA[CARP EXPERT KUKOŘICE]]></Main_product>
+<Parameters><Parameter id="19" name="Balení"><![CDATA[212 ml]]></Parameter><Parameter id="21" name="Velikost"><![CDATA[]]></Parameter></Parameters></Product>
+<Product><Item_code>12048989</Item_code><Item_codeK>12048-989</Item_codeK><Product_name></Product_name><Main_product id="0"></Main_product></Product>
+<Product><Item_code>10000327</Item_code><Item_codeK>10000-327</Item_codeK><Product_name><![CDATA[WIZARD CRAB 12CM]]></Product_name>
+<Main_product id="24021"><![CDATA[WIZARD CRAB]]></Main_product></Product>
+</xml>`
+	list, err := ParseFeed(strings.NewReader(feed))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := []string{}
+	for _, p := range list {
+		got = append(got, p.Name)
+	}
+	if strings.Join(got, " | ") != "MUSTAD KAIJU SINGLE RING TITAN STEEL HÁČEK 8/0 | CARP EXPERT KUKOŘICE 212 ml |  | WIZARD CRAB 12CM" {
+		t.Errorf("%q", got)
+	}
+	// a pótnév eltér a főterméknévtől, így a cikk/főtermék váltó használható
+	if r := list[0].Ref(); r.Name == r.Family || r.Family == "" {
+		t.Errorf("%+v", r)
+	}
+	o := FeedOptions{URL: "https://sajat.example.com/hu.xml", URLs: map[string]string{"cz": "https://sajat.example.com/cz.xml"}}
+	if o.URLFor("hu") != "https://sajat.example.com/hu.xml" || o.URLFor("cz") != "https://sajat.example.com/cz.xml" || o.URLFor("sk") != "" {
+		t.Error("országonkénti cím")
+	}
+	if (FeedOptions{URL: "a", URLs: map[string]string{"hu": "b"}}).URLFor("hu") != "b" {
+		t.Error("magyar: az új mező az elsődleges")
+	}
+	if FeedCountries[2].URL != "https://energofish.hu/listak/feeds/wholesale/termekadatok_cz.xml" {
+		t.Error(FeedCountries[2].URL)
+	}
+}

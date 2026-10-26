@@ -17,17 +17,24 @@ type FeedCountry struct {
 	Currency  string `json:"currency"`  // alapértelmezett pénznem-jel (a cikkválasztóban felülírható)
 	NetSuffix string `json:"netSuffix"` // a nettó (nagyker) ár után
 	Deal      string `json:"deal"`      // az akció szó (a magyarnál „akció”, máshol nincs)
+	URL       string `json:"url"`       // az alapértelmezett cikktörzs-cím
+}
+
+func init() {
+	for i := range FeedCountries {
+		FeedCountries[i].URL = FeedURLFor(FeedCountries[i].Code)
+	}
 }
 
 // FeedCountries a támogatott cikktörzsek.
 var FeedCountries = []FeedCountry{
-	{"hu", "Magyar (HU)", "Ft", " + áfa", "akció"},
-	{"at", "Osztrák (AT)", "€", " zzgl. MwSt.", ""},
-	{"cz", "Cseh (CZ)", "Kč", " bez DPH", ""},
-	{"sk", "Szlovák (SK)", "€", " bez DPH", ""},
-	{"en", "Nemzetközi (EN)", "€", " + VAT", ""},
-	{"ro", "Román (RO)", "lei", " fără TVA", ""},
-	{"es", "Spanyol (ES)", "€", " + IVA", ""},
+	{Code: "hu", Label: "Magyar (HU)", Currency: "Ft", NetSuffix: " + áfa", Deal: "akció"},
+	{Code: "at", Label: "Osztrák (AT)", Currency: "€", NetSuffix: " zzgl. MwSt."},
+	{Code: "cz", Label: "Cseh (CZ)", Currency: "Kč", NetSuffix: " bez DPH"},
+	{Code: "sk", Label: "Szlovák (SK)", Currency: "€", NetSuffix: " bez DPH"},
+	{Code: "en", Label: "Nemzetközi (EN)", Currency: "€", NetSuffix: " + VAT"},
+	{Code: "ro", Label: "Román (RO)", Currency: "lei", NetSuffix: " fără TVA"},
+	{Code: "es", Label: "Spanyol (ES)", Currency: "€", NetSuffix: " + IVA"},
 }
 
 // FeedURLFor az ország cikktörzsének címe.

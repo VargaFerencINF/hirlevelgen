@@ -38,19 +38,15 @@ func (a *App) autoFeedCountryLocked() string {
 	return "hu"
 }
 
-// activeFeedLocked az aktív cikktörzs és a címe (a hívó tartja a.mu-t). A kézzel megadott cím
-// (Beállítások) csak a magyar cikktörzsre vonatkozik.
+// activeFeedLocked az aktív cikktörzs és a címe (a hívó tartja a.mu-t; "" = az ország
+// alapértelmezett címe). Saját cím országonként adható meg (Beállítások › Cikktörzs).
 func (a *App) activeFeedLocked() (*h.FeedStore, string) {
 	code := strings.TrimSpace(a.state.Feed.Country)
 	if code == "" {
 		code = a.autoFeedCountryLocked()
 	}
 	st := a.feedStore(code)
-	url := ""
-	if st.Country == "hu" {
-		url = strings.TrimSpace(a.state.Feed.URL)
-	}
-	return st, url
+	return st, a.state.Feed.URLFor(st.Country)
 }
 
 func (a *App) activeFeed() (*h.FeedStore, string) {
@@ -97,8 +93,8 @@ func (a *App) apiFeedRefresh(w http.ResponseWriter, r *http.Request) (any, error
 		return nil, err
 	}
 	st, url := a.activeFeed()
-	if u := strings.TrimSpace(req.URL); u != "" && st.Country == "hu" {
-		url = u // kézzel megadott cím (csak a magyar cikktörzsnél)
+	if u := strings.TrimSpace(req.URL); u != "" {
+		url = u // kézzel megadott cím (az aktív ország cikktörzséhez)
 	}
 	if url != "" && !strings.HasPrefix(url, "https://") && !strings.HasPrefix(url, "http://") {
 		return nil, errors.New("a cikktörzs címe http:// vagy https:// kezdetű legyen")

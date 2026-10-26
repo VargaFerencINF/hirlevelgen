@@ -1394,6 +1394,11 @@ func TestActiveFeedCountry(t *testing.T) {
 	if _, url = app.activeFeedLocked(); url != "https://sajat.example.com/feed.xml" {
 		t.Error("saját magyar cím")
 	}
+	app.state.Feed.Country = "sk"
+	app.state.Feed.URLs = map[string]string{"sk": "https://sajat.example.com/sk.xml"}
+	if _, url = app.activeFeedLocked(); url != "https://sajat.example.com/sk.xml" {
+		t.Error("saját szlovák cím")
+	}
 	app.mu.Unlock()
 	if app.feedStore("cz") != app.feedStore("cz") || app.feedStore("hu") != app.feed {
 		t.Error("tárolók")

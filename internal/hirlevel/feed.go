@@ -123,6 +123,33 @@ func (x *xmlProduct) termek() *xmlTermek {
 // 5 cikkszám, 8 egyéb, 29 szállítási méret, 35 tartalom, 40 akció
 var paramSkipID = map[string]bool{"5": true, "8": true, "29": true, "35": true, "40": true}
 
+// fallbackName a név nélküli cikk neve (a külföldi cikktörzsekben a cikkek egy részének üres a
+// Product_name mezője): a főtermék neve és a változat mérete (21), ha az üres, a kiszerelése (19),
+// a színe (31) vagy más jellemzője – pl. „MUSTAD KAIJU SINGLE RING TITAN STEEL HÁČEK 8/0”.
+func fallbackName(t *xmlTermek) string {
+	base := strings.Join(strings.Fields(t.Fotermek.Value), " ")
+	variant := ""
+	for _, id := range []string{"21", "19", "31", ""} { // "" = bármely más (a leírásba illő) paraméter
+		for _, prm := range t.Parameterek {
+			pid := clean(prm.ID)
+			if (pid == id || (id == "" && !paramSkipID[pid])) && clean(prm.Value) != "" {
+				variant = strings.Join(strings.Fields(prm.Value), " ")
+				break
+			}
+		}
+		if variant != "" {
+			break
+		}
+	}
+	switch {
+	case base == "":
+		return variant
+	case variant == "" || strings.Contains(strings.ToLower(base), strings.ToLower(variant)):
+		return base
+	}
+	return base + " " + variant
+}
+
 // clean a spec szerinti strip (a nem törő szóközt is beleértve).
 func clean(s string) string { return strings.TrimFunc(s, unicode.IsSpace) }
 
@@ -161,6 +188,9 @@ func convertTermek(t *xmlTermek) FeedProduct {
 	}
 	if p.Code == "" {
 		p.Code = p.Plain
+	}
+	if p.Name == "" {
+		p.Name = fallbackName(t)
 	}
 	for _, k := range t.Kepek {
 		if u := cleanURL(k.Value); u != "" {
@@ -382,6 +412,20 @@ type FeedOptions struct {
 	Country string `json:"country,omitempty"`
 	// Currency országonként felülírt pénznem-jel (pl. {"ro": "RON"}); üres = az alapértelmezett
 	Currency map[string]string `json:"currency,omitempty"`
+	// URLs országonként saját cikktörzs-cím (üres = az alapértelmezett termekadatok_<kód>.xml);
+	// a magyarnál a korábbi URL mező is érvényes
+	URLs map[string]string `json:"urls,omitempty"`
+}
+
+// URLFor az ország saját cikktörzs-címe ("" = az alapértelmezett).
+func (o FeedOptions) URLFor(code string) string {
+	if v := strings.TrimSpace(o.URLs[code]); v != "" {
+		return v
+	}
+	if code == "hu" {
+		return strings.TrimSpace(o.URL)
+	}
+	return ""
 }
 
 var imageOrder = map[string][]string{

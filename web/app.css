@@ -720,3 +720,5 @@ input[type=checkbox]{width:17px;height:17px;accent-color:var(--orange);cursor:po
 .pk-country-row{display:flex;gap:6px;align-items:center}
 .pk-country-row select.inp{padding:4px 8px;font-size:12px;height:30px;max-width:230px}
 .pk-country-row .pk-cur{width:64px;padding:4px 8px;font-size:12px;height:30px}
+.feed-rows{display:flex;flex-direction:column;gap:10px}
+.feed-row .feed-lbl{display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:4px}

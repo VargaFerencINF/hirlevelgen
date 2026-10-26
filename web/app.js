@@ -1083,6 +1083,23 @@ function fmtMoney(n) {
 
 function fmtMB(b) { return (b / 1e6).toLocaleString('hu-HU', { maximumFractionDigits: 1, minimumFractionDigits: 1 }) + ' MB'; }
 
+// Az ország saját cikktörzs-címe ("" = az alapértelmezett termekadatok_<kód>.xml).
+function feedUrlFor(code) {
+  const o = feedOpts();
+  return ((o.urls || {})[code] || (code === 'hu' ? o.url : '') || '').trim();
+}
+function setFeedUrl(code, v) {
+  const o = feedOpts();
+  o.urls = Object.assign({}, o.urls || {});
+  if (v) o.urls[code] = v; else delete o.urls[code];
+  if (code === 'hu') o.url = v; // a korábbi (magyar) beállítás is
+  if (!Object.keys(o.urls).length) delete o.urls;
+}
+function feedDefaultUrl(code) {
+  const c = (S.feedCountries || []).find(x => x.code === code);
+  return c ? c.url : S.feedURL;
+}
+
 function feedOpts() {
   if (!S.state.feed) S.state.feed = {};
   return S.state.feed;
@@ -1189,7 +1206,7 @@ function familySwitcher(pr) {
       ['code', 'Azonosító', [['Cikkszám', f.code], ['Főtermék azonosító', f.familyId ? String(f.familyId) : '']]],
       ['name', 'Név', [['Cikknév', f.name], ['Főtermék név', f.family]]],
       ['url', 'Gomb link', [['Cikk oldala', /\{cikkszam\}/i.test(pat) ? resolveUrl(pat, f.code) : ''], ['Főtermék oldala', f.link]]],
-    ].map(([k, label, opts]) => [k, label, opts.filter(o => o[1])]).filter(r => r[2].length);
+    ].map(([k, label, opts]) => [k, label, opts.filter((o, j) => o[1] && !(j && o[1] === opts[0][1]))]).filter(r => r[2].length); // azonos érték: egy gomb
     const cur = k => String(pr[k] || '').trim();
     const isFam = (k, opts) => opts.length > 1 && cur(k) === opts[1][1];
     const isArt = (k, opts) => cur(k) === opts[0][1] && !isFam(k, opts);
@@ -1345,6 +1362,7 @@ function openPicker() {
 
   function onFeed(st, becameReady) {
     statusLine(st);
+    fillUrlRow();
     if (feedCountryDraw && document.activeElement && !document.activeElement.closest('.pk-country')) feedCountryDraw();
     if (becameReady) { lastQ = null; doSearch(); }
   }
@@ -1446,16 +1464,27 @@ function openPicker() {
     }
   });
 
-  const urlInp = h('input', { class: 'inp', type: 'url', value: o.url || '', placeholder: S.feedURL || '', spellcheck: false });
-  urlRow.append(h('label', { class: 'label-caps', text: 'Cikktörzs címe (XML)' }),
+  // a „Cikktörzs címe” sor mindig az aktív ország cikktörzsére vonatkozik
+  const urlInp = h('input', { class: 'inp', type: 'url', spellcheck: false });
+  const urlLbl = h('label', { class: 'label-caps' });
+  const fillUrlRow = () => {
+    const code = (S.feed && S.feed.country) || 'hu';
+    urlLbl.textContent = `Cikktörzs címe (XML) – ${(S.feed && S.feed.countryLabel) || 'Magyar (HU)'}`;
+    if (document.activeElement !== urlInp) urlInp.value = feedUrlFor(code);
+    urlInp.placeholder = feedDefaultUrl(code) || '';
+  };
+  const saveUrl = async v => {
+    setFeedUrl((S.feed && S.feed.country) || 'hu', v);
+    urlInp.value = v;
+    await syncNow();
+    refreshFeed(true, v);
+  };
+  urlRow.append(urlLbl,
     h('div', { class: 'pk-url-row' }, urlInp,
-      h('button', { class: 'btn btn-outline btn-sm', text: 'Mentés és letöltés', onclick: () => {
-        o.url = urlInp.value.trim();
-        syncSoon(0);
-        refreshFeed(true, o.url);
-      } }),
-      h('button', { class: 'btn btn-ghost btn-sm', text: 'Alapértelmezett', onclick: () => { urlInp.value = ''; o.url = ''; syncSoon(0); refreshFeed(true, ''); } })),
-    h('div', { class: 'help', text: 'Üresen az Energofish nagyker termékfeedje. A saját cím csak a magyar cikktörzsre vonatkozik (a külföldi cikktörzsek címe rögzített). A letöltött cikktörzs a gépre mentődik; legközelebb csak akkor töltődik le újra, ha a szerveren változott.' }));
+      h('button', { class: 'btn btn-outline btn-sm', text: 'Mentés és letöltés', onclick: () => saveUrl(urlInp.value.trim()) }),
+      h('button', { class: 'btn btn-ghost btn-sm', text: 'Alapértelmezett', onclick: () => saveUrl('') })),
+    h('div', { class: 'help', text: 'Üresen az ország alapértelmezett Energofish nagyker termékfeedje. Országonként külön cím adható meg (itt az éppen használt országé; mindegyik: Beállítások › Cikktörzs). A letöltött cikktörzs a gépre mentődik; legközelebb csak akkor töltődik le újra, ha a szerveren változott.' }));
+  fillUrlRow();
 
   const bg = h('div', { class: 'modal-bg', onclick: e => { if (e.target === bg) done(); } },
     h('div', { class: 'modal picker', role: 'dialog', 'aria-label': 'Termék hozzáadása a cikktörzsből' },
@@ -1477,7 +1506,7 @@ function openPicker() {
   statusLine(S.feed || { loading: true, ready: false, bytes: 0, total: 0, phase: 'download' });
   drawList();
   search.focus();
-  refreshFeed(false, o.url); // friss cikktörzs: csak akkor töltődik le, ha a szerveren változott
+  refreshFeed(false); // friss cikktörzs (az aktív ország saját vagy alapértelmezett címéről): csak ha a szerveren változott
 }
 
 async function reloadProducts() {
@@ -3577,13 +3606,25 @@ async function openSettings(focus) {
 
   // cikktörzs
   const o = feedOpts();
-  const feedInp = h('input', { class: 'inp', type: 'url', value: o.url || '', placeholder: st.feedURL, spellcheck: false });
-  const saveFeed = v => { o.url = v; feedInp.value = v; syncNow(); refreshFeed(true, v); toast('A cikktörzs címe mentve, a letöltés elindult.', 'ok'); };
-  const feedSec = sec('feed', 'box', 'Cikktörzs (termékfeed)', 'Innen keres az „Új termék” ablak. Üresen az alapértelmezett Energofish nagyker feed.',
-    h('div', { class: 'set-row' }, feedInp,
-      h('button', { class: 'btn btn-outline btn-sm', text: 'Mentés', onclick: () => saveFeed(feedInp.value.trim()) }),
-      h('button', { class: 'btn btn-ghost btn-sm', text: 'Alapértelmezett', onclick: () => saveFeed('') })),
-    S.feed ? h('div', { class: 'p-sub', style: { marginTop: '6px' }, text: S.feed.ready ? `${S.feed.count.toLocaleString('hu-HU')} cikk · letöltve: ${fmtTime(S.feed.dataTime)}` : (S.feed.lastError || 'még nincs letöltve') }) : null);
+  const activeCode = (S.feed && S.feed.country) || 'hu';
+  const feedRows = (S.feedCountries || []).map(c => {
+    const inp = h('input', { class: 'inp', type: 'url', value: feedUrlFor(c.code), placeholder: c.url, spellcheck: false });
+    const save = async v => {
+      setFeedUrl(c.code, v);
+      inp.value = v;
+      await syncNow();
+      if (c.code === ((S.feed && S.feed.country) || 'hu')) { refreshFeed(true, v); toast(`${c.label}: a cikktörzs címe mentve, a letöltés elindult.`, 'ok'); }
+      else toast(`${c.label}: a cikktörzs címe mentve (akkor töltődik le, amikor ezt az országot használod).`, 'ok');
+    };
+    return h('div', { class: 'feed-row' },
+      h('div', { class: 'feed-lbl' }, h('b', { text: c.label }), c.code === activeCode ? h('span', { class: 'pill dark', text: 'most használt' }) : null),
+      h('div', { class: 'set-row' }, inp,
+        h('button', { class: 'btn btn-outline btn-sm', text: 'Mentés', onclick: () => save(inp.value.trim()) }),
+        h('button', { class: 'btn btn-ghost btn-sm', text: 'Alapértelmezett', onclick: () => save('') })));
+  });
+  const feedSec = sec('feed', 'box', 'Cikktörzs (termékfeed)', 'Innen keres az „Új termék” ablak – a betöltött partnerhalmaz országáé (vagy a kézzel választotté). Országonként saját cím adható meg; üresen az alapértelmezett Energofish nagyker feed.',
+    h('div', { class: 'feed-rows' }, feedRows),
+    S.feed ? h('div', { class: 'p-sub', style: { marginTop: '6px' }, text: (S.feed.countryLabel ? S.feed.countryLabel + ': ' : '') + (S.feed.ready ? `${S.feed.count.toLocaleString('hu-HU')} cikk · letöltve: ${fmtTime(S.feed.dataTime)}` : (S.feed.lastError || 'még nincs letöltve')) }) : null);
 
   // partnertörzs-források
   const srcSec = sec('sources', 'link', 'B2B partnertörzs-források', 'A célcsoportok (országok) tokenes exportlinkjei. A program mellé tett partnerforrasok.txt-t indításkor automatikusan beolvassa.',
