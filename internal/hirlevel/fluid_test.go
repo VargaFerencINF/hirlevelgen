@@ -2,7 +2,6 @@ package hirlevel
 
 import (
 	"os"
-	"regexp"
 	"strings"
 	"testing"
 )
@@ -12,14 +11,15 @@ func TestFluidTiles(t *testing.T) {
 		`<div class="tile" style="display:inline-block;width:33.333%;max-width:177px;vertical-align:top;">A</div>` +
 		`<div class="tile wide" style="display:inline-block;width:50%;vertical-align:top;">B</div></div>`
 	out := FluidTiles(in)
-	if !strings.Contains(out, `<div class="tile" style="display:inline-block;width:100%;max-width:177px;vertical-align:top;text-align:left;">`) {
+	want := `<div class="tile" style="display:inline-block;vertical-align:top;width:33.333%;min-width:33.333%;max-width:100%;width:calc(230400px - 48000%);">`
+	if !strings.Contains(out, want) {
 		t.Errorf("a tégla nem lett rugalmas:\n%s", out)
 	}
 	if !strings.Contains(out, `width:50%;vertical-align:top;">B`) {
 		t.Errorf("max-width nélküli téglához nem szabad nyúlni:\n%s", out)
 	}
-	if !strings.Contains(out, `<div style="font-size:0;line-height:0;text-align:center;">`) {
-		t.Errorf("a rács nem lett középre igazítva:\n%s", out)
+	if !strings.Contains(out, `<div style="font-size:0;line-height:0;text-align:left;">`) {
+		t.Errorf("a rács burkolója megváltozott:\n%s", out)
 	}
 	if FluidTiles(out) != out {
 		t.Error("másodszori futtatásra változott")
@@ -29,24 +29,20 @@ func TestFluidTiles(t *testing.T) {
 	}
 }
 
-// A beépített sablonok kész levelében egy termék sem maradhat százalékos szélességű:
-// a <style> blokkot eldobó telefonos levelezőkben ettől csúsztak egymásra a termékek.
+// A beépített sablonok kész levelében minden termék rugalmas: a <style> blokkot eldobó vagy a
+// média-lekérdezést nem alkalmazó levelezőkben ettől kerülnek egymás alá a termékek.
 func TestFluidTilesBuiltin(t *testing.T) {
-	pct := regexp.MustCompile(`class="tile"[^>]*;width:[1-9]?\d(\.\d+)?%`) // 100% alatti
 	for _, id := range []string{"v1-sotet-lemez", "v2-waterside"} {
 		b, err := os.ReadFile("../../sablonok/" + id + ".html")
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !pct.Match(b) {
-			t.Fatalf("%s: a teszt feltételezi a 33,333%%-os téglákat", id)
+		n := strings.Count(string(b), `class="tile"`)
+		if n == 0 {
+			t.Fatalf("%s: nincs tégla a sablonban", id)
 		}
-		out := FluidTiles(string(b))
-		if pct.MatchString(out) {
-			t.Errorf("%s: maradt százalékos tégla", id)
-		}
-		if !strings.Contains(out, "max-width:177px") || !strings.Contains(out, "text-align:center") {
-			t.Errorf("%s: hiányzik a max-width vagy a középre igazítás", id)
+		if got := strings.Count(FluidTiles(string(b)), "max-width:100%;width:calc("); got != n {
+			t.Errorf("%s: %d/%d tégla rugalmas", id, got, n)
 		}
 	}
 }
