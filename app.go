@@ -1100,7 +1100,7 @@ func (a *App) renderPreview(pIdx int, tplID string, assetsBase string) (string, 
 	if len(missing) > 0 {
 		return "", fmt.Errorf("ismeretlen mezők: %s", strings.Join(missing, ", "))
 	}
-	return html, nil
+	return h.FluidTiles(html), nil
 }
 
 func (a *App) writePreview(w http.ResponseWriter, r *http.Request) {

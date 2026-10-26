@@ -191,6 +191,7 @@ func Generate(assets fs.FS, tpl *Template, c Content, products []Product, partne
 		if len(missing) > 0 {
 			return nil, fmt.Errorf("a sablon ismeretlen mezőket használ: %s", strings.Join(missing, ", "))
 		}
+		html = FluidTiles(html) // telefonon <style> nélkül is egymás alá kerülnek a termékek
 		if OutlookSafeOn(c) {
 			html = OutlookSafeHTML(html, c["assets.base"]) // csak a webes képtárnál
 		}
