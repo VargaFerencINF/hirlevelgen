@@ -22,7 +22,7 @@ import (
 	h "energofish/hirlevel/internal/hirlevel"
 )
 
-var version = "1.4.40"
+var version = "1.4.41"
 
 const appTitle = "Energofish Partnerhírlevél-generátor"
 
@@ -36,7 +36,7 @@ func main() {
 		batch    = flag.Bool("batch", false, "felület nélküli generálás (lásd -excel, -sablon, -kimenet)")
 		excel    = flag.String("excel", "", "batch: a partnerlista (xlsx)")
 		content  = flag.String("tartalom", "", "batch: tartalom JSON (üresen a mentett beállítások)")
-		tplFlag  = flag.String("sablon", "", "batch: v1, v2 vagy v6 (üresen a mentett)")
+		tplFlag  = flag.String("sablon", "", "batch: v1, v2, v6, v6t, v9 vagy a sablon azonosítója (üresen a mentett)")
 		outDir   = flag.String("kimenet", "", "batch: kimeneti mappa")
 		eml      = flag.Bool("eml", false, "batch: EML fájlok is")
 		from     = flag.String("felado", "", "batch: feladó az EML-hez")

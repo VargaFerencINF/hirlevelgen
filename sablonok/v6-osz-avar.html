@@ -5,11 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="x-apple-disable-message-reformatting">
 <meta name="format-detection" content="telephone=no, address=no, email=no">
-<meta name="color-scheme" content="light dark">
-<meta name="supported-color-schemes" content="light dark">
+<meta name="color-scheme" content="light only">
+<meta name="supported-color-schemes" content="light only">
 <title>{{meta.subject}}</title>
 <!--[if mso]><noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript><![endif]-->
 <style>
+:root{color-scheme:light only;supported-color-schemes:light only;}
+/* Az alapréteg inline: hibrid oszlopok és Fab Four téglák, <style> nélkül is reszponzív. A média-lekérdezések csak finomítanak. Lásd RESZPONZIV-SZABALYOK.md */
 body{margin:0;padding:0;width:100%;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}
 table{border-collapse:collapse;mso-table-lspace:0;mso-table-rspace:0;}
 img{border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;}
@@ -24,6 +26,7 @@ a{color:#2B1E16;}
 .px{padding-left:28px !important;padding-right:28px !important;}
 .pxg{padding-left:22px !important;padding-right:22px !important;}
 .h1-xl{font-size:40px !important;line-height:46px !important;}
+.col,.col-h{width:50% !important;max-width:50% !important;}
 }
 /* Mobil (max. 480 px): a termékek egymás alatt (1 oszlop, kép balra, szöveg jobbra), egymás alá rendezett sorok */
 @media (max-width:480px){
@@ -32,7 +35,7 @@ a{color:#2B1E16;}
 .pxg{padding-left:12px !important;padding-right:12px !important;}
 .h1{font-size:28px !important;line-height:34px !important;}
 .h1-xl{font-size:34px !important;line-height:40px !important;}
-.tile{display:block !important;width:100% !important;max-width:100% !important;}
+.tile{display:block !important;width:100% !important;min-width:0 !important;max-width:100% !important;}
 .t-gap{padding:5px 0 !important;}
 .t-card{display:block !important;width:100% !important;overflow:hidden !important;}
 .t-card tbody,.t-card tr{display:block !important;width:100% !important;}
@@ -41,10 +44,11 @@ a{color:#2B1E16;}
 .t-img img{max-width:96px !important;max-height:96px !important;margin:0 auto !important;}
 .t-code,.t-name,.t-desc,.t-price,.t-cta{margin-left:116px !important;border-left:1px solid #F0E4D0 !important;padding-left:14px !important;padding-right:12px !important;height:auto !important;}
 .t-code{padding-top:14px !important;}
-.stack{display:block !important;width:100% !important;text-align:left !important;}
+.col{width:100% !important;max-width:100% !important;}
+.col-r{text-align:left !important;}
+.rep-col{display:block !important;width:100% !important;max-width:100% !important;}
+.rep-col table{width:100% !important;}
 .rep-btn{padding-right:0 !important;}
-.rep-btn table{width:100% !important;}
-.rep-btn a{white-space:normal !important;}
 .soc{float:none !important;margin:12px 0 0 !important;}
 }
 /* Kis mobil (max. 360 px) */
@@ -58,18 +62,28 @@ a{color:#2B1E16;}
 </head>
 <body style="margin:0;padding:0;background-color:#E9D6B6;">
 <div style="display:none;max-height:0;max-width:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:#E9D6B6;opacity:0;">{{meta.preheader}}&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;</div>
-<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#E9D6B6" style="background-color:#E9D6B6;"><tr><td class="outer" align="center" style="padding:24px 12px 40px;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#E9D6B6" style="background-color:#E9D6B6;"><tr><td class="outer" align="center" style="padding:24px 6px 40px;">
 <!--[if mso]><table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" align="center"><tr><td><![endif]-->
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" class="wrap" width="600" align="center" bgcolor="#FFFBF4" style="width:100%;max-width:600px;background-color:#FFFBF4;">
-<tr><td class="px" bgcolor="#F2E8D8" style="background-color:#F2E8D8;padding:10px 32px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr><td class="stack" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;font-size:13px;line-height:20px;color:#6B5444;">{{utility.label}}</td><td class="stack" align="right" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;font-size:13px;line-height:20px;"><a href="{{utility.browserLink.url}}" style="color:#4A3A30;text-decoration:underline;">{{utility.browserLink}}</a></td></tr></table></td></tr>
-<tr><td class="px" bgcolor="#2B1E16" style="background-color:#2B1E16;padding:24px 32px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr><td valign="middle"><img src="{{assets.base}}/energofish-mark-light.png" alt="Energofish" width="63" height="52" style="display:block;width:63px;height:52px;"></td><td align="right" valign="middle"><div style="font-family:'Open Sans',Arial,Helvetica,sans-serif;font-size:12px;line-height:16px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#F1A32B;">{{header.title}}</div><div style="font-family:'Open Sans',Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#FFFFFF;">{{header.date}}</div></td></tr></table></td></tr>
+<tr><td class="px" bgcolor="#F2E8D8" style="background-color:#F2E8D8;padding:10px 32px;"><div style="font-size:0;line-height:0;text-align:left;">
+<!--[if mso]><table role="presentation" cellpadding="0" cellspacing="0" border="0" width="536"><tr><td width="268" valign="middle"><![endif]-->
+<div class="col" style="display:inline-block;vertical-align:middle;width:100%;max-width:268px;font-size:16px;line-height:24px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr><td style="font-family:'Open Sans',Arial,Helvetica,sans-serif;font-size:13px;line-height:20px;color:#6B5444;">{{utility.label}}</td></tr></table></div><!--[if mso]></td><td width="268" valign="middle" align="right"><![endif]-->
+<div class="col" style="display:inline-block;vertical-align:middle;width:100%;max-width:268px;font-size:16px;line-height:24px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr><td class="col-r" align="right" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;font-size:13px;line-height:20px;text-align:right;"><a href="{{utility.browserLink.url}}" style="color:#4A3A30;text-decoration:underline;">{{utility.browserLink}}</a></td></tr></table></div>
+<!--[if mso]></td></tr></table><![endif]-->
+</div></td></tr>
+<tr><td class="px" bgcolor="#2B1E16" style="background-color:#2B1E16;padding:24px 32px;"><div style="font-size:0;line-height:0;text-align:left;">
+<!--[if mso]><table role="presentation" cellpadding="0" cellspacing="0" border="0" width="536"><tr><td width="268" valign="middle"><![endif]-->
+<div class="col-h" style="display:inline-block;vertical-align:middle;width:100%;max-width:268px;font-size:16px;line-height:24px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr><td valign="middle"><img src="{{assets.base}}/energofish-mark-light.png" alt="Energofish" width="63" height="52" style="display:block;width:63px;height:52px;"></td></tr></table></div><!--[if mso]></td><td width="268" valign="middle" align="right"><![endif]-->
+<div class="col-h" style="display:inline-block;vertical-align:middle;width:100%;max-width:268px;font-size:16px;line-height:24px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr><td align="right" valign="middle" style="text-align:right;"><div style="font-family:'Open Sans',Arial,Helvetica,sans-serif;font-size:12px;line-height:16px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#F1A32B;">{{header.title}}</div><div style="font-family:'Open Sans',Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#FFFFFF;">{{header.date}}</div></td></tr></table></div>
+<!--[if mso]></td></tr></table><![endif]-->
+</div></td></tr>
 <tr><td height="6" bgcolor="#F1A32B" style="height:6px;line-height:6px;font-size:1px;mso-line-height-rule:exactly;background-color:#F1A32B;">&nbsp;</td></tr>
 <tr><td bgcolor="#2B1E16" style="background-color:#2B1E16;"><img src="{{cover.image}}" alt="{{cover.imageAlt}}" width="600" style="display:block;width:100%;max-width:600px;height:auto;font-family:'Open Sans',Arial,Helvetica,sans-serif;font-size:14px;color:#FFFFFF;"></td></tr>
 <tr><td class="px" bgcolor="#2B1E16" style="background-color:#2B1E16;padding:32px 32px 26px;">
 <div style="font-family:'Open Sans',Arial,Helvetica,sans-serif;font-size:12px;line-height:16px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#F1A32B;"><img src="{{assets.base}}/osz-mark-maple.png" alt="" width="22" height="22" style="display:inline-block;width:22px;height:22px;vertical-align:-6px;margin-right:8px;border:0;">{{cover.kicker}}</div>
-<div class="h1" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;padding-top:12px;font-size:32px;line-height:40px;font-weight:700;color:#FFFBF4;mso-line-height-rule:exactly;">{{cover.headline}}</div>
+<div class="h1" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;padding-top:12px;font-size:32px;line-height:40px;font-weight:700;color:#FFFBF4;mso-line-height-rule:exactly;word-break:break-word;">{{cover.headline}}</div>
 <div style="font-family:'Open Sans',Arial,Helvetica,sans-serif;padding-top:12px;font-size:16px;line-height:26px;color:#EADBC8;">{{cover.standfirst}}</div>
-<div style="font-family:'Open Sans',Arial,Helvetica,sans-serif;font-size:12px;line-height:16px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding-top:14px;color:#CDB9A3;"><span style="white-space:nowrap;">{{cover.meta.issue}}</span><span style="white-space:nowrap;">&nbsp;&nbsp;·</span> <span style="white-space:nowrap;">{{cover.meta.readingTime}}</span><span style="white-space:nowrap;">&nbsp;&nbsp;·</span> <span style="white-space:nowrap;">{{cover.meta.items}}</span></div>
+<div style="font-family:'Open Sans',Arial,Helvetica,sans-serif;font-size:12px;line-height:16px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding-top:14px;color:#CDB9A3;">{{cover.meta.issue}}<span style="white-space:nowrap;">&nbsp;&nbsp;·</span> {{cover.meta.readingTime}}<span style="white-space:nowrap;">&nbsp;&nbsp;·</span> {{cover.meta.items}}</div>
 </td></tr>
 <tr><td bgcolor="#FFFBF4" style="background-color:#FFFBF4;line-height:0;font-size:0;"><img src="{{assets.base}}/osz-edge.png" alt="" width="600" style="display:block;width:100%;max-width:600px;height:auto;border:0;"></td></tr>
 <tr><td class="px" style="padding:24px 32px 32px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr><td style="padding-top:4px;">
@@ -78,13 +92,18 @@ a{color:#2B1E16;}
 <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td width="48" valign="middle"><img src="{{note.signer.portrait}}" alt="{{note.signer.name}}" width="48" height="48" style="display:block;width:48px;height:48px;border-radius:50%;background-color:#F0E4D0;"></td><td valign="middle" style="padding-left:14px;"><div style="font-family:'Open Sans',Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;font-weight:700;color:#2B1E16;">{{note.signer.name}}</div><div style="font-family:'Open Sans',Arial,Helvetica,sans-serif;font-size:14px;line-height:20px;color:#6B5444;">{{note.signer.title}}</div></td></tr></table>
 </td></tr></table></td></tr>
 <tr><td class="px" bgcolor="#F2E8D8" style="background-color:#F2E8D8;padding:28px 32px 6px;">
-<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr><td class="stack" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;font-size:12px;line-height:16px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#2B1E16;"><img src="{{assets.base}}/osz-mark-oak.png" alt="" width="22" height="22" style="display:inline-block;width:22px;height:22px;vertical-align:-6px;margin-right:8px;border:0;">{{offer.label}}</td><td class="stack" align="right" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;font-size:12px;line-height:16px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B5444;">{{offer.badge}}</td></tr>
-<tr><td colspan="2" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;padding-top:12px;font-size:16px;line-height:26px;color:#4A3A30;">{{offer.intro}}</td></tr></table>
+<div style="font-size:0;line-height:0;text-align:left;">
+<!--[if mso]><table role="presentation" cellpadding="0" cellspacing="0" border="0" width="536"><tr><td width="268" valign="middle"><![endif]-->
+<div class="col" style="display:inline-block;vertical-align:middle;width:100%;max-width:268px;font-size:16px;line-height:24px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr><td style="font-family:'Open Sans',Arial,Helvetica,sans-serif;font-size:12px;line-height:16px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#2B1E16;"><img src="{{assets.base}}/osz-mark-oak.png" alt="" width="22" height="22" style="display:inline-block;width:22px;height:22px;vertical-align:-6px;margin-right:8px;border:0;">{{offer.label}}</td></tr></table></div><!--[if mso]></td><td width="268" valign="middle" align="right"><![endif]-->
+<div class="col" style="display:inline-block;vertical-align:middle;width:100%;max-width:268px;font-size:16px;line-height:24px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr><td class="col-r" align="right" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;font-size:12px;line-height:16px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B5444;text-align:right;">{{offer.badge}}</td></tr></table></div>
+<!--[if mso]></td></tr></table><![endif]-->
+</div>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr><td style="font-family:'Open Sans',Arial,Helvetica,sans-serif;padding-top:12px;font-size:16px;line-height:26px;color:#4A3A30;">{{offer.intro}}</td></tr></table>
 </td></tr>
 <tr><td class="pxg" bgcolor="#F2E8D8" style="background-color:#F2E8D8;padding:0 34px;">
 <div style="font-size:0;line-height:0;text-align:left;">
 <!--[if mso]><table role="presentation" cellpadding="0" cellspacing="0" border="0" width="532"><tr><td width="177" valign="top"><![endif]-->
-<div class="tile" style="display:inline-block;width:33.333%;max-width:177px;vertical-align:top;">
+<div class="tile" style="display:inline-block;vertical-align:top;width:177px;min-width:177px;max-width:100%;width:calc(230400px - 48000%);">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr><td class="t-gap" style="padding:6px;">
 <table class="t-card" role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#FFFFFF" style="background-color:#FFFFFF;border:1px solid #E2CDAA;border-radius:10px;border-collapse:separate;">
 <tr><td class="t-img" align="center" valign="middle" height="150" style="height:150px;padding:10px;border-bottom:1px solid #F0E4D0;"><a href="{{offer.items.1.url}}"><img src="{{offer.items.1.image}}" alt="{{offer.items.1.imageAlt}}" width="130" style="display:block;width:100%;max-width:130px;height:auto;max-height:130px;font-family:'Open Sans',Arial,Helvetica,sans-serif;font-size:13px;color:#6B5444;"></a></td></tr>
@@ -96,7 +115,7 @@ a{color:#2B1E16;}
 </table>
 </td></tr></table>
 </div><!--[if mso]></td><td width="177" valign="top"><![endif]-->
-<div class="tile" style="display:inline-block;width:33.333%;max-width:177px;vertical-align:top;">
+<div class="tile" style="display:inline-block;vertical-align:top;width:177px;min-width:177px;max-width:100%;width:calc(230400px - 48000%);">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr><td class="t-gap" style="padding:6px;">
 <table class="t-card" role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#FFFFFF" style="background-color:#FFFFFF;border:1px solid #E2CDAA;border-radius:10px;border-collapse:separate;">
 <tr><td class="t-img" align="center" valign="middle" height="150" style="height:150px;padding:10px;border-bottom:1px solid #F0E4D0;"><a href="{{offer.items.2.url}}"><img src="{{offer.items.2.image}}" alt="{{offer.items.2.imageAlt}}" width="130" style="display:block;width:100%;max-width:130px;height:auto;max-height:130px;font-family:'Open Sans',Arial,Helvetica,sans-serif;font-size:13px;color:#6B5444;"></a></td></tr>
@@ -108,7 +127,7 @@ a{color:#2B1E16;}
 </table>
 </td></tr></table>
 </div><!--[if mso]></td><td width="177" valign="top"><![endif]-->
-<div class="tile" style="display:inline-block;width:33.333%;max-width:177px;vertical-align:top;">
+<div class="tile" style="display:inline-block;vertical-align:top;width:177px;min-width:177px;max-width:100%;width:calc(230400px - 48000%);">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr><td class="t-gap" style="padding:6px;">
 <table class="t-card" role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#FFFFFF" style="background-color:#FFFFFF;border:1px solid #E2CDAA;border-radius:10px;border-collapse:separate;">
 <tr><td class="t-img" align="center" valign="middle" height="150" style="height:150px;padding:10px;border-bottom:1px solid #F0E4D0;"><a href="{{offer.items.3.url}}"><img src="{{offer.items.3.image}}" alt="{{offer.items.3.imageAlt}}" width="130" style="display:block;width:100%;max-width:130px;height:auto;max-height:130px;font-family:'Open Sans',Arial,Helvetica,sans-serif;font-size:13px;color:#6B5444;"></a></td></tr>
@@ -120,7 +139,7 @@ a{color:#2B1E16;}
 </table>
 </td></tr></table>
 </div><!--[if mso]></td></tr><tr><td width="177" valign="top"><![endif]-->
-<div class="tile" style="display:inline-block;width:33.333%;max-width:177px;vertical-align:top;">
+<div class="tile" style="display:inline-block;vertical-align:top;width:177px;min-width:177px;max-width:100%;width:calc(230400px - 48000%);">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr><td class="t-gap" style="padding:6px;">
 <table class="t-card" role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#FFFFFF" style="background-color:#FFFFFF;border:1px solid #E2CDAA;border-radius:10px;border-collapse:separate;">
 <tr><td class="t-img" align="center" valign="middle" height="150" style="height:150px;padding:10px;border-bottom:1px solid #F0E4D0;"><a href="{{offer.items.4.url}}"><img src="{{offer.items.4.image}}" alt="{{offer.items.4.imageAlt}}" width="130" style="display:block;width:100%;max-width:130px;height:auto;max-height:130px;font-family:'Open Sans',Arial,Helvetica,sans-serif;font-size:13px;color:#6B5444;"></a></td></tr>
@@ -132,7 +151,7 @@ a{color:#2B1E16;}
 </table>
 </td></tr></table>
 </div><!--[if mso]></td><td width="177" valign="top"><![endif]-->
-<div class="tile" style="display:inline-block;width:33.333%;max-width:177px;vertical-align:top;">
+<div class="tile" style="display:inline-block;vertical-align:top;width:177px;min-width:177px;max-width:100%;width:calc(230400px - 48000%);">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr><td class="t-gap" style="padding:6px;">
 <table class="t-card" role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#FFFFFF" style="background-color:#FFFFFF;border:1px solid #E2CDAA;border-radius:10px;border-collapse:separate;">
 <tr><td class="t-img" align="center" valign="middle" height="150" style="height:150px;padding:10px;border-bottom:1px solid #F0E4D0;"><a href="{{offer.items.5.url}}"><img src="{{offer.items.5.image}}" alt="{{offer.items.5.imageAlt}}" width="130" style="display:block;width:100%;max-width:130px;height:auto;max-height:130px;font-family:'Open Sans',Arial,Helvetica,sans-serif;font-size:13px;color:#6B5444;"></a></td></tr>
@@ -144,7 +163,7 @@ a{color:#2B1E16;}
 </table>
 </td></tr></table>
 </div><!--[if mso]></td><td width="177" valign="top"><![endif]-->
-<div class="tile" style="display:inline-block;width:33.333%;max-width:177px;vertical-align:top;">
+<div class="tile" style="display:inline-block;vertical-align:top;width:177px;min-width:177px;max-width:100%;width:calc(230400px - 48000%);">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr><td class="t-gap" style="padding:6px;">
 <table class="t-card" role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#FFFFFF" style="background-color:#FFFFFF;border:1px solid #E2CDAA;border-radius:10px;border-collapse:separate;">
 <tr><td class="t-img" align="center" valign="middle" height="150" style="height:150px;padding:10px;border-bottom:1px solid #F0E4D0;"><a href="{{offer.items.6.url}}"><img src="{{offer.items.6.image}}" alt="{{offer.items.6.imageAlt}}" width="130" style="display:block;width:100%;max-width:130px;height:auto;max-height:130px;font-family:'Open Sans',Arial,Helvetica,sans-serif;font-size:13px;color:#6B5444;"></a></td></tr>
@@ -169,7 +188,12 @@ a{color:#2B1E16;}
 <td style="padding-left:16px;"><div style="font-family:'Open Sans',Arial,Helvetica,sans-serif;font-size:22px;line-height:30px;font-weight:700;color:#FFFFFF;">{{rep.name}}</div><div style="font-family:'Open Sans',Arial,Helvetica,sans-serif;font-size:14px;line-height:20px;color:#F5DCC6;">{{rep.region}}</div></td>
 </tr></table></td></tr>
 <tr><td style="font-family:'Open Sans',Arial,Helvetica,sans-serif;padding-bottom:18px;font-size:16px;line-height:26px;color:#FFFFFF;">{{rep.text}}</td></tr>
-<tr><td><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td class="stack rep-btn" style="padding:0 10px 10px 0;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"  style="border-collapse:separate;"><tr><td align="center" bgcolor="#F1A32B" style="background-color:#F1A32B;border-radius:10px;mso-line-height-rule:exactly;"><a href="{{rep.phone.url}}" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;display:block;padding:12px 22px;font-size:16px;line-height:20px;font-weight:700;color:#2B1E16;text-decoration:none;white-space:nowrap;">{{rep.phone}}</a></td></tr></table></td><td class="stack rep-btn" style="padding:0 0 10px 0;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"  style="border-collapse:separate;"><tr><td align="center" bgcolor="" style="border:2px solid #FCE6C8;border-radius:10px;mso-line-height-rule:exactly;"><a href="{{rep.email.url}}" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;display:block;padding:10px 22px;font-size:16px;line-height:20px;font-weight:700;color:#FFFFFF;text-decoration:none;white-space:nowrap;">{{rep.email}}</a></td></tr></table></td></tr></table></td></tr>
+<tr><td><div style="font-size:0;line-height:0;text-align:left;">
+<!--[if mso]><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td valign="top"><![endif]-->
+<div class="rep-col" style="display:inline-block;vertical-align:top;max-width:100%;font-size:16px;line-height:24px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td class="rep-btn" style="padding:0 10px 10px 0;"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;"><tr><td align="center" bgcolor="#F1A32B" style="background-color:#F1A32B;border-radius:10px;mso-line-height-rule:exactly;"><a href="{{rep.phone.url}}" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;display:block;padding:12px 22px;font-size:16px;line-height:20px;font-weight:700;color:#2B1E16;text-decoration:none;word-break:break-word;">{{rep.phone}}</a></td></tr></table></td></tr></table></div><!--[if mso]></td><td valign="top"><![endif]-->
+<div class="rep-col" style="display:inline-block;vertical-align:top;max-width:100%;font-size:16px;line-height:24px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td class="rep-btn" style="padding:0 0 10px 0;"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;"><tr><td align="center" bgcolor="" style="border:2px solid #FCE6C8;border-radius:10px;mso-line-height-rule:exactly;"><a href="{{rep.email.url}}" style="font-family:'Open Sans',Arial,Helvetica,sans-serif;display:block;padding:10px 22px;font-size:16px;line-height:20px;font-weight:700;color:#FFFFFF;text-decoration:none;word-break:break-word;">{{rep.email}}</a></td></tr></table></td></tr></table></div>
+<!--[if mso]></td></tr></table><![endif]-->
+</div></td></tr>
 </table></td></tr>
 <tr><td class="px" bgcolor="#2B1E16" style="background-color:#2B1E16;border-top:1px solid #2B1E16;padding:24px 32px 8px;">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td style="padding-right:8px;"><a href="{{social.facebook.url}}"><img src="{{assets.base}}/social-facebook.png" alt="Facebook" width="36" height="36" style="display:block;width:36px;height:36px;border-radius:50%;"></a></td><td style="padding-right:8px;"><a href="{{social.youtube.url}}"><img src="{{assets.base}}/social-youtube.png" alt="YouTube" width="36" height="36" style="display:block;width:36px;height:36px;border-radius:50%;"></a></td><td style="padding-right:8px;"><a href="{{social.instagram.url}}"><img src="{{assets.base}}/social-instagram.png" alt="Instagram" width="36" height="36" style="display:block;width:36px;height:36px;border-radius:50%;"></a></td><td style="padding-right:8px;"><a href="{{social.tiktok.url}}"><img src="{{assets.base}}/social-tiktok.png" alt="TikTok" width="36" height="36" style="display:block;width:36px;height:36px;border-radius:50%;"></a></td></tr></table>

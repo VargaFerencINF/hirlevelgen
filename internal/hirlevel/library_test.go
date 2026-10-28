@@ -147,3 +147,46 @@ func TestPrettyNameAndSlug(t *testing.T) {
 		t.Error(Slug("V5 Tavaszi Akció!"))
 	}
 }
+
+// Új beépített sablonoknál a régi, kézzel hozzáadott felülíró változat külön sablonná válik
+// (nem törlődik), az azonos tartalmú felülíró marad; ugyanazon beépítettek mellett csak egyszer fut.
+func TestLibraryMigratesStaleOverrides(t *testing.T) {
+	dir := t.TempDir()
+	l := newTestLibrary(t, dir)
+	old, _ := os.ReadFile("testdata/kerdes-sablon.html") // bármilyen, a beépítettől eltérő sablon
+	if r := l.importHTML("v1-sotet-lemez.html", old, nil); !r.OK || !r.Override {
+		t.Fatalf("%+v", r)
+	}
+	same, _ := os.ReadFile("../../sablonok/v2-waterside.html")
+	if r := l.importHTML("v2-waterside.html", same, nil); !r.OK || !r.Override {
+		t.Fatalf("%+v", r)
+	}
+	// a rev-fájl még az előző (más) beépítettekhez tartozik
+	if err := os.WriteFile(filepath.Join(dir, builtinRevFile), []byte("regi\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	l2 := newTestLibrary(t, dir)
+	all := l2.All()
+	if !all[0].Builtin || all[0].ID != "v1-sotet-lemez" {
+		t.Errorf("az új beépített v1 nem érvényesül: %+v", all[0].ID)
+	}
+	var moved *Template
+	for _, c := range all {
+		if c.ID == "v1-sotet-lemez-korabbi" {
+			moved = c
+		}
+	}
+	if moved == nil || moved.Overrides || !strings.Contains(moved.Name, "korábbi hozzáadott változat") || moved.Short == "" || moved.Short == "v1" {
+		t.Fatalf("a régi változat nem lett külön sablon: %+v", moved)
+	}
+	if !all[1].Custom || !all[1].Overrides || all[1].ID != "v2-waterside" {
+		t.Errorf("az azonos tartalmú felülíró nem maradt meg: %+v", all[1].ID)
+	}
+	// most már szándékos felülírás: újranyitáskor nem mozdul
+	if r := l2.importHTML("v1-sotet-lemez.html", old, nil); !r.OK || !r.Override {
+		t.Fatalf("%+v", r)
+	}
+	if a := newTestLibrary(t, dir).All(); !a[0].Custom || !a[0].Overrides {
+		t.Errorf("a szándékos felülírás elveszett: %+v", a[0].ID)
+	}
+}

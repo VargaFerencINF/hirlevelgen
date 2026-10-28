@@ -1,0 +1,160 @@
+{
+  "assets": {
+    "base": "../assets"
+  },
+  "meta": {
+    "subject": "Utolsó dobás: ami a raktárban maradt | Energofish Partnerjelentés, 2026. november",
+    "preheader": "Hat kifogyóban lévő tétel 20–35% kedvezménnyel, a készlet erejéig. Zárás: november 13., péntek 12:00."
+  },
+  "utility": {
+    "label": "Partnerjelentés · 11. szám",
+    "browserLink": {
+      "text": "Megnyitás böngészőben",
+      "url": "https://energofish.hu/partnerjelentes/2026-11"
+    }
+  },
+  "header": {
+    "title": "Partnerjelentés",
+    "date": "2026. november"
+  },
+  "cover": {
+    "image": "../assets/cover-kiarusitas-1200x660.jpg",
+    "imageAlt": "Nyitott horgászdoboz: a rekeszek többsége már üres, néhány piros-fehér úszó maradt benne",
+    "kicker": "Raktárkisöprés · zárás: nov. 13., 12:00",
+    "headline": "Utolsó dobás: ami a raktárban maradt.",
+    "standfirst": "Hat kifogyóban lévő tételt adunk tovább 20–35% kedvezménnyel. Ami november 13-án, pénteken délig nem fogy el, visszakerül listaárra.",
+    "meta": {
+      "issue": "11. szám",
+      "readingTime": "Olvasási idő: 1 perc",
+      "items": "6 tétel"
+    }
+  },
+  "note": {
+    "greeting": "Kedves Kovács Péter!",
+    "body": "Novemberben átrendezzük a raktárat, és ami a polcokon maradt, azt most partneráron adjuk tovább. A darabszámok a levél küldésekor érvényes készletet mutatják. A rendeléseket beérkezési sorrendben teljesítjük, és 48 órán belül szállítjuk.",
+    "signer": {
+      "portrait": "../assets/portre-helyettesito.png",
+      "name": "Tóth Gábor",
+      "title": "értékesítési igazgató, Energofish Kft."
+    }
+  },
+  "offer": {
+    "label": "01 / Kifogyóban",
+    "badge": "6 tétel · zárás nov. 13.",
+    "intro": "Nettó partnerárak, a kedvezmény már benne van. Ami elfogy, azt idén már nem rendeljük újra.",
+    "items": {
+      "1": {
+        "url": "https://b2b.energofish.hu/termek/TSNVC0-007",
+        "image": "https://images.energofish.hu/thumbimage/TSNVC0-007.JPG",
+        "imageAlt": "Sonik Lockbox Large Loaded doboz",
+        "code": "TSNVC0-007",
+        "name": "Sonik Lockbox Large",
+        "desc": "Töltött szerelékdoboz",
+        "price": "16 760 Ft",
+        "deal": "−35% · még 24 db",
+        "cta": "Rendelés"
+      },
+      "2": {
+        "url": "https://b2b.energofish.hu/termek/T12049-069",
+        "image": "https://images.energofish.hu/thumbimage/T12049-069.JPG",
+        "imageAlt": "Carp Expert Silver Carp Heavy Feeder 3,60 m szett",
+        "code": "T12049-069",
+        "name": "Carp Expert feeder szett",
+        "desc": "Bot, orsó és etetőanyag",
+        "price": "28 690 Ft",
+        "deal": "−30% · még 12 db",
+        "cta": "Rendelés"
+      },
+      "3": {
+        "url": "https://b2b.energofish.hu/termek/TSG6K0-600",
+        "image": "https://images.energofish.hu/thumbimage/TSG6K0-600.JPG",
+        "imageAlt": "Seaguar Dulast PEX8 Flash Green fonott zsinór, 150 m",
+        "code": "TSG6K0-600",
+        "name": "Seaguar Dulast PEX8",
+        "desc": "Fonott zsinór, 150 m",
+        "price": "6 740 Ft",
+        "deal": "−25% · még 40 db",
+        "cta": "Rendelés"
+      },
+      "4": {
+        "url": "https://b2b.energofish.hu/termek/TM4340-200",
+        "image": "https://images.energofish.hu/thumbimage/TM4340-200.JPG",
+        "imageAlt": "Mustad Infiltrator Weighted súlyozott offset horog",
+        "code": "TM4340-200",
+        "name": "Mustad Infiltrator",
+        "desc": "Súlyozott offset horog",
+        "price": "1 360 Ft",
+        "deal": "−25% · kifutó",
+        "cta": "Rendelés"
+      },
+      "5": {
+        "url": "https://b2b.energofish.hu/termek/T82753-204",
+        "image": "https://images.energofish.hu/thumbimage/T82753-204.JPG",
+        "imageAlt": "Wizard Vertix Vibrato Rattle Pro wobbler",
+        "code": "T82753-204",
+        "name": "Wizard Vertix Vibrato",
+        "desc": "Csörgős wobbler süllőre",
+        "price": "2 470 Ft",
+        "deal": "−20% · még 60 db",
+        "cta": "Rendelés"
+      },
+      "6": {
+        "url": "https://b2b.energofish.hu/termek/T98134-092",
+        "image": "https://images.energofish.hu/thumbimage/T98134-092.JPG",
+        "imageAlt": "Benzar Mix Lake Series etetőanyag, 800 g",
+        "code": "T98134-092",
+        "name": "Benzar Lake Series",
+        "desc": "Tavi feeder mix, 800 g",
+        "price": "1 430 Ft",
+        "deal": "−20% · 3 raklap",
+        "cta": "Rendelés"
+      }
+    },
+    "more": {
+      "text": "Teljes kiárusítási lista →",
+      "url": "https://b2b.energofish.hu/raktarkisopres"
+    }
+  },
+  "rep": {
+    "label": "Az Ön területi képviselője",
+    "initials": "NA",
+    "name": "Nagy Attila",
+    "region": "Pest és Nógrád megye",
+    "text": "Kartonos vagy raklapos mennyiség kellene? Hívjon, és még a zárás előtt lefoglalom Önnek a készletet.",
+    "phone": {
+      "text": "✆ +36 30 123 4567",
+      "url": "tel:+36301234567"
+    },
+    "email": {
+      "text": "nagy.attila@energofish.hu",
+      "url": "mailto:nagy.attila@energofish.hu"
+    }
+  },
+  "footer": {
+    "company": "Energofish Kft.",
+    "address": "[Székhely címe] · [Cégjegyzékszám] · [Adószám]",
+    "legal": "Ezt a levelet azért kapta, mert az Energofish regisztrált kereskedelmi partnere.",
+    "unsubscribe": {
+      "text": "Leiratkozás",
+      "url": "https://energofish.hu/hirlevel/leiratkozas"
+    },
+    "settings": {
+      "text": "Hírlevél-beállítások",
+      "url": "https://energofish.hu/hirlevel/beallitasok"
+    }
+  },
+  "social": {
+    "facebook": {
+      "url": "https://facebook.com/energofish"
+    },
+    "youtube": {
+      "url": "https://youtube.com/@energofish"
+    },
+    "instagram": {
+      "url": "https://instagram.com/energofish"
+    },
+    "tiktok": {
+      "url": "https://tiktok.com/@energofish"
+    }
+  }
+}

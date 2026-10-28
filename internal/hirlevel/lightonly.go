@@ -5,11 +5,11 @@ import (
 	"strings"
 )
 
-// Csak világos megjelenés. A sablonok fejlécében „color-scheme: light dark” áll, sötét színeket
-// viszont nem adnak meg, így sötét módú telefonon a levelező maga színezi át a levelet (furcsa
-// színekkel). LightOnly a kész levelet „csak világos”-nak jelöli: az Apple Mail, a Thunderbird,
-// a Samsung Email és az Outlook egy része ilyenkor nem színez át. (A Gmail alkalmazás minden
-// jelölést figyelmen kívül hagy.) A kézbesítést és a spamszűrést nem érinti.
+// Csak világos megjelenés. A tervezői szabály szerinti sablonok (RESZPONZIV-SZABALYOK.md, köztük
+// minden beépített) maguk jelölik magukat „csak világos”-nak; ezekhez LightOnly nem nyúl. A régebbi,
+// hozzáadott sablonok fejlécében „color-scheme: light dark” áll sötét színek nélkül, így sötét módú
+// telefonon a levelező maga színezte át a levelet; ezeknél LightOnly a kész levelet „csak
+// világos”-nak jelöli (meta + :root). A kézbesítést és a spamszűrést nem érinti.
 var (
 	colorSchemeMetaRe = regexp.MustCompile(`(?i)<meta\s+name="(color-scheme|supported-color-schemes)"\s+content="[^"]*"\s*/?>`)
 	headCloseRe       = regexp.MustCompile(`(?i)</head>`)
@@ -20,6 +20,9 @@ const lightOnlyCSS = ":root{color-scheme:light only;supported-color-schemes:ligh
 
 // LightOnly lásd fent; többszöri futtatásra nem változik tovább.
 func LightOnly(doc string) string {
+	if declaresLightOnly(doc) {
+		return doc
+	}
 	found := false
 	doc = colorSchemeMetaRe.ReplaceAllStringFunc(doc, func(m string) string {
 		found = true
@@ -40,4 +43,11 @@ func LightOnly(doc string) string {
 		}
 	}
 	return doc
+}
+
+var lightOnlyMetaRe = regexp.MustCompile(`(?i)<meta\s+name="color-scheme"\s+content="(?:light\s+only|only\s+light)"`)
+
+// declaresLightOnly igaz, ha a sablon már maga „csak világos” (meta és :root szabály is).
+func declaresLightOnly(doc string) bool {
+	return lightOnlyMetaRe.MatchString(doc) && strings.Contains(strings.ReplaceAll(doc, " ", ""), "color-scheme:lightonly")
 }

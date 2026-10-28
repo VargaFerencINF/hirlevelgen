@@ -326,7 +326,7 @@ func BuildSendPlan(in SendInput) *SendPlan {
 			errf("A sablon ismeretlen mezőket használ: %s", strings.Join(missing, ", "))
 			return plan
 		}
-		body = LightOnly(FluidTiles(body)) // telefonon <style> nélkül is egymás alatt; csak világos megjelenés
+		body = LightOnly(body) // régi (nem a szabály szerinti) sablonoknál: csak világos megjelenés
 		if OutlookSafeOn(in.Content) {
 			body = OutlookSafeHTML(body, in.Content["assets.base"]) // WEBP → PNG pár (Outlook)
 		}

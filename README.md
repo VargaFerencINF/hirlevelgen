@@ -1,6 +1,6 @@
 # Energofish Partnerhírlevél-generátor
 
-Windowsos asztali program, amely egy partnerlistából **partnerenként legenerálja a hírlevelet** a tervezett Energofish-sablonok (v1 Sötét lemez, v2 Waterside) valamelyikével.
+Windowsos asztali program, amely egy partnerlistából **partnerenként legenerálja a hírlevelet** a tervezett Energofish-sablonok (v1 Sötét lemez, v2 Waterside, v6 Ősz (avar), v6t Tél, v9 Kiárusítás) valamelyikével.
 
 - Ami partnerenként más (e-mail, név, területi képviselő és a fotója, elérhetőségei), az a **B2B partnertörzsből** (célcsoport, képviselő, megye, besorolás… szerint összeállított halmaz, 1.3) vagy **Excelből** jön.
 - A termékek az Excel **második munkalapjáról** jönnek (cikkszám, cikknév, kép link, gomb link…).
@@ -269,9 +269,11 @@ A sablonok a tervezői formátumot követik ([`docs/MEZOK-ES-GENERATOR.md`](docs
 - **egy `.html` sablon** a tervezői formátumban, vagy
 - **a tervezőtől kapott `.zip` csomag** – a benne lévő összes sablont felveszi (a kitöltött előnézeteket kihagyja), a saját képeikkel együtt.
 
-A program ellenőrzi a sablont: ismeretlen `{{mezőt}}` használó fájlt nem vesz fel, a hiányzó képeket és a nem átalakítható részeket (pl. nem szabványos termékrács → fix termékhelyek) jelzi. A hozzáadott sablonok a gépen maradnak (`%APPDATA%\EnergofishHirlevel\sablonok\`), átnevezhetők és törölhetők.
+A program ellenőrzi a sablont: ismeretlen `{{mezőt}}` használó fájlt nem vesz fel, a hiányzó képeket és a nem átalakítható részeket (pl. nem szabványos termékrács → fix termékhelyek) jelzi, és megméri, reszponzív-e a mobilos stílust nem ismerő levelezőkben is (kártyán: „reszponzív” / „nem minden levelezőben reszponzív”). A hozzáadott sablonok a gépen maradnak (`%APPDATA%\EnergofishHirlevel\sablonok\`), átnevezhetők és törölhetők.
 
-**A beépített sablonok frissítése:** ha a tervező a v1/v2 új változatát küldi, ugyanazzal a fájlnévvel (pl. `v1-sotet-lemez.html`) hozzáadva lecseréli a beépítettet – nem kell új program. A frissített változat törlésével az eredeti tér vissza.
+**A beépített sablonok frissítése:** ha a tervező egy beépített sablon új változatát küldi, ugyanazzal a fájlnévvel (pl. `v1-sotet-lemez.html`) hozzáadva lecseréli a beépítettet – nem kell új program. A frissített változat törlésével az eredeti tér vissza. Ha egy új programverzió új beépített sablonokat hoz, a korábban kézzel hozzáadott, eltérő felülíró változatok „(korábbi hozzáadott változat)” néven külön sablonként megmaradnak, és az új beépített érvényes.
+
+**Sablonszabályok a tervezőnek:** `docs/RESZPONZIV-SZABALYOK.md` (stílus nélkül is reszponzív felépítés, csak világos megjelenés) és `docs/EXPORT-SZABALYOK.md` (ZIP-csomag szerkezete). A beépített sablonok ezek szerint készültek; az app csak kitölti őket, a HTML felépítéséhez nem nyúl.
 
 > Saját képet (`{{assets.base}}/sajat-kep.png`) használó sablonnál a képet is fel kell tölteni a képtár webcímére. A program a kimenetbe is kimásolja.
 
@@ -280,6 +282,8 @@ A program ellenőrzi a sablont: ismeretlen `{{mezőt}}` használó fájlt nem ve
 ## Változások
 
 A verziószám a kiadás száma (`v1.4.<build>`): ugyanez látszik a programban, a kiadás címében és a Windows-fájltulajdonságokban. (A régebbi, 1.4.1–1.4.15 belső számokat ez a lista már a kiadás számával mutatja.)
+
+**1.4.41** – Új beépített sablonok (tervezői csomag 1.13/1.14): **v1 Sötét lemez**, **v2 Waterside**, **v6 Ősz (avar)**, **v6t Tél** és **v9 Kiárusítás**. Mindegyik stílus nélkül is reszponzív: asztalon 3 oszlop, telefonon 1 oszlop, és a levél semmilyen levelezőben nem lóg ki (Gmail céges fiókkal, Outlook web / új Outlook keskeny panelben, Outlook mobil, Thunderbird). Csak világos megjelenésűek. Az asztali kinézet nem változott. Mind az öt sablonon lefutott az 50 szimulált nézet (telefon stílussal / stílus nélkül 375 és 320 px, keskeny Outlook-panel, calc nélkül, asztal 600–800 px), és az app kitöltése betűre egyezik a tervező előnézetével. **Az app már nem módosítja a levél felépítését** (kikerült a termékrács- és gombjavítás); a „csak világos” jelölést is csak a régi, nem szabály szerinti hozzáadott sablonokra teszi rá. A korábban kézzel hozzáadott, eltérő v1/v2/v6/Tél/Kiárusítás változatok „(korábbi hozzáadott változat)” néven megmaradnak. Új képek: `tel-*.png`, `kiar-*.png` és a két minta-borítókép. Dokumentáció: `docs/RESZPONZIV-SZABALYOK.md`, `docs/EXPORT-SZABALYOK.md`.
 
 **1.4.40** – Reszponzivitás-ellenőrzés. Az előnézetben két új nézet: **„Telefon, stílus nélkül”** (mint a Gmail alkalmazás céges / nem Google-fiókkal) és **„Outlook, keskeny panel”** (Outlook web / új Outlook keskeny olvasópanelben, Outlook mobil, Thunderbird: nincs média-lekérdezés és calc()). Mindkettő megméri, kilóg-e a levél, és egymás alá kerülnek-e a termékek. A sablonok kártyáján „reszponzív” / „nem minden levelezőben reszponzív” jelzés látszik (részletek a jelzés fölé húzva), és sablon hozzáadásakor az eredményablak is kiírja. A sablonok átdolgozásához a tervezőnek szóló utasítás: `docs/CLAUDE-DESIGN-RESZPONZIV-PROMPT.md` (a sablon maga legyen stílus nélkül is reszponzív; az app csak kitölt). A mostani elrendezés-javítások (termékrács, képviselőgombok) a szabály szerinti sablonokat nem módosítják, és az új sablonok beépítésekor kikerülnek.
 

@@ -1,0 +1,160 @@
+{
+  "assets": {
+    "base": "../assets"
+  },
+  "meta": {
+    "subject": "Csendes víz, meleg köszönet | Energofish Partnerjelentés, 2026. december",
+    "preheader": "Köszönjük az évet! Ünnepi polcra való termékek és 2027-es előrendelés január 31-ig, 8% kedvezménnyel."
+  },
+  "utility": {
+    "label": "Partnerjelentés · 12. szám",
+    "browserLink": {
+      "text": "Megnyitás böngészőben",
+      "url": "https://energofish.hu/partnerjelentes/2026-12"
+    }
+  },
+  "header": {
+    "title": "Partnerjelentés",
+    "date": "2026. december"
+  },
+  "cover": {
+    "image": "../assets/cover-tel-1200x660.jpg",
+    "imageAlt": "Horgász a deres nádas mögött hajnalban, hóesésben, köd a víz felett, a látóhatáron felkel a nap",
+    "kicker": "Téli szám · 2026. december",
+    "headline": "Csendes víz, meleg köszönet.",
+    "standfirst": "Év végi köszönet, előrendelési kedvezmény a 2027-es szezonra és hat ajándéknak való termék az ünnepi polcra.",
+    "meta": {
+      "issue": "12. szám",
+      "readingTime": "Olvasási idő: 2 perc",
+      "items": "6 termék"
+    }
+  },
+  "note": {
+    "greeting": "Kedves Kovács Péter!",
+    "body": "Köszönöm, hogy idén is velünk dolgozott. Ebben a számban hat ajándéknak is jó terméket talál az ünnepi polcra, a 2027-es szezonra pedig január 31-ig 8% kedvezménnyel adhatja le az előrendelését. Boldog ünnepeket és sok görbülést kívánok az új évben!",
+    "signer": {
+      "portrait": "../assets/portre-helyettesito.png",
+      "name": "Tóth Gábor",
+      "title": "értékesítési igazgató, Energofish Kft."
+    }
+  },
+  "offer": {
+    "label": "01 / Ünnepi polc",
+    "badge": "6 tétel · dec. 20-ig",
+    "intro": "Ajándéknak is jó termékek a tavalyi decemberi rendelések alapján, ajánlott fogyasztói áron. A 2027-es kínálat január 31-ig 8% kedvezménnyel előrendelhető.",
+    "items": {
+      "1": {
+        "url": "https://b2b.energofish.hu/termek/TSNVC0-007",
+        "image": "https://images.energofish.hu/thumbimage/TSNVC0-007.JPG",
+        "imageAlt": "Sonik Lockbox Large Loaded doboz",
+        "code": "TSNVC0-007",
+        "name": "Sonik Lockbox Large",
+        "desc": "Töltött szerelékdoboz",
+        "price": "25 790 Ft",
+        "deal": "−10% dec. 20-ig",
+        "cta": "Rendelés"
+      },
+      "2": {
+        "url": "https://b2b.energofish.hu/termek/T12049-069",
+        "image": "https://images.energofish.hu/thumbimage/T12049-069.JPG",
+        "imageAlt": "Carp Expert Silver Carp Heavy Feeder 3,60 m szett",
+        "code": "T12049-069",
+        "name": "Carp Expert feeder szett",
+        "desc": "Bot, orsó és etetőanyag",
+        "price": "40 990 Ft",
+        "deal": "−12% dec. 20-ig",
+        "cta": "Rendelés"
+      },
+      "3": {
+        "url": "https://b2b.energofish.hu/termek/TSG6K0-600",
+        "image": "https://images.energofish.hu/thumbimage/TSG6K0-600.JPG",
+        "imageAlt": "Seaguar Dulast PEX8 Flash Green fonott zsinór, 150 m",
+        "code": "TSG6K0-600",
+        "name": "Seaguar Dulast PEX8",
+        "desc": "Fonott zsinór, 150 m",
+        "price": "8 990 Ft",
+        "deal": "3+1 akció",
+        "cta": "Rendelés"
+      },
+      "4": {
+        "url": "https://b2b.energofish.hu/termek/T82753-204",
+        "image": "https://images.energofish.hu/thumbimage/T82753-204.JPG",
+        "imageAlt": "Wizard Vertix Vibrato Rattle Pro wobbler",
+        "code": "T82753-204",
+        "name": "Wizard Vertix Vibrato",
+        "desc": "Csörgős wobbler süllőre",
+        "price": "3 090 Ft",
+        "deal": "−15% dec. 20-ig",
+        "cta": "Rendelés"
+      },
+      "5": {
+        "url": "https://b2b.energofish.hu/termek/TLT212-713",
+        "image": "https://images.energofish.hu/thumbimage/TLT212-713.JPG",
+        "imageAlt": "Livetarget Yellow Perch swimbait",
+        "code": "TLT212-713",
+        "name": "Livetarget Yellow Perch",
+        "desc": "Élethű sügér csukára",
+        "price": "4 290 Ft",
+        "deal": "",
+        "cta": "Rendelés"
+      },
+      "6": {
+        "url": "https://b2b.energofish.hu/termek/T98800-164",
+        "image": "https://images.energofish.hu/thumbimage/T98800-164.JPG",
+        "imageAlt": "Carp Expert Smart Hard Hook bojli, 16-20 mm",
+        "code": "T98800-164",
+        "name": "Carp Expert Hard Hook",
+        "desc": "Kemény bojli, 16-20 mm",
+        "price": "1 190 Ft",
+        "deal": "Előrendelés −8%",
+        "cta": "Rendelés"
+      }
+    },
+    "more": {
+      "text": "Ünnepi kínálat és 2027-es előrendelés →",
+      "url": "https://b2b.energofish.hu/tel-2026"
+    }
+  },
+  "rep": {
+    "label": "Az Ön területi képviselője",
+    "initials": "NA",
+    "name": "Nagy Attila",
+    "region": "Pest és Nógrád megye",
+    "text": "Ünnepi utánrendelés vagy előrendelés 2027-re? December 23-ig egy munkanapon belül válaszolok.",
+    "phone": {
+      "text": "✆ +36 30 123 4567",
+      "url": "tel:+36301234567"
+    },
+    "email": {
+      "text": "nagy.attila@energofish.hu",
+      "url": "mailto:nagy.attila@energofish.hu"
+    }
+  },
+  "footer": {
+    "company": "Energofish Kft.",
+    "address": "[Székhely címe] · [Cégjegyzékszám] · [Adószám]",
+    "legal": "Ezt a levelet azért kapta, mert az Energofish regisztrált kereskedelmi partnere.",
+    "unsubscribe": {
+      "text": "Leiratkozás",
+      "url": "https://energofish.hu/hirlevel/leiratkozas"
+    },
+    "settings": {
+      "text": "Hírlevél-beállítások",
+      "url": "https://energofish.hu/hirlevel/beallitasok"
+    }
+  },
+  "social": {
+    "facebook": {
+      "url": "https://facebook.com/energofish"
+    },
+    "youtube": {
+      "url": "https://youtube.com/@energofish"
+    },
+    "instagram": {
+      "url": "https://instagram.com/energofish"
+    },
+    "tiktok": {
+      "url": "https://tiktok.com/@energofish"
+    }
+  }
+}

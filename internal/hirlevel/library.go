@@ -3,11 +3,14 @@ package hirlevel
 import (
 	"archive/zip"
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"io/fs"
+	"log"
 	"os"
 	"path"
 	"path/filepath"
@@ -60,6 +63,9 @@ func OpenLibrary(dir string, builtins []*Template, assets fs.FS) (*Library, []er
 	if err != nil {
 		return l, nil
 	}
+	if l.migrateOverrides(entries) {
+		entries, _ = os.ReadDir(dir)
+	}
 	var errs []error
 	for _, e := range entries {
 		if !e.IsDir() {
@@ -73,7 +79,81 @@ func OpenLibrary(dir string, builtins []*Template, assets fs.FS) (*Library, []er
 		l.custom = append(l.custom, t)
 	}
 	l.sortCustom()
+	for _, c := range l.custom {
+		if c.Short == "" {
+			c.Short = l.nextShort()
+		}
+	}
 	return l, errs
+}
+
+// builtinRevFile a könyvtárban a beépített sablonok utoljára látott változatát tárolja.
+const builtinRevFile = "beepitett-sablonok.rev"
+
+// builtinRev a beépített sablonok együttes ujjlenyomata.
+func (l *Library) builtinRev() string {
+	h := sha256.New()
+	for _, b := range l.builtins {
+		io.WriteString(h, b.ID+"\x00"+b.Raw+"\x00")
+	}
+	return hex.EncodeToString(h.Sum(nil))[:16]
+}
+
+// migrateOverrides: ha a beépített sablonok megváltoztak (új programverzió), a régi, kézzel hozzáadott
+// felülíró változatok (pl. egy korábbi tervezői csomag v1-e) különálló sablonná válnak
+// („… (korábbi hozzáadott változat)”), hogy az új beépített érvényesüljön. Semmi nem törlődik.
+// Ugyanazon beépítettek mellett csak egyszer fut, így egy később szándékosan hozzáadott
+// felülíró változat megmarad. Igaz, ha átnevezett valamit.
+func (l *Library) migrateOverrides(entries []os.DirEntry) bool {
+	rev := l.builtinRev()
+	revPath := filepath.Join(l.Dir, builtinRevFile)
+	if b, err := os.ReadFile(revPath); err == nil && strings.TrimSpace(string(b)) == rev {
+		return false
+	}
+	moved := false
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		d := filepath.Join(l.Dir, e.Name())
+		var m customMeta
+		if b, err := os.ReadFile(filepath.Join(d, "meta.json")); err == nil {
+			_ = json.Unmarshal(b, &m)
+		}
+		if m.ID == "" {
+			m.ID = e.Name()
+		}
+		b := l.builtin(m.ID)
+		if b == nil {
+			continue
+		}
+		raw, err := os.ReadFile(filepath.Join(d, "sablon.html"))
+		if err != nil || strings.ReplaceAll(string(raw), "\r\n", "\n") == b.Raw {
+			continue // olvashatatlan, vagy azonos a beépítettel: marad
+		}
+		id := m.ID + "-korabbi"
+		for n := 2; ; n++ {
+			if _, err := os.Stat(filepath.Join(l.Dir, id)); os.IsNotExist(err) {
+				break
+			}
+			id = fmt.Sprintf("%s-korabbi-%d", m.ID, n)
+		}
+		if m.Name == "" {
+			m.Name = b.Name
+		}
+		m.ID, m.Short, m.Name = id, "", m.Name+" (korábbi hozzáadott változat)"
+		mb, _ := json.MarshalIndent(m, "", "  ")
+		if err := os.WriteFile(filepath.Join(d, "meta.json"), mb, 0o644); err != nil {
+			continue
+		}
+		if err := os.Rename(d, filepath.Join(l.Dir, id)); err != nil {
+			continue
+		}
+		log.Printf("sablon: a(z) %s korábbi hozzáadott változata külön sablon lett (%s), az új beépített érvényes", b.ID, id)
+		moved = true
+	}
+	_ = os.WriteFile(revPath, []byte(rev+"\n"), 0o644)
+	return moved
 }
 
 func (l *Library) loadCustom(d string) (*Template, error) {

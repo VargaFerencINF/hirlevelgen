@@ -1,20 +1,47 @@
 # Energofish hírlevél-sablonok: mezők és generátor
 
-Küldésre kész, táblázatos e-mail sablonok, **közös mezőkulcsokkal**. Egy tartalomfájlból (JSON) mindegyik sablon egyszerre legenerálható.
+## Reszponzivitás: kötelező felépítés
 
-> **v6 Ősz (avar):** a v6 pontosan a v1 kulcskészletét használja. A táblázatokban ahol a v1 oszlopban ✓ áll, ott a v6-ban is. Nincs `poll.*` és `cover.meta.poll` mező. Csak a megjelenés és a mintatartalom (`tartalom-v6-osz.json`) más.
+A sablonok **stílus nélkül is reszponzívak**: a felépítés inline stílusra és hibrid (egymás alá törő) oszlopokra épül, a média-lekérdezés csak finomít. A részletes szabályok és kódminták: **`RESZPONZIV-SZABALYOK.md`**. Ez projektszabály, minden új sablon e szerint készül, és át kell mennie a `reszponziv-teszt.html` A–E próbáin. Az exportcsomag szerkezetét az `EXPORT-SZABALYOK.md` írja elő.
+
+**A generátor ezekre a jelölésekre támaszkodik, ezeket megőrizzük:**
+1. **Terméktéglák:** minden tégla `<div class="tile" …>` (a `class` az első attribútum), a téglák közvetlenül egymás után jönnek, köztük pontosan `<!--[if mso]></td><td width="177" valign="top"><![endif]-->`, sorváltásnál `<!--[if mso]></td></tr><tr><td width="177" valign="top"><![endif]-->`. A 6 tégla betűre azonos, csak a sorszám más; termékmező a rácson kívül nincs. Ebből a generátor tetszőleges termékszámú rácsot készíthet.
+2. **Képviselő gombjai:** a telefon-gomb (`{{rep.phone.url}}`) és az e-mail-gomb (`{{rep.email.url}}`) külön-külön saját `<td class="rep-btn">` cellában, amely csak a saját gombja `<table>`-jét tartalmazza (`div.rep-col > table > tr > td.rep-btn > table`). Adat nélkül ez a cella rejthető.
+3. **Monogram:** `<td … width="64" …>{{rep.initials}}</td>`, a cellában csak a monogram (ide kerülhet a képviselő fotója).
+4. **Közösségi ikonok:** minden `{{social.…url}}` link saját `<td>` cellában, cellánként egy hálózat.
+5. **Linkek:** `{{utility.browserLink.url}}` és `{{offer.more.url}}` egy-egy `<a href="{{…}}">` elem.
+
+A sablonok csak világos megjelenésűek (`color-scheme: light only`), sötét mód nincs.
+
+---
+
+Küldésre kész, táblázatos e-mail sablonok, **közös mezőkulcsokkal**. Egy tartalomfájlból (JSON) mindegyik egyszerre legenerálható.
+
+> **Az alkalmazás beépített sablonjai:** `v1-sotet-lemez` (v1), `v2-waterside` (v2), `v6-osz-avar` (v6), `v6-tel` (v6t), `v9-kiarusitas` (v9). Mindegyik e szabályok szerint készült; az alkalmazás csak kitölti őket, a HTML felépítéséhez nem nyúl. Lent a v1 csomagja a példa, a többi ugyanígy épül fel. A szabálykövetést az alkalmazás előnézetének „Telefon, stílus nélkül” és „Outlook, keskeny panel” nézete is méri.
+
+**Csomagszerkezet** (kötelező, részletesen: `EXPORT-SZABALYOK.md`). A ZIP-ben egyetlen gyökérmappa van; a sablonfájl neve az azonosító, frissítéskor nem változik.
 
 ```
-export/
-  sablonok/            ← a generátor bemenete ({{kulcs}} helyőrzőkkel)
-    v1-sotet-lemez.html
-    v2-waterside.html
-    v6-osz-avar.html
-    v4-partnerjelentes.html   (az 1.4.7-től nem beépített sablon; hozzáadott sablonként használható)
-  elonezet/            ← a mintatartalommal legenerált, böngészőben megnyitható változat
-  assets/              ← a sablonok saját képei (fel kell tölteni https tárhelyre)
-  tartalom-minta.json  ← teljes mintatartalom, minden kulccsal
-  MEZOK-ES-GENERATOR.md
+Energofish_Partner_Newsletter_Design_v1-sotet-lemez.zip
+└── export-v1/
+    ├── sablonok/
+    │   └── v1-sotet-lemez.html   ← a generátor bemenete ({{kulcs}} helyőrzőkkel), pontosan egy fájl
+    ├── elonezet/
+    │   └── v1-sotet-lemez.html   ← a mintatartalommal kitöltött előnézet (helyőrző nélkül)
+    ├── assets/            ← a sablon összes képe, almappa nélkül (fel kell tölteni https tárhelyre)
+    │   ├── cover-balaton-1200x660.jpg
+    │   ├── energofish-mark-light.png
+    │   ├── portre-helyettesito.png
+    │   ├── social-facebook.png
+    │   ├── social-instagram.png
+    │   ├── social-tiktok.png
+    │   └── social-youtube.png
+    ├── tartalom-v1-sotet-lemez.json   ← mintatartalom (minden kulccsal), a v1 kulcskészletével
+    ├── CHANGELOG.md
+    ├── MEZOK-ES-GENERATOR.md
+    ├── RESZPONZIV-SZABALYOK.md   ← a kötelező reszponzív felépítés (projektszabály)
+    ├── EXPORT-SZABALYOK.md       ← a kötelező ZIP-szerkezet és ellenőrzőlista (projektszabály)
+    └── reszponziv-teszt.html     ← A–E próbák, mind az 5 sablon
 ```
 
 ---
@@ -35,83 +62,74 @@ export/
 ✓ = a sablonban szerepel. Ahol nincs pipa, azt a sablon egyszerűen nem használja, a JSON-ban maradhat.
 
 ### Általános
-| Kulcs | Típus | v1 | v2 | v4 | Megjegyzés |
-|---|---|:-:|:-:|:-:|---|
-| `assets.base` | URL | ✓ | ✓ | ✓ | A feltöltött `assets/` mappa https címe, perjel nélkül a végén |
-| `meta.subject` | szöveg | ✓ | ✓ | ✓ | `<title>`, és a küldőben a tárgysor |
-| `meta.preheader` | szöveg | ✓ | ✓ | ✓ | Rejtett előnézeti szöveg, 80-110 karakter |
-| `utility.label` | szöveg | ✓ | ✓ | ✓ | pl. „Partnerjelentés · 10. szám” |
-| `utility.browserLink` / `.url` | link | ✓ | ✓ | ✓ | Webes verzió |
-| `header.title` | szöveg | ✓ | ✓ | ✓ | A hírlevél neve |
-| `header.date` | szöveg | ✓ | ✓ | ✓ | pl. „2026. október” |
+| Kulcs | Típus | v1 | v2 | Megjegyzés |
+|---|---|:-:|:-:|---|
+| `assets.base` | URL | ✓ | ✓ | A feltöltött `assets/` mappa https címe, perjel nélkül a végén |
+| `meta.subject` | szöveg | ✓ | ✓ | `<title>`, és a küldőben a tárgysor |
+| `meta.preheader` | szöveg | ✓ | ✓ | Rejtett előnézeti szöveg, 80-110 karakter |
+| `utility.label` | szöveg | ✓ | ✓ | pl. „Partnerjelentés · 10. szám” |
+| `utility.browserLink` / `.url` | link | ✓ | ✓ | Webes verzió |
+| `header.title` | szöveg | ✓ | ✓ | A hírlevél neve |
+| `header.date` | szöveg | ✓ | ✓ | pl. „2026. október” |
 
 ### Borító
-| Kulcs | Típus | v1 | v2 | v4 | Megjegyzés |
-|---|---|:-:|:-:|:-:|---|
-| `cover.image` | kép URL | ✓ | ✓ | ✓ | **1200×660 JPG**, 200 KB alatt, szöveg nélkül |
-| `cover.imageAlt` | szöveg | ✓ | ✓ | ✓ | Kikapcsolt képeknél ez látszik |
-| `cover.kicker` | szöveg | ✓ | ✓ | ✓ | Kis felirat a főcím felett |
-| `cover.headline` | szöveg | ✓ | ✓ | ✓ | 3-6 szó |
-| `cover.standfirst` | szöveg | ✓ | ✓ | ✓ | Egy mondat, a fő üzenet |
-| `cover.meta.issue` | szöveg | ✓ | ✓ | ✓ | pl. „10. szám” |
-| `cover.meta.readingTime` | szöveg | ✓ | ✓ | ✓ | pl. „Olvasási idő: 2 perc” |
-| `cover.meta.items` | szöveg | ✓ | ✓ | ✓ | pl. „6 termék” |
-| `cover.meta.poll` | szöveg | | | ✓ | pl. „1 kérdés” |
+| Kulcs | Típus | v1 | v2 | Megjegyzés |
+|---|---|:-:|:-:|---|
+| `cover.image` | kép URL | ✓ | ✓ | **1200×660 JPG**, 200 KB alatt, szöveg nélkül |
+| `cover.imageAlt` | szöveg | ✓ | ✓ | Kikapcsolt képeknél ez látszik |
+| `cover.kicker` | szöveg | ✓ | ✓ | Kis felirat a főcím felett |
+| `cover.headline` | szöveg | ✓ | ✓ | 3-6 szó |
+| `cover.standfirst` | szöveg | ✓ | ✓ | Egy mondat, a fő üzenet |
+| `cover.meta.issue` | szöveg | ✓ | ✓ | pl. „10. szám” |
+| `cover.meta.readingTime` | szöveg | ✓ | ✓ | pl. „Olvasási idő: 2 perc” |
+| `cover.meta.items` | szöveg | ✓ | ✓ | pl. „6 termék” |
 
 ### Személyes levél
-| Kulcs | Típus | v1 | v2 | v4 | Megjegyzés |
-|---|---|:-:|:-:|:-:|---|
-| `note.greeting` | szöveg | ✓ | ✓ | ✓ | Címzettenként, lásd 4. pont |
-| `note.body` | szöveg | ✓ | ✓ | ✓ | 2-3 mondat |
-| `note.signer.portrait` | kép URL | ✓ | ✓ | ✓ | 112×112 PNG/JPG, kör alakban jelenik meg |
-| `note.signer.name` | szöveg | ✓ | ✓ | ✓ | |
-| `note.signer.title` | szöveg | ✓ | ✓ | ✓ | |
+| Kulcs | Típus | v1 | v2 | Megjegyzés |
+|---|---|:-:|:-:|---|
+| `note.greeting` | szöveg | ✓ | ✓ | Címzettenként, lásd 4. pont |
+| `note.body` | szöveg | ✓ | ✓ | 2-3 mondat |
+| `note.signer.portrait` | kép URL | ✓ | ✓ | 112×112 PNG/JPG, kör alakban jelenik meg |
+| `note.signer.name` | szöveg | ✓ | ✓ | |
+| `note.signer.title` | szöveg | ✓ | ✓ | |
 
 ### Ajánlat (6 termék, N = 1-6)
-| Kulcs | Típus | v1 | v2 | v4 | Megjegyzés |
-|---|---|:-:|:-:|:-:|---|
-| `offer.label` | szöveg | ✓ | ✓ | ✓ | pl. „01 / Októberi ajánlat” |
-| `offer.badge` | szöveg | ✓ | ✓ | ✓ | pl. „6 tétel · okt. 31-ig” |
-| `offer.intro` | szöveg | ✓ | ✓ | ✓ | Egy mondat |
-| `offer.items.N.url` | URL | ✓ | ✓ | ✓ | Termékoldal a B2B webshopban (kép + gomb) |
-| `offer.items.N.image` | kép URL | ✓ | ✓ | ✓ | Fehér hátterű, négyzetes, min. 260×260 |
-| `offer.items.N.imageAlt` | szöveg | ✓ | ✓ | ✓ | |
-| `offer.items.N.code` | szöveg | ✓ | ✓ | ✓ | Cikkszám |
-| `offer.items.N.name` | szöveg | ✓ | ✓ | ✓ | **max. 2 sor, kb. 26 karakter** |
-| `offer.items.N.desc` | szöveg | ✓ | ✓ | ✓ | **max. 2 sor, kb. 30 karakter** |
-| `offer.items.N.price` | szöveg | ✓ | ✓ | ✓ | pl. „3 090 Ft” |
-| `offer.items.N.deal` | szöveg, opcionális | ✓ | ✓ | ✓ | **1 sor, kb. 18 karakter**, üres is lehet |
-| `offer.items.N.cta` | szöveg | ✓ | ✓ | ✓ | Gombfelirat, pl. „Rendelés” |
-| `offer.more` / `.url` | link | ✓ | ✓ | ✓ | A teljes ajánlat linkje |
-
-### Egy kérdés (csak v4)
-| Kulcs | Típus | Megjegyzés |
-|---|---|---|
-| `poll.label` | szöveg | pl. „02 / Egy kérdés” |
-| `poll.question` | szöveg | |
-| `poll.answers.1-3` / `.url` | link | Minden válasz külön link, pl. `?valasz=feeder&id=*|UNIQID|*` |
-| `poll.note` | szöveg | |
+| Kulcs | Típus | v1 | v2 | Megjegyzés |
+|---|---|:-:|:-:|---|
+| `offer.label` | szöveg | ✓ | ✓ | pl. „01 / Októberi ajánlat” |
+| `offer.badge` | szöveg | ✓ | ✓ | pl. „6 tétel · okt. 31-ig” |
+| `offer.intro` | szöveg | ✓ | ✓ | Egy mondat |
+| `offer.items.N.url` | URL | ✓ | ✓ | Termékoldal a B2B webshopban (kép + gomb) |
+| `offer.items.N.image` | kép URL | ✓ | ✓ | Fehér hátterű, négyzetes, min. 260×260 |
+| `offer.items.N.imageAlt` | szöveg | ✓ | ✓ | |
+| `offer.items.N.code` | szöveg | ✓ | ✓ | Cikkszám |
+| `offer.items.N.name` | szöveg | ✓ | ✓ | **max. 2 sor, kb. 26 karakter** |
+| `offer.items.N.desc` | szöveg | ✓ | ✓ | **max. 2 sor, kb. 24 karakter** |
+| `offer.items.N.price` | szöveg | ✓ | ✓ | pl. „3 090 Ft” |
+| `offer.items.N.deal` | szöveg, opcionális | ✓ | ✓ | **1 sor, kb. 18 karakter**, üres is lehet |
+| `offer.items.N.cta` | szöveg | ✓ | ✓ | Gombfelirat, pl. „Rendelés” |
+| `offer.more` / `.url` | link | ✓ | ✓ | A teljes ajánlat linkje |
 
 ### Képviselő (címzettenként)
-| Kulcs | Típus | v1 | v2 | v4 |
-|---|---|:-:|:-:|:-:|
-| `rep.label` | szöveg | ✓ | ✓ | ✓ |
-| `rep.initials` | szöveg (2 betű) | ✓ | ✓ | ✓ |
-| `rep.name`, `rep.region`, `rep.text` | szöveg | ✓ | ✓ | ✓ |
-| `rep.phone` / `.url` | link (`tel:+36…`) | ✓ | ✓ | ✓ |
-| `rep.email` / `.url` | link (`mailto:…`) | ✓ | ✓ | ✓ |
+| Kulcs | Típus | v1 | v2 |
+|---|---|:-:|:-:|
+| `rep.label` | szöveg | ✓ | ✓ |
+| `rep.initials` | szöveg (2 betű) | ✓ | ✓ |
+| `rep.name`, `rep.region`, `rep.text` | szöveg | ✓ | ✓ |
+| `rep.phone` / `.url` | link (`tel:+36…`) | ✓ | ✓ |
+| `rep.email` / `.url` | link (`mailto:…`) | ✓ | ✓ |
 
 ### Lábléc
-| Kulcs | Típus | v1 | v2 | v4 |
-|---|---|:-:|:-:|:-:|
-| `footer.company`, `footer.address`, `footer.legal` | szöveg | ✓ | ✓ | ✓ |
-| `footer.unsubscribe` / `.url` | link | ✓ | ✓ | ✓ |
-| `footer.settings` / `.url` | link | ✓ | ✓ | ✓ |
-| `social.facebook.url`, `social.youtube.url`, `social.instagram.url`, `social.tiktok.url` | URL | ✓ | ✓ | ✓ |
+| Kulcs | Típus | v1 | v2 |
+|---|---|:-:|:-:|
+| `footer.company`, `footer.address`, `footer.legal` | szöveg | ✓ | ✓ |
+| `footer.unsubscribe` / `.url` | link | ✓ | ✓ |
+| `footer.settings` / `.url` | link | ✓ | ✓ |
+| `social.facebook.url`, `social.youtube.url`, `social.instagram.url`, `social.tiktok.url` | URL | ✓ | ✓ |
 
 ## 3. A generátor menete
 
-1. **Tartalom betöltése:** egy JSON a `tartalom-minta.json` szerkezetében.
+1. **Tartalom betöltése:** egy JSON a `tartalom-v1-sotet-lemez.json` szerkezetében.
 2. **Validálás:**
    - kötelező kulcsok megléte (a `deal` kivételével minden);
    - hosszkorlátok (név, leírás, deal, főcím);
@@ -130,9 +148,9 @@ const get = (o, path) => {
   let v = path.split('.').reduce((a, k) => a == null ? undefined : a[k], o);
   return v && typeof v === 'object' && 'text' in v ? v.text : v;
 };
-const OPTIONAL = /^offer\.items\.\d\.deal$|^poll\./;
+const OPTIONAL = /^offer\.items\.\d\.deal$/;
 
-for (const name of ['v1-sotet-lemez', 'v2-waterside', 'v4-partnerjelentes']) {
+for (const name of ['v1-sotet-lemez', 'v2-waterside']) {
   const tpl = fs.readFileSync(`sablonok/${name}.html`, 'utf8');
   const missing = [];
   const html = tpl.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_, key) => {
@@ -157,22 +175,21 @@ A `note.greeting` és a `rep.*` mezők címzettenként változnak. Két lehetős
 ## 5. Képek és tárhely
 
 - Az `assets/` mappát fel kell tölteni egy nyilvános https tárhelyre, a címe kerül az `assets.base` mezőbe.
-- Az `assets/` tartalma:
-  - `energofish-mark.png`, `energofish-mark-light.png`: logó (a sablon fix mérettel hivatkozik rájuk);
-  - `wave-band-white.png`, `wave-white-dusk.png`: v2 hullámok;
-  - `contour-band.png`: v4 mélységtérkép-sáv;
-  - `cover-balaton-1200x660.jpg`: minta-borítókép;
-  - `portre-helyettesito.png`: helyettesítő portré.
+- Az `assets/` tartalma (sablonelemek és mintaképek):
+  - `energofish-mark-light.png`: logó a sötét fejlécben (fix mérettel hivatkozva);
+  - `social-facebook/youtube/instagram/tiktok.png`: eredeti színű közösségi ikonok (72×72, 36 px-en);
+  - `cover-balaton-1200x660.jpg`: minta-borítókép (mezőtartalom);
+  - `portre-helyettesito.png`: helyettesítő portré (mezőtartalom).
 - A borítókép mezőtartalom: kiadásonként cserélhető, mindig 1200×660-ra vágva.
-- A termék- és a közösségi ikonok az `images.energofish.hu` oldalról töltődnek be.
-- A `tartalom-minta.json` relatív útvonalai (`../assets/...`) csak az `elonezet/` mappa miatt relatívak. Élesben mindenhol teljes https URL kell.
+- A termékképek mezőtartalmak (`offer.items.N.image`), az `images.energofish.hu` oldalról töltődnek be. A sablonban külső képhivatkozás nincs.
+- A `tartalom-v1-sotet-lemez.json` relatív útvonalai (`../assets/...`) csak az `elonezet/` mappa miatt relatívak. Élesben mindenhol teljes https URL kell.
 
 ## 6. Sablonkülönbségek, amelyekre a programnak figyelnie kell
 
-- **v4:** csak itt vannak `poll.*` és `cover.meta.poll` mezők. A v4 preheaderje végére érdemes odaírni: „Plusz egy kérdés.”
 - **v2:** a borító alatti hullám a webes tervben a fotóra lógott rá. Az e-mailben ez nem megoldható, mert a borító cserélhető mezőtartalom, így itt a fotó egyenes éllel zárul. A másik két hullám képként megmaradt.
 - **Outlook (asztali):**
   - a lekerekített sarkokat és a pill gombokat szögletesen mutatja;
   - a termékrács ott is 3 oszlopos marad (rejtett Outlook-táblázat);
-  - mobilon 2 oszlopos a rács, 620 px alatt.
+  - mobilon (480 px alatt) a termékek egymás alatt jelennek meg, kép balra, szöveg jobbra.
 - **Méret:** a kész HTML sablononként kb. 30 KB, jóval a Gmail 100 KB-os levágási határa alatt.
+

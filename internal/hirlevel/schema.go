@@ -159,12 +159,16 @@ func (f *Field) UsedIn(t *Template) bool { return !f.Poll || t == nil || t.HasPo
 // IsURLKind igaz, ha a mező értéke link vagy kép címe.
 func (f *Field) IsURLKind() bool { return f.Kind == "url" || f.Kind == "image" }
 
-// TemplateInfos a beépített sablonok leírása (a v4 kérdés-blokkos sablon az 1.4.7-től nincs benne;
-// a kérdés-blokk kezelése megmaradt a hozzáadott sablonokhoz).
+// TemplateInfos a beépített sablonok leírása. Mindegyik a tervezői RESZPONZIV-SZABALYOK.md szerint
+// készült (stílus nélkül is reszponzív, csak világos), az alkalmazás csak kitölti őket.
+// (A v4 kérdés-blokkos sablon az 1.4.7-től nincs benne; a kérdés-blokk kezelése megmaradt a
+// hozzáadott sablonokhoz.)
 var TemplateInfos = []Template{
 	{ID: "v1-sotet-lemez", Short: "v1", Name: "Sötét lemez", Desc: "Sötét fejléc, narancs csíkok, szögletes téglák."},
 	{ID: "v2-waterside", Short: "v2", Name: "Waterside", Desc: "Krémszínű borító, hullámok, lekerekített téglák."},
 	{ID: "v6-osz-avar", Short: "v6", Name: "Ősz (avar)", Desc: "Őszi színek: sötétbarna borító, krém lap, rozsda képviselő-blokk, levél ikonok."},
+	{ID: "v6-tel", Short: "v6t", Name: "Tél", Desc: "Téli színek: mélyvíz-kék lemez, hósáv a borító alatt, jégkristály ornamens, arany él."},
+	{ID: "v9-kiarusitas", Short: "v9", Name: "Kiárusítás", Desc: "Raktári szállítólevél: beton-szürke lap, figyelmeztető szalag, készletkártyák, bélyegző."},
 }
 
 // Partner-változók (a felületen beszúrható tokenek).
