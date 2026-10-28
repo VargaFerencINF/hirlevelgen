@@ -7,6 +7,8 @@ Windowsos asztali program, amely egy partnerlistából **partnerenként legener�
 - Minden más, ami minden partnernél ugyanaz (tárgy, borító, levél, ajánlat szövegei, lábléc…), a **programban** adható meg.
 - Gépelés közben **élő előnézet** mutatja a levelet bármelyik partnerre, asztali és mobil nézetben.
 
+**Felhasználói dokumentáció** (lépésről lépésre, képernyőképekkel): [`docs/Felhasznaloi_dokumentacio.docx`](docs/Felhasznaloi_dokumentacio.docx)
+
 ![Lépések: Adatok → Tartalom → Termékek → Ellenőrzés → Generálás](docs/kepernyo-adatok.png)
 
 ---
