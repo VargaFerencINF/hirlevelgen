@@ -22,6 +22,7 @@ Energofish_Partner_Newsletter_Design_<azonosító>.zip
     ├── CHANGELOG.md
     ├── MEZOK-ES-GENERATOR.md
     ├── RESZPONZIV-SZABALYOK.md
+    ├── EXPORT-SZABALYOK.md
     └── reszponziv-teszt.html
 ```
 
@@ -38,8 +39,8 @@ A mostani négy csomag azonosítója: `v1-sotet-lemez`, `v2-waterside`, `v6-tel`
 
 Az alkalmazás a csomag minden olyan `.html` fájlját sablonnak tekinti, amelyben `{{` karaktersor van. Ezért:
 - az `elonezet/` fájlja teljesen kitöltött, **egyetlen `{{` sincs benne**;
-- a `reszponziv-teszt.html`-ben és minden más HTML-ben sincs `{{`, a magyarázó szövegekben és megjegyzésekben sem (`&#123;&#123;` vagy a kulcs kapcsos zárójel nélkül írható).
-- A `.md` és `.json` fájlokban szerepelhet `{{` (ezeket az alkalmazás nem olvassa).
+- a `reszponziv-teszt.html`-ben és minden más HTML-ben sincs `{{`, a magyarázó szövegekben és megjegyzésekben sem (`&#123;&#123;` vagy a kulcs kapcsos zárójel nélkül írható);
+- a `.md` és `.json` fájlokban szerepelhet `{{` (ezeket az alkalmazás nem olvassa).
 
 ## 4. Képek
 
@@ -77,5 +78,3 @@ Az alkalmazás a csomag minden olyan `.html` fájlját sablonnak tekinti, amelyb
 2. A `MEZOK-ES-GENERATOR.md`-ben a csomagszerkezetet bemutató rész legyen összhangban az 1. ponttal, és hivatkozzon az `EXPORT-SZABALYOK.md`-re.
 3. `CHANGELOG.md`: rövid bejegyzés arról, hogy ettől a változattól az export ezeket a szabályokat követi.
 4. Ha van projektszintű utasításod vagy emlékeztetőd, vedd fel: „Minden export az EXPORT-SZABALYOK.md szerint készül, és a végén kipipált ellenőrzőlista áll.”
-
-Az 1. pont fájllistájában szereplő `EXPORT-SZABALYOK.md` is kerüljön a gyökérmappába.
