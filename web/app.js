@@ -3769,6 +3769,13 @@ async function openSettings(focus) {
       h('div', { class: 'set-path', text: ftpSt && ftpSt.configured ? `${ftpSt.settings.user}@${ftpSt.settings.host} · ${ftpSt.settings.remoteDir}` + (ftpSt.settings.publicUrl ? ` → ${ftpSt.settings.publicUrl}` : '') : 'nincs beállítva' }),
       h('button', { class: 'btn btn-outline btn-sm', onclick: () => openFtp() }, icon('gear', 15), 'FTP beállítások és feltöltés…')));
 
+  // átvitel másik gépre
+  const transferSec = sec('transfer', 'copy', 'Átvitel másik gépre', 'Minden beállítás egyetlen, jelszóval titkosított fájlban: így egy másik gépen (pl. a területi képviselőén) egy lépésben beállítható a program.',
+    h('div', { class: 'btn-row' },
+      h('button', { class: 'btn btn-primary btn-sm', onclick: () => openTransferExport() }, icon('download', 15), 'Exportálás fájlba…'),
+      h('button', { class: 'btn btn-outline btn-sm', onclick: () => openTransferImport() }, icon('upload', 15), 'Importálás fájlból…')),
+    h('div', { class: 'p-sub tr-p', style: { marginTop: '8px' }, text: 'Benne van: a beállítások és a hírlevél tartalma, a Postmark-tokenek, az FTP-jelszó, a partnertörzs-források, a cikktörzs-címek, a hozzáadott sablonok, a saját képek (képviselőfotók) és a leiratkozólista. Nincs benne: a letöltött partnertörzs (a forrásokból újra letöltődik), a naplók és az időzített küldés.' }));
+
   // alaphelyzet
   const resetSec = sec('reset', 'reset', 'Alaphelyzet', 'A betöltött adatok törlése a hírlevélből. A források, a beállítások és a közös tartalom megmaradnak.',
     h('div', { class: 'btn-row' },
@@ -3780,7 +3787,7 @@ async function openSettings(focus) {
         h('div', { class: 'p-sub', text: 'Minden beállítás az első indításkori értékre áll (a régiekről másolat készül). Ha a program el sem indul rendesen: EnergofishHirlevel.exe -alaphelyzet' })),
       h('button', { class: 'btn btn-dark btn-sm', onclick: () => openFactoryReset() }, icon('reset', 15), 'Visszaállítás…')));
 
-  const nav = h('div', { class: 'set-nav' }, [['import', 'Import Excel'], ['feed', 'Cikktörzs'], ['sources', 'Partnertörzs-források'], ['ftp', 'Képtár (FTP)'], ['reset', 'Alaphelyzet']].map(([id, t]) =>
+  const nav = h('div', { class: 'set-nav' }, [['import', 'Import Excel'], ['feed', 'Cikktörzs'], ['sources', 'Partnertörzs-források'], ['ftp', 'Képtár (FTP)'], ['transfer', 'Átvitel'], ['reset', 'Alaphelyzet']].map(([id, t]) =>
     h('button', { type: 'button', text: t, onclick: () => { const el = document.getElementById('set-' + id); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); } })));
   const done = () => { document.removeEventListener('keydown', key); bg.remove(); };
   const key = e => { if (e.key === 'Escape' && !document.querySelector('.modal-bg + .modal-bg')) done(); };
@@ -3788,11 +3795,112 @@ async function openSettings(focus) {
     h('div', { class: 'modal settings', role: 'dialog' },
       h('div', { class: 'mh' }, h('span', null, icon('gear', 18), ' Beállítások'), h('button', { class: 'x', title: 'Bezárás', onclick: done }, icon('x', 18))),
       nav,
-      h('div', { class: 'mb' }, importSec, feedSec, srcSec, ftpSec, resetSec),
+      h('div', { class: 'mb' }, importSec, feedSec, srcSec, ftpSec, transferSec, resetSec),
       h('div', { class: 'mf' }, h('button', { class: 'btn btn-primary', text: 'Kész', onclick: done }))));
   document.body.append(bg);
   document.addEventListener('keydown', key);
   if (focus) { const el = document.getElementById('set-' + focus); if (el) el.scrollIntoView({ block: 'start' }); }
+}
+
+/* ---------------------------------------------- beállítások átvitele */
+
+// A beállításfájl (.efbeall) tartalmának összesítője (titkos adat nélkül: csak hogy megvan-e).
+function transferSummary(sum) {
+  const yes = (ok, text) => h('li', { class: ok ? 'ok' : 'off' }, icon(ok ? 'check' : 'x', 14), h('span', { text }));
+  const tpls = Array.isArray(sum.templates) ? sum.templates : null;
+  const nTpl = tpls ? tpls.length : sum.templates || 0;
+  return h('ul', { class: 'tr-list' },
+    yes(!!sum.settings, 'Beállítások és a hírlevél tartalma (termékek, sablonválasztás, cikktörzs-címek, partnerhalmazok)'),
+    yes(sum.postmarkLive || sum.postmarkSandbox, 'Postmark-token' + (sum.postmarkLive && sum.postmarkSandbox ? ' (éles és sandbox)' : sum.postmarkLive ? ' (éles)' : sum.postmarkSandbox ? ' (sandbox)' : '') + (sum.from ? ` · feladó: ${sum.from}` : '')),
+    yes(sum.ftp && sum.ftpPassword, 'FTP-képtár beállítása és jelszava' + (sum.ftpTarget ? ` (${sum.ftpTarget})` : '')),
+    yes((sum.sources || []).length > 0, 'Partnertörzs-források' + ((sum.sources || []).length ? `: ${sum.sources.map(groupLabel).join(', ')}` : '')),
+    yes(nTpl > 0, `Hozzáadott sablonok: ${nTpl}` + (tpls && tpls.length ? ` (${tpls.join(', ')})` : '')),
+    yes(sum.images > 0, `Saját képek (képviselőfotók is): ${sum.images}`),
+    yes(sum.unsubs > 0, `Leiratkozók a helyi listán: ${sum.unsubs}`));
+}
+
+function groupLabel(g) { return String(g).replace(/_/g, ' '); }
+
+function passwordInput(placeholder, autocomplete) {
+  return h('input', { class: 'inp', type: 'password', placeholder, autocomplete, spellcheck: false });
+}
+
+function transferModal(title, body, okLabel, onOk) {
+  return new Promise(resolve => {
+    const msg = h('div', { class: 'tr-msg' });
+    const ok = h('button', { class: 'btn btn-primary', text: okLabel });
+    const done = v => { bg.remove(); document.removeEventListener('keydown', key); resolve(v); };
+    const key = e => { if (e.key === 'Escape') done(null); };
+    ok.onclick = () => busy(ok, async () => {
+      msg.textContent = '';
+      try { const r = await onOk(); if (r !== undefined) done(r); } catch (e) { msg.textContent = e.message; }
+    });
+    const bg = h('div', { class: 'modal-bg' },
+      h('div', { class: 'modal wide', role: 'dialog' },
+        h('div', { class: 'mh' }, h('span', { text: title }), h('button', { class: 'x', title: 'Bezárás', onclick: () => done(null) }, icon('x', 18))),
+        h('div', { class: 'mb' }, body, msg),
+        h('div', { class: 'mf' }, h('button', { class: 'btn btn-ghost', text: 'Mégse', onclick: () => done(null) }), ok)));
+    bg.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.tagName === 'INPUT') ok.click(); });
+    document.addEventListener('keydown', key);
+    document.body.append(bg);
+    const first = $('input', bg);
+    if (first) first.focus();
+  });
+}
+
+async function openTransferExport() {
+  const p1 = passwordInput('Jelszó (legalább 8 karakter)', 'new-password');
+  const p2 = passwordInput('Jelszó még egyszer', 'new-password');
+  const show = h('input', { type: 'checkbox', onchange: () => { p1.type = p2.type = show.checked ? 'text' : 'password'; } });
+  const body = h('div', null,
+    h('p', { class: 'p-sub tr-p', text: 'Minden beállítás – a titkos adatokkal (Postmark-token, FTP-jelszó, partnerforrás-linkek) együtt – egyetlen fájlba kerül, erős titkosítással. A jelszó nélkül a fájl nem nyitható meg, és a jelszót a program sehol nem tárolja.' }),
+    h('div', { class: 'tr-pw' }, p1, p2, h('label', { class: 'tr-show' }, show, ' jelszó mutatása')),
+    h('div', { class: 'tr-warn' }, icon('alert', 15), h('span', { text: 'A fájlt és a jelszót külön úton add át (pl. a fájlt e-mailben vagy pendrive-on, a jelszót telefonon vagy üzenetben). Aki mindkettőt megkapja, a nevedben küldhet leveleket.' })));
+  const r = await transferModal('Beállítások exportálása', body, 'Mentés fájlba…', async () => {
+    if (p1.value.length < 8) throw new Error('A jelszó legalább 8 karakter legyen.');
+    if (p1.value !== p2.value) throw new Error('A két jelszó nem egyezik.');
+    const res = await api('/api/transfer/export', { password: p1.value });
+    return res.cancelled ? undefined : res;
+  });
+  if (!r) return;
+  infoModal('Beállítások exportálva', h('div', null,
+    h('p', { class: 'tr-p' }, 'A fájl elkészült: ', h('b', { text: r.path })),
+    transferSummary(r.summary),
+    (r.summary.skippedImages || []).length ? h('p', { class: 'p-sub tr-p warn-t', text: `Méretkorlát miatt kimaradt képek: ${r.summary.skippedImages.join(', ')}` }) : null,
+    h('p', { class: 'p-sub tr-p', text: 'A másik gépen: Beállítások › Átvitel másik gépre › Importálás fájlból…, majd a jelszó megadása.' })));
+}
+
+async function openTransferImport() {
+  const pw = passwordInput('A fájl jelszava', 'current-password');
+  const body = h('div', null,
+    h('p', { class: 'p-sub tr-p', text: 'Válaszd ki a másik gépen exportált beállításfájlt (.efbeall), és add meg a jelszavát. Átvétel előtt megmutatjuk, mi van benne.' }),
+    h('div', { class: 'tr-pw' }, pw));
+  const ins = await transferModal('Beállítások importálása', body, 'Fájl megnyitása…', async () => {
+    if (!pw.value) throw new Error('Add meg a fájl jelszavát.');
+    const res = await api('/api/transfer/inspect', { password: pw.value });
+    return res.cancelled ? undefined : res;
+  });
+  if (!ins) return;
+  const s = ins.summary;
+  const when = s.created ? fmtTime(s.created) : '';
+  const confirmBody = h('div', null,
+    h('p', null, h('b', { text: ins.file }), when ? ` · készült: ${when}` : '', s.computer ? ` · gép: ${s.computer}` : '', s.appVersion ? ` · programverzió: ${s.appVersion}` : ''),
+    transferSummary(s),
+    h('div', { class: 'tr-warn' }, icon('alert', 15), h('span', { text: 'Az átvétel lecseréli ezen a gépen a beállításokat, a Postmark- és FTP-adatokat. A hozzáadott sablonok, a saját képek és a partnerforrások összefésülődnek, a leiratkozók listája bővül. A mostani beállításokról előtte mentés készül.' })));
+  const res = await transferModal('Beállítások átvétele', confirmBody, 'Átvétel', async () => api('/api/transfer/apply', { id: ins.id }));
+  if (!res) return;
+  const box = h('div', null,
+    h('p', { text: 'A beállítások átkerültek erre a gépre. A program most újratölti a felületet.' }),
+    (res.notes || []).map(n => h('p', { class: 'p-sub tr-p warn-t', text: n })),
+    res.backup ? h('p', { class: 'p-sub tr-p', text: `A korábbi beállítások mentése: ${res.backup}` }) : null,
+    h('p', { class: 'p-sub tr-p', text: 'Ha partnertörzs-forrás is jött, az első generáláskor vagy a Partnerek lépésben töltsd le a partnertörzset.' }));
+  const reload = () => location.reload();
+  const bg = h('div', { class: 'modal-bg', onclick: e => { if (e.target === bg) reload(); } },
+    h('div', { class: 'modal wide', role: 'dialog' }, h('div', { class: 'mh', text: 'Beállítások átvéve' }), h('div', { class: 'mb' }, box),
+      h('div', { class: 'mf' }, h('button', { class: 'btn btn-primary', text: 'Rendben', onclick: reload }))));
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' || e.key === 'Enter') reload(); });
+  document.body.append(bg);
+  $('.mf .btn', bg).focus();
 }
 
 // Képválasztó: a webes képtár (FTP-mappa) és a csak helyben meglévő képek; a választott kép
