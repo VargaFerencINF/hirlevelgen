@@ -96,6 +96,8 @@ const ICONS = {
   shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/>',
   table: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>',
   eye: '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
+  nostyle: '<rect x="6" y="2" width="12" height="20" rx="2"/><path d="M3 3l18 18"/>',
+  pane: '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="M9 4v16"/><path d="M12.5 9h5M12.5 13h5"/>',
   tablet: '<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M11 18h2"/>',
   gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
   copy: '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
@@ -2378,6 +2380,7 @@ function openPostmarkSettings() {
 /* ------------------------------------------------------------------ sablonok */
 
 function templatesCard() {
+  respCache.clear(); // a tartalom változhatott: a kártyák újrarajzolásakor újra mérünk
   const cards = S.templates.map(t => {
     const actions = t.custom ? h('div', { class: 'tpl-actions' },
       h('button', { class: 'btn btn-ghost btn-sm', title: 'Átnevezés', onclick: e => { e.stopPropagation(); renameTemplate(t); } }, icon('pen', 15)),
@@ -2389,7 +2392,8 @@ function templatesCard() {
       h('div', { class: 'badges' },
         t.overrides ? h('span', { class: 'pill ok', text: 'frissített' }) : t.custom ? h('span', { class: 'pill ok', text: 'hozzáadott' }) : h('span', { class: 'pill muted', text: 'beépített' }),
         t.hasPoll ? h('span', { class: 'pill muted', text: 'kérdés-blokk' }) : null,
-        t.fixedSlots ? h('span', { class: 'pill warn', text: `fix ${t.fixedSlots} termék` }) : null),
+        t.fixedSlots ? h('span', { class: 'pill warn', text: `fix ${t.fixedSlots} termék` }) : null,
+        respBadge(t.id)),
       h('div', { class: 'ds', text: t.desc || '' }),
       t.report && t.report.length ? h('div', { class: 'tpl-notes' }, t.report.map(n => h('div', null, icon('alert', 13), h('span', { text: n })))) : null);
   });
@@ -2432,12 +2436,21 @@ function showImportResults(results) {
     const notes = x.notes || [];
     const st = !x.ok ? 'err' : notes.length ? 'warn' : 'ok';
     const sub = !x.ok ? x.error : x.override ? `${x.file} · a beépített sablon frissítve` : x.replaced ? `${x.file} · a meglévő sablon frissítve` : `${x.file} · új sablon`;
+    const resp = x.ok ? h('div', { class: 'p-sub', text: 'Reszponzivitás ellenőrzése…' }) : null;
+    if (resp) checkTemplateResponsive(x.id).then(res => {
+      if (!res) { resp.textContent = 'A reszponzivitás nem ellenőrizhető.'; return; }
+      const bad = res.filter(r => !r.ok);
+      resp.className = 'p-sub' + (bad.length ? ' warn-t' : ' ok-t');
+      resp.textContent = bad.length
+        ? 'Nem minden levelezőben reszponzív: ' + bad.map(simText).join('; ') + '. (Az előnézet „stílus nélkül” és „keskeny panel” nézetében megnézhető.)'
+        : 'Reszponzív a mobilos stílust nem ismerő levelezőkben is (telefon stílus nélkül, Outlook keskeny panel).';
+    });
     return h('div', { class: 'imp' },
       h('span', { class: 'st ' + st }, icon(st === 'err' ? 'error' : st === 'warn' ? 'alert' : 'check', 15)),
       h('div', null,
         h('div', { class: 'p-name', text: x.ok ? x.name : x.file }),
         h('div', { class: 'p-sub', text: sub }),
-        notes.map(n => h('div', { class: 'p-sub warn-t', text: n }))));
+        notes.map(n => h('div', { class: 'p-sub warn-t', text: n })), resp));
   }));
   infoModal(bad.length && !ok.length ? 'A sablon nem adható hozzá' : `${ok.length} sablon hozzáadva`, body);
 }
@@ -2522,13 +2535,15 @@ function buildPreview() {
     h('div', { class: 'pv-top' },
       h('div', { class: 'seg', id: 'tplSeg' }),
       h('div', { class: 'grow' }),
-      h('div', { class: 'seg icons', id: 'devSeg' }, devBtn('desktop', 'monitor', 'Asztali nézet'), devBtn('tablet', 'tablet', 'Tablet nézet (768 px)'), devBtn('mobile', 'phone', 'Mobil nézet (390 px, 2 oszlopos rács)'))),
+      h('div', { class: 'seg icons', id: 'devSeg' }, devBtn('desktop', 'monitor', 'Asztali nézet'), devBtn('tablet', 'tablet', 'Tablet nézet (768 px)'), devBtn('mobile', 'phone', 'Mobil nézet (390 px)'),
+        devBtn('nostyle', 'nostyle', `${SIM.nostyle.label} – ${SIM.nostyle.who}`), devBtn('pane', 'pane', `${SIM.pane.label} – ${SIM.pane.who}`))),
     h('div', { class: 'pv-bar' },
       h('button', { class: 'sq', title: 'Előző partner', onclick: () => stepPartner(-1) }, icon('left')),
       h('select', { id: 'pvSel', onchange: e => setPreviewPartner(+e.target.value) }),
       h('button', { class: 'sq', title: 'Következő partner', onclick: () => stepPartner(1) }, icon('right')),
       h('button', { class: 'sq', title: 'Előnézet frissítése', onclick: () => refreshPreview() }, icon('refresh', 16)),
       h('button', { class: 'sq', title: 'Megnyitás a böngészőben', onclick: openPreviewInBrowser }, icon('external', 16))),
+    h('div', { class: 'pv-sim', id: 'pvSim' }),
     h('div', { class: 'inbox', title: 'Így jelenik meg a levél a postafiókban' },
       h('div', { class: 'av' }, h('img', { src: '/static/img/energofish-mark-light.png', alt: '' })),
       h('div', { class: 'meta' },
@@ -2541,7 +2556,7 @@ function buildPreview() {
         h('div', { class: 'pv-stage', id: 'pvStage', style: { position: 'absolute', left: 0, top: 0 } },
           h('iframe', { id: 'pvFrame', title: 'Hírlevél előnézet', sandbox: 'allow-same-origin' })))),
     h('div', { class: 'linkbar', id: 'linkbar' }, icon('link', 14), h('span', { class: 'u', id: 'linkUrl' })));
-  S.device = ['desktop', 'tablet', 'mobile'].includes(ls('device')) ? ls('device') : 'desktop';
+  S.device = ['desktop', 'tablet', 'mobile', 'nostyle', 'pane'].includes(ls('device')) ? ls('device') : 'desktop';
   setDevice(S.device, true);
   new ResizeObserver(() => fitFrame()).observe($('#pvCanvas'));
 }
@@ -2599,7 +2614,122 @@ function stepPartner(d) {
   setPreviewPartner(((S.pv < 0 ? 0 : S.pv) + d + n) % n);
 }
 
-function frameWidth() { return { mobile: 390, tablet: 768 }[S.device] || 660; }
+function frameWidth() { return SIM[S.device] ? SIM[S.device].width : { mobile: 390, tablet: 768 }[S.device] || 660; }
+
+/* ---------------------------------------------- levelező-szimuláció */
+
+// Két nézet arra, ahogy a mobilos stílust nem ismerő levelezők látják a levelet. Egyik sem
+// ismeri a calc()-ot. Az „Outlook, keskeny panel” nézetben a <style> megmarad, de a
+// média-lekérdezések nem lépnek életbe (Outlook web / új Outlook a böngészőablakhoz méri őket,
+// nem az olvasópanelhez; a Thunderbird egyáltalán nem ismeri). A „telefon, stílus nélkül”
+// nézetben a teljes <style> eltűnik (Gmail alkalmazás nem Google-fiókkal).
+const SIM = {
+  nostyle: { width: 375, label: 'Telefon, stílus nélkül', who: 'pl. Gmail alkalmazás céges (nem Google) fiókkal' },
+  pane: { width: 360, label: 'Outlook, keskeny panel', who: 'Outlook web / új Outlook keskeny olvasópanelben, Outlook mobil, Thunderbird' },
+};
+const CALC_DECL_RE = /[a-z-]+\s*:\s*[^;"{}]*calc\((?:[^()]|\([^()]*\))*\)[^;"{}]*;?/gi;
+
+function simulateMail(html, mode) {
+  let s = html.replace(CALC_DECL_RE, '');
+  if (mode === 'nostyle') s = s.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '');
+  else s = s.replace(/@media\b/gi, '@media (min-width:100000px) and');
+  return s;
+}
+
+// measureMail a levél szélességét méri egy rejtett keretben a megadott nézetben.
+function measureMail(html, mode) {
+  return new Promise(resolve => {
+    const W = SIM[mode].width;
+    const fr = h('iframe', { sandbox: 'allow-same-origin', tabindex: '-1', 'aria-hidden': 'true',
+      style: { position: 'fixed', left: '-20000px', top: '0', width: W + 'px', height: '900px', border: '0', visibility: 'hidden' } });
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      let m = { doc: W, perRow: 0, tileW: 0 };
+      try { m = mailMetrics(fr.contentDocument, W); } catch (e) { /* nincs hozzáférés */ }
+      fr.remove();
+      resolve(Object.assign({ mode, width: W }, m, { ok: m.doc <= W + 1 && m.perRow <= 1 }));
+    };
+    fr.onload = () => setTimeout(finish, 120);
+    setTimeout(finish, 4000);
+    document.body.append(fr);
+    fr.srcdoc = simulateMail(html, mode);
+  });
+}
+
+// mailMetrics: a dokumentum szélessége és a terméktéglák elrendezése (hány van egy sorban).
+function mailMetrics(d, W) {
+  const doc = Math.max(d.documentElement.scrollWidth, d.body ? d.body.scrollWidth : 0);
+  const rows = new Map();
+  for (const t of d.querySelectorAll('.tile')) {
+    const r = t.getBoundingClientRect();
+    if (!r.width) continue;
+    const k = Math.round(r.top);
+    rows.set(k, (rows.get(k) || 0) + 1);
+  }
+  const first = d.querySelector('.tile');
+  return { doc, perRow: rows.size ? Math.max(...rows.values()) : 0, tileW: first ? Math.round(first.getBoundingClientRect().width) : 0 };
+}
+
+async function checkResponsive(html) {
+  const out = [];
+  for (const mode of Object.keys(SIM)) out.push(await measureMail(html, mode));
+  return out;
+}
+
+function simProblem(r) {
+  const p = [];
+  if (r.doc > r.width + 1) p.push(`a levél ${r.doc} px széles, a képernyő ${r.width} px – oldalra lóg`);
+  if (r.perRow > 1) p.push(`a termékek nem kerülnek egymás alá (${r.perRow} db ${r.tileW} px-es oszlop egy sorban)`);
+  return p.join('; ');
+}
+
+function simText(r) {
+  return r.ok ? `${SIM[r.mode].label}: rendben (${r.width} px, a termékek egymás alatt)` : `${SIM[r.mode].label}: ${simProblem(r)}`;
+}
+
+// Egymás után futó ellenőrzések (a sablonlista sok kártyája ne terhelje egyszerre a gépet).
+let respQueue = Promise.resolve();
+const respCache = new Map();
+function checkTemplateResponsive(id) {
+  const key = id + '|' + S.pv;
+  if (!respCache.has(key)) {
+    respCache.set(key, respQueue = respQueue.then(async () => {
+      const r = await fetch(`/api/preview?p=${S.pv}&tpl=${encodeURIComponent(id)}`, { headers: { 'X-Token': TOKEN } });
+      if (!r.ok) throw new Error(await r.text());
+      return checkResponsive(await r.text());
+    }).catch(() => null));
+  }
+  return respCache.get(key);
+}
+
+function respBadge(id) {
+  const b = h('span', { class: 'pill muted', text: 'reszponzivitás…', title: 'A levél ellenőrzése a mobilos stílust nem ismerő levelezőkben' });
+  checkTemplateResponsive(id).then(res => {
+    if (!res) { b.textContent = 'reszponzivitás: ?'; return; }
+    const bad = res.filter(r => !r.ok);
+    b.className = 'pill ' + (bad.length ? 'warn' : 'ok');
+    b.textContent = bad.length ? 'nem minden levelezőben reszponzív' : 'reszponzív';
+    b.title = res.map(simText).join('\n');
+  });
+  return b;
+}
+
+function updateSimBar(frame) {
+  const bar = $('#pvSim');
+  if (!bar) return;
+  const sim = SIM[S.device];
+  if (!sim) { bar.classList.remove('on'); bar.replaceChildren(); return; }
+  let m = { doc: sim.width, perRow: 0, tileW: 0 };
+  try { m = mailMetrics(frame.contentDocument, sim.width); } catch (e) { /* nincs hozzáférés */ }
+  const r = Object.assign({ mode: S.device, width: sim.width }, m);
+  const ok = r.doc <= r.width + 1 && r.perRow <= 1;
+  bar.className = 'pv-sim on ' + (ok ? 'ok' : 'warn');
+  bar.replaceChildren(icon(ok ? 'check' : 'alert', 14),
+    h('span', null, h('b', { text: sim.label + ': ' }), ok ? `rendben, a levél kifér (${sim.width} px).` : simProblem(r) + '.',
+      h('span', { class: 'who', text: ' ' + sim.who + '.' })));
+}
 
 function fitFrame() {
   const frame = $('#pvFrame'), canvas = $('#pvCanvas'), stage = $('#pvStage'), sizer = $('#pvSizer');
@@ -2644,10 +2774,11 @@ async function refreshPreview() {
       fitFrame();
       canvas.scrollTop = top;
       wireFrame(frame);
+      updateSimBar(frame);
       load.classList.remove('on');
       setTimeout(fitFrame, 400);
     };
-    frame.srcdoc = html;
+    frame.srcdoc = SIM[S.device] ? simulateMail(html, S.device) : html;
   } catch (e) {
     if (seq === S.pvSeq) {
       load.classList.remove('on');

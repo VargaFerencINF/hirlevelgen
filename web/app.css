@@ -330,6 +330,12 @@ input[type=checkbox]{width:17px;height:17px;accent-color:var(--orange);cursor:po
 .seg button .sh{font-size:10px;font-weight:800;letter-spacing:.06em;opacity:.7}
 .seg.icons button{padding:6px 9px}
 .pv-top .grow{flex:1}
+.pv-sim{display:none;align-items:flex-start;gap:8px;padding:9px 16px;font-size:12.5px;line-height:1.45;border-bottom:1px solid var(--line)}
+.pv-sim.on{display:flex}
+.pv-sim.ok{background:var(--ok-bg);color:var(--ok)}
+.pv-sim.warn{background:var(--warn-bg);color:var(--warn)}
+.pv-sim svg{flex:none;margin-top:2px}
+.pv-sim .who{color:var(--muted);font-weight:400}
 .pv-bar{display:flex;align-items:center;gap:8px;padding:10px 16px;background:#F7F7F7;border-bottom:1px solid var(--line)}
 .pv-bar select{flex:1;min-width:0;border:1px solid var(--line-2);border-radius:8px;padding:7px 10px;background:#fff;font-weight:600;font-size:13px;cursor:pointer}
 .pv-bar select:focus{outline:none;border-color:var(--orange);box-shadow:0 0 0 3px rgba(241,163,43,.22)}
@@ -419,6 +425,7 @@ input[type=checkbox]{width:17px;height:17px;accent-color:var(--orange);cursor:po
 .imp-list{display:flex;flex-direction:column;gap:10px;max-height:60vh;overflow:auto}
 .imp{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);border-radius:10px}
 .warn-t{color:var(--warn) !important;margin-top:3px}
+.ok-t{color:var(--ok) !important;margin-top:3px}
 .tpl-cards{grid-template-columns:repeat(auto-fill,minmax(180px,1fr))}
 .tpl-cards > *{min-width:0}
 
