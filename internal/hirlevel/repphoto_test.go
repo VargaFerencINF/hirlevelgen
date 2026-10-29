@@ -12,7 +12,7 @@ import (
 )
 
 func TestRepPhotoFromAssets(t *testing.T) {
-	for in, want := range map[string]string{"ZSO": "zso.webp", " GÁL ": "gal.webp", "ŐRY": "ory.webp", "SZ AN": "szan.webp", "": "", "/": ""} {
+	for in, want := range map[string]string{"ZSO": "zso.png", " GÁL ": "gal.png", "ŐRY": "ory.png", "SZ AN": "szan.png", "": "", "/": ""} {
 		if got := RepPhotoFile(in); got != want {
 			t.Errorf("%q → %q", in, got)
 		}
@@ -22,11 +22,11 @@ func TestRepPhotoFromAssets(t *testing.T) {
 	a := B2BToPartner(&B2BPartner{Email: "a@example.com", RepName: "Gál János", RepMono: "GÁL"}, 1, "B2B_HU", o)
 	b := B2BToPartner(&B2BPartner{Email: "b@example.com", RepName: "Halmos Mihály", RepMono: "HIM"}, 2, "B2B_HU", o)
 	c := B2BToPartner(&B2BPartner{Email: "c@example.com"}, 3, "B2B_HU", o)
-	if a.RepPhoto != "{assets}/gal.webp" || b.RepPhoto != "https://kep.example.com/him.jpg" || c.RepPhoto != "" {
+	if a.RepPhoto != "{assets}/gal.png" || b.RepPhoto != "https://kep.example.com/him.jpg" || c.RepPhoto != "" {
 		t.Errorf("%q %q %q", a.RepPhoto, b.RepPhoto, c.RepPhoto)
 	}
 	content := Content{"assets.base": "https://energofish.hu/hirlevel/b2b/assets/"}
-	if d := Build(content, nil, &a, nil, ""); d.Values["rep.photo"] != "https://energofish.hu/hirlevel/b2b/assets/gal.webp" {
+	if d := Build(content, nil, &a, nil, ""); d.Values["rep.photo"] != "https://energofish.hu/hirlevel/b2b/assets/gal.png" {
 		t.Errorf("levélben: %q", d.Values["rep.photo"])
 	}
 }
@@ -55,7 +55,7 @@ func TestRepPhotoCheck(t *testing.T) {
 			reps = append(reps, tg)
 		}
 	}
-	// képviselőnként egyszer, a fájlnévvel; Outlook-barát módban (alap) a PNG párt nézi
+	// képviselőnként egyszer, a fájlnévvel (<monogram>.png)
 	if len(reps) != 2 || reps[0].Where != "Képviselő fotója: Szabó Zsolt (zso.png)" || reps[1].Where != "Képviselő fotója: Gál János (gal.png)" {
 		t.Fatalf("%+v", reps)
 	}
@@ -63,10 +63,10 @@ func TestRepPhotoCheck(t *testing.T) {
 	if res[0].Status == "error" || res[1].Status != "error" || !strings.Contains(res[1].Message, "404") {
 		t.Errorf("%+v", res)
 	}
-	// a WEBP megtartásával a .webp fájlt nézi
+	// a „WEBP megtartása” kapcsoló a PNG fotót nem érinti
 	content[KeepWebpKey] = "1"
 	for _, tg := range CollectImageTargets(content, nil, partners[:1], nil) {
-		if tg.Kind == "rep" && tg.Where != "Képviselő fotója: Szabó Zsolt (zso.webp)" {
+		if tg.Kind == "rep" && tg.Where != "Képviselő fotója: Szabó Zsolt (zso.png)" {
 			t.Errorf("WEBP megtartva: %+v", tg)
 		}
 	}
@@ -98,7 +98,7 @@ func TestSignerRep(t *testing.T) {
 	c[SignerRepKey] = "1"
 	d := Build(c, nil, &b, nil, "")
 	if d.Values["note.signer.name"] != "Gál János" || d.Values["note.signer.title"] != "területi képviselő (Pest megye)" ||
-		d.Values["note.signer.portrait"] != "https://kep.example.com/a/gal.webp" {
+		d.Values["note.signer.portrait"] != "https://kep.example.com/a/gal.png" {
 		t.Errorf("képviselő: %q %q %q", d.Values["note.signer.name"], d.Values["note.signer.title"], d.Values["note.signer.portrait"])
 	}
 	if d := Build(c, nil, &nophoto, nil, ""); d.Values["note.signer.name"] != "Kiss Anna" || d.Values["note.signer.portrait"] != "https://kep.example.com/a/portre-helyettesito.png" {

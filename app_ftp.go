@@ -557,13 +557,12 @@ func (a *App) apiFTPUpload(w http.ResponseWriter, r *http.Request) (any, error) 
 }
 
 // apiRepPhoto a Képviselő-fotók ablakban feltöltött fotó (a felület már négyzetesre vágta,
-// átméretezte és WEBP-be tömörítette): <monogram>.webp és a PNG párja a saját képek mappájába
-// kerül (ha nincs ilyen mappa, a beállítások mellé jön létre), majd – ha az FTP be van
+// átméretezte és PNG-be mentette): <monogram>.png a saját képek mappájába kerül (ha nincs ilyen mappa, a beállítások mellé jön létre), majd – ha az FTP be van
 // állítva – azonnal felmegy a képtárba (az azonos nevű régi fotót felülírja).
 func (a *App) apiRepPhoto(w http.ResponseWriter, r *http.Request) (any, error) {
 	var req struct {
 		Mono string `json:"mono"`
-		Data string `json:"data"` // base64 WEBP
+		Data string `json:"data"` // base64 PNG
 	}
 	if err := decode(r, &req); err != nil {
 		return nil, err
@@ -579,11 +578,6 @@ func (a *App) apiRepPhoto(w http.ResponseWriter, r *http.Request) (any, error) {
 	if err := h.CheckRepPhoto(data); err != nil {
 		return nil, err
 	}
-	twinData, err := h.WebpToPNG(data)
-	if err != nil {
-		return nil, err
-	}
-	twin, _ := h.WebpTwin(name)
 	s := a.loadFTPSettings()
 	dir, created := strings.TrimSpace(s.LocalDir), false
 	if dir == "" {
@@ -595,10 +589,8 @@ func (a *App) apiRepPhoto(w http.ResponseWriter, r *http.Request) (any, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, fmt.Errorf("a saját képek mappája nem hozható létre: %v", err)
 	}
-	for n, b := range map[string][]byte{name: data, twin: twinData} {
-		if err := os.WriteFile(filepath.Join(dir, n), b, 0o644); err != nil {
-			return nil, fmt.Errorf("a fotó nem menthető (%s): %v", n, err)
-		}
+	if err := os.WriteFile(filepath.Join(dir, name), data, 0o644); err != nil {
+		return nil, fmt.Errorf("a fotó nem menthető (%s): %v", name, err)
 	}
 	if created {
 		s.LocalDir = dir
@@ -606,8 +598,8 @@ func (a *App) apiRepPhoto(w http.ResponseWriter, r *http.Request) (any, error) {
 			return nil, err
 		}
 	}
-	log.Printf("képviselő-fotó mentve: %s (%d bájt) és %s", name, len(data), twin)
-	out := map[string]any{"file": name, "png": twin, "dir": dir, "dirCreated": created, "uploaded": false}
+	log.Printf("képviselő-fotó mentve: %s (%d bájt)", name, len(data))
+	out := map[string]any{"file": name, "dir": dir, "dirCreated": created, "uploaded": false}
 	pw := a.loadFTPPassword()
 	if !s.configured() || pw == "" {
 		out["ftpNote"] = "Az FTP nincs beállítva: a fotót töltsd fel a képtárba (vagy állítsd be az FTP-t, és a küldés előtti ellenőrzés feltölti)."
@@ -620,7 +612,7 @@ func (a *App) apiRepPhoto(w http.ResponseWriter, r *http.Request) (any, error) {
 	}
 	var files []h.AssetFile
 	for _, f := range all {
-		if f.Rel == name || f.Rel == twin {
+		if f.Rel == name {
 			files = append(files, f)
 		}
 	}

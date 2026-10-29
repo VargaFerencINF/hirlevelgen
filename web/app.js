@@ -3963,7 +3963,7 @@ async function openAssetPicker(onPick) {
 
 // Feltöltött képviselő-fotó: négyzetesre vágva (álló képnél inkább a felső részből, ahol az
 // arc van), 192×192 px-re méretezve, fehér háttérrel WEBP-be tömörítve.
-async function repPhotoWebp(file) {
+async function repPhotoPng(file) {
   if (!/^image\//.test(file.type || '')) throw new Error('Ez nem képfájl.');
   let bmp;
   try { bmp = await createImageBitmap(file); } catch (e) { throw new Error('A kép nem nyitható meg (JPG, PNG vagy WEBP kell).'); }
@@ -3978,13 +3978,14 @@ async function repPhotoWebp(file) {
   ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(0, 0, size, size);
   ctx.drawImage(bmp, (bmp.width - side) / 2, (bmp.height - side) * 0.25, side, side, 0, 0, size, size);
-  const blob = await new Promise(res => cv.toBlob(res, 'image/webp', 0.9));
-  if (!blob || blob.type !== 'image/webp') throw new Error('Ez a böngésző nem tud WEBP képet készíteni.');
+  const blob = await new Promise(res => cv.toBlob(res, 'image/png'));
+  if (!blob) throw new Error('A kép nem menthető PNG-be.');
   const b64 = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(',')[1]); fr.onerror = rej; fr.readAsDataURL(blob); });
   return { blob, b64, small: side < 128 };
 }
 
-// Képviselő-fotók: alapból a képtárból (<monogram>.webp); itt fotó tölthető fel, vagy kézi link adható.
+// Képviselő-fotók: alapból a képtárból (<monogram>.png); itt fotó tölthető fel, a képtárból választható
+// (ezen a gépen véglegesen megjegyezve), vagy kézi link adható.
 async function openRepPhotos(group, after) {
   let reps, st;
   try { [reps, st] = await Promise.all([api('/api/b2b/reps', { group }), b2bLoadState()]); } catch (e) { toast(e.message, 'err'); return; }
@@ -4000,25 +4001,50 @@ async function openRepPhotos(group, after) {
       prev.replaceWith(next);
       prev = next;
     };
-    const status = h('div', { class: 'p-sub rep-st', text: r.file ? (options.repPhotos[r.mono] ? 'Kézi link (a képtár helyett)' : `Fotó: képtár/${r.file}`) : '' });
-    const inp = h('input', { class: 'inp', type: 'url', value: options.repPhotos[r.mono] || '', spellcheck: false,
+    const status = h('div', { class: 'p-sub rep-st' });
+    const showStatus = () => {
+      const v = (options.repPhotos[r.mono] || '').trim();
+      status.classList.remove('warn');
+      status.textContent = /^\{assets\}\//i.test(v) ? `Képtárból választva: ${decodeURIComponent(v.slice(9))} (ezen a gépen megjegyezve)`
+        : v ? 'Kézi link (a képtár helyett)' : r.file ? `Fotó: képtár/${r.file}` : '';
+      reset.style.display = v ? '' : 'none'; // (a .btn stílusa felülírná a hidden attribútumot)
+    };
+    const inp = h('input', { class: 'inp', type: 'text', value: options.repPhotos[r.mono] || '', spellcheck: false,
       placeholder: r.file ? `automatikus: képtár/${r.file}` : 'https://… (négyzetes, min. 128×128)' });
     inp.addEventListener('input', debounce(() => {
       options.repPhotos[r.mono] = inp.value.trim();
       setPrev(inp.value.trim() || uploads[r.mono] || r.auto);
+      showStatus();
     }, 400));
+    // a képtárból választott fotó azonnal mentődik (a gépen megmarad, amíg vissza nem állítod)
+    const setOverride = async v => {
+      options.repPhotos[r.mono] = v;
+      inp.value = v;
+      setPrev(v || uploads[r.mono] || r.auto);
+      showStatus();
+      try {
+        const res = await api('/api/b2b/options', options);
+        if (res.excel) applyExcel(res, true);
+        if (after) after(options);
+        toast(v ? `${r.name || r.mono}: a fotó mentve (${decodeURIComponent(v.replace(/^\{assets\}\//i, ''))}).` : `${r.name || r.mono}: visszaállítva az alapértelmezett fotóra (${r.file}).`, 'ok');
+      } catch (e) { toast(e.message, 'err'); }
+    };
+    const pick = h('button', { type: 'button', class: 'btn btn-outline btn-sm', title: 'Fotó választása a képtárból (assets mappa); ezen a gépen megjegyezve',
+      onclick: () => openAssetPicker(v => setOverride(v)) }, icon('image', 15), 'Képtár…');
+    const reset = h('button', { type: 'button', class: 'btn btn-ghost btn-sm', title: r.file ? `Vissza az alapértelmezettre: képtár/${r.file}` : 'A kézi fotó törlése',
+      onclick: () => setOverride('') }, 'Alapértelmezett');
     const file = h('input', { type: 'file', accept: 'image/*', hidden: true, onchange: e => { if (e.target.files[0]) upload(e.target.files[0]); e.target.value = ''; } });
     const btn = h('button', { type: 'button', class: 'btn btn-outline btn-sm', title: r.file ? `Fotó feltöltése ${r.file} néven (négyzetesre vágva, 192×192)` : 'Monogram nélkül nem tölthető fel fotó',
       disabled: !r.file, dataset: { busy: 'Feltöltés…' }, onclick: () => file.click() }, icon('upload', 15), 'Fotó…');
     async function upload(f) {
       await busy(btn, async () => {
         try {
-          const ph = await repPhotoWebp(f);
+          const ph = await repPhotoPng(f);
           const res = await api('/api/b2b/repphoto', { mono: r.mono, data: ph.b64 });
           uploads[r.mono] = URL.createObjectURL(ph.blob);
-          if (inp.value) { inp.value = ''; options.repPhotos[r.mono] = ''; } // a feltöltött fotó a kézi link helyére lép
+          if (inp.value) await setOverride(''); // a feltöltött fotó a kézi / képtárból választott helyére lép
           setPrev(uploads[r.mono]);
-          status.textContent = res.uploaded ? `Feltöltve: képtár/${res.file} (+ ${res.png})` : `Mentve: ${res.file} – ${res.ftpError ? 'FTP-hiba: ' + res.ftpError : 'a küldés előtti ellenőrzés tölti fel'}`;
+          status.textContent = res.uploaded ? `Feltöltve: képtár/${res.file}` : `Mentve: ${res.file} – ${res.ftpError ? 'FTP-hiba: ' + res.ftpError : 'a küldés előtti ellenőrzés tölti fel'}`;
           status.classList.toggle('warn', !res.uploaded);
           if (res.dirCreated) toast(`A fotók mappája: ${res.dir} (beállítva az FTP „Saját képek mappája” mezőjébe).`, 'info', { timeout: 9000 });
           if (ph.small) toast('A kép kisebb, mint 128×128 px, a levélben életlen lehet.', 'warn');
@@ -4027,7 +4053,8 @@ async function openRepPhotos(group, after) {
     }
     const row = h('div', { class: 'rep-row', dataset: { mono: r.mono } }, prev,
       h('div', { class: 'rep-who' }, h('b', { text: r.name || r.mono }),
-        h('div', { class: 'p-sub', text: `${r.mono} · ${r.partners} partner · ${r.email || ''}` }), status), inp, h('div', null, btn, file));
+        h('div', { class: 'p-sub', text: `${r.mono} · ${r.partners} partner · ${r.email || ''}` }), status), inp, h('div', { class: 'rep-btns' }, pick, btn, reset, file));
+    showStatus();
     rowFor[r.mono] = { row, upload: f => r.file && upload(f) };
     return row;
   });
@@ -4045,7 +4072,7 @@ async function openRepPhotos(group, after) {
     h('div', { class: 'modal wide', role: 'dialog' },
       h('div', { class: 'mh', text: 'Képviselő-fotók' }),
       h('div', { class: 'mb' },
-        h('p', { class: 'card-sub', text: 'A képviselő fotója alapból a képtárból jön: a monogram kisbetűvel, ékezet nélkül, .webp kiterjesztéssel (pl. ZSO → zso.webp, GÁL → gal.webp). A „Fotó…” gombbal (vagy a képet a sorra húzva) a program négyzetesre vágja, elnevezi és – ha az FTP be van állítva – azonnal feltölti. A küldés előtti ellenőrzés jelzi, ha valamelyik hiányzik. A mezőbe csak akkor írj linket, ha egy képviselőnél ettől el akarsz térni.' }),
+        h('p', { class: 'card-sub', text: 'A képviselő fotója alapból a képtárból jön: a monogram kisbetűvel, ékezet nélkül, .png kiterjesztéssel (pl. ZSO → zso.png, GÁL → gal.png). A „Képtár…” gombbal a képtár (assets mappa) bármelyik képe választható helyette – ezen a gépen azonnal és véglegesen megjegyezve, amíg az „Alapértelmezett” gombbal vissza nem állítod. A „Fotó…” gombbal (vagy a képet a sorra húzva) a program négyzetesre vágja, PNG-ként elnevezi és – ha az FTP be van állítva – azonnal feltölti. A küldés előtti ellenőrzés jelzi, ha valamelyik hiányzik.' }),
         rows.length ? h('div', { class: 'rep-list' }, rows) : h('div', { class: 'note info' }, icon('info'), h('div', { text: 'Előbb töltsd le a partnertörzset.' }))),
       h('div', { class: 'mf' }, h('button', { class: 'btn btn-ghost', text: 'Mégse', onclick: done }), h('button', { class: 'btn btn-primary', text: 'Mentés', onclick: save }))));
   // fotó behúzása egy képviselő sorára (a program általános fájl-behúzása itt nem indul el)

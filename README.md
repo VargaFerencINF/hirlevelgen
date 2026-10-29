@@ -70,7 +70,7 @@ Az *Adatok* lépés **B2B partnertörzs** kártyáján:
 | `Nev` | `{nev}` **és** `{ceg}` (a csupa nagybetűs nevek olvasható írásmóddal: „JDB HUNGARY ZRT.” → „JDB Hungary Zrt.” – kikapcsolható); eredeti írásmóddal `{partnernev}` |
 | `Teruleti_kepviselo_nev` / `_telefonszam` / `_email_cim` | `{kepviselo}` (a „ - Energofish Kft.” utótag nélkül – átállítható), `{kepviselo_telefon}`, `{kepviselo_email}`, a képviselő-blokk |
 | `Megye` | `{terulet}` és a képviselő-blokk területe („Pest megye”, „Budapest”), valamint `{megye}` |
-| `Teruleti_kepviselo_monogram` | a **képviselő fotója** (a partnertörzsben nincs: monogramonként a *Képviselő-fotók…* gombnál adható meg, nélküle monogram), `{tkmonogram}` |
+| `Teruleti_kepviselo_monogram` | a **képviselő fotója**: alapból a képtárból `<monogram kisbetűvel>.png`; a *Képviselő-fotók…* ablakban feltölthető, vagy a képtárból választható helyette (nélküle monogram), `{tkmonogram}` |
 | `Leiratkozas_link` | a lábléc leiratkozó linkje helyén **a partner saját leiratkozó linkje** |
 | `Nazon`, `Besor`, `Partnerbolt_statusz`, `Telefonszam`, `Feliratkozas_datum` | `{nazon}`, `{besorolas}`, `{partnerbolt}`, `{telefon}`, `{feliratkozas}`; továbbá `{bizomanyos}`, `{celcsoport}` és az export esetleges új mezői |
 
@@ -285,6 +285,8 @@ A program ellenőrzi a sablont: ismeretlen `{{mezőt}}` használó fájlt nem ve
 ## Változások
 
 A verziószám a kiadás száma (`v1.4.<build>`): ugyanez látszik a programban, a kiadás címében és a Windows-fájltulajdonságokban. (A régebbi, 1.4.1–1.4.15 belső számokat ez a lista már a kiadás számával mutatja.)
+
+**1.4.43** – Képviselőfotók PNG-ben: a fotó alapból `<képtár webcíme>/<monogram kisbetűvel>.png` (pl. GÁL → `gal.png`), mert a PNG-t minden levelező, az asztali Outlook is megjeleníti; a programból feltöltött fotó is PNG-ként mentődik. (A korábban feltöltött fotók PNG párja már megvan, azok továbbra is működnek.) A Képviselő-fotók ablakban képviselőnként **Képtár…** gomb: a képtár (assets mappa) bármelyik képe választható fotónak – azonnal és véglegesen megjegyezve ezen a gépen (a beállításokban; az *Átvitel másik gépre* fájlba is bekerül), amíg az **Alapértelmezett** gombbal vissza nem állítod.
 
 **1.4.42** – **Beállítások átvitele másik gépre** (Beállítások › Átvitel másik gépre): minden beállítás – a Postmark-tokenekkel, az FTP-jelszóval, a partnertörzs-források linkjeivel, a hozzáadott sablonokkal, a képviselőfotókkal és a leiratkozólistával együtt – egyetlen, jelszóval titkosított `.efbeall` fájlba exportálható, és egy másik gépen (pl. a területi képviselőén) egy lépésben importálható. Részletek a Beállítások fejezetben.
 

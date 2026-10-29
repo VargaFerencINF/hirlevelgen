@@ -110,7 +110,7 @@ func AddWebpTwins(files []AssetFile) ([]AssetFile, []string) {
 // RepPhotoSize a programban feltöltött képviselő-fotó mérete (négyzetes, px).
 const RepPhotoSize = 192
 
-// CheckRepPhoto a feltöltött képviselő-fotót ellenőrzi (WEBP, legalább 64×64, legfeljebb 2 MB).
+// CheckRepPhoto a feltöltött képviselő-fotót ellenőrzi (PNG, legalább 64×64, legfeljebb 2 MB).
 func CheckRepPhoto(data []byte) error {
 	if len(data) == 0 {
 		return errors.New("üres kép")
@@ -118,9 +118,9 @@ func CheckRepPhoto(data []byte) error {
 	if len(data) > 2<<20 {
 		return errors.New("a kép túl nagy (legfeljebb 2 MB)")
 	}
-	cfg, err := webp.DecodeConfig(bytes.NewReader(data))
+	cfg, err := png.DecodeConfig(bytes.NewReader(data))
 	if err != nil {
-		return errors.New("a kép nem WEBP formátumú")
+		return errors.New("a kép nem PNG formátumú")
 	}
 	if cfg.Width < 64 || cfg.Height < 64 {
 		return fmt.Errorf("a kép túl kicsi (%d×%d, legalább 64×64 kell)", cfg.Width, cfg.Height)

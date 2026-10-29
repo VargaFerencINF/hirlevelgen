@@ -633,6 +633,7 @@ input[type=checkbox]{width:17px;height:17px;accent-color:var(--orange);cursor:po
 .src-in{display:flex;gap:6px;align-items:center}
 .src-in .inp{padding:6px 10px;font-size:13px}
 .rep-list{display:flex;flex-direction:column;gap:10px;max-height:56vh;overflow:auto}
+.rep-btns{display:flex;gap:6px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
 .rep-row{display:grid;grid-template-columns:40px 220px minmax(0,1fr) auto;gap:12px;align-items:center;border-radius:10px;padding:2px 4px;transition:background .15s}
 .rep-row.drop{background:var(--soft);outline:2px dashed var(--orange)}
 .rep-who .rep-st.warn{color:#9A5B00}

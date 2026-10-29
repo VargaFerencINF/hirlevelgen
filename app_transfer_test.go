@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	h "energofish/hirlevel/internal/hirlevel"
 )
 
 func TestTransferCrypto(t *testing.T) {
@@ -53,7 +55,8 @@ func TestTransferRoundTrip(t *testing.T) {
 	if err := src.savePostmarkTokens(postmarkTokens{Live: "pm-live-TITKOS-1234", Sandbox: "pm-sandbox-TITKOS"}); err != nil {
 		t.Fatal(err)
 	}
-	photo, _ := os.ReadFile("internal/hirlevel/testdata/foto-minta.webp")
+	webpPhoto, _ := os.ReadFile("internal/hirlevel/testdata/foto-minta.webp")
+	photo, _ := h.WebpToPNG(webpPhoto)
 	if code, r := call(t, srcSrv, src.token, "/api/b2b/repphoto", map[string]any{"mono": "GÁL", "data": base64.StdEncoding.EncodeToString(photo)}); code != 200 {
 		t.Fatalf("fotó: %v", r)
 	}
@@ -122,7 +125,7 @@ func TestTransferRoundTrip(t *testing.T) {
 		t.Fatalf("inspect: %d %v", code, r)
 	}
 	sum := r["summary"].(map[string]any)
-	if sum["postmarkLive"] != true || sum["ftpPassword"] != true || sum["images"].(float64) != 2 || sum["unsubs"].(float64) != 1 ||
+	if sum["postmarkLive"] != true || sum["ftpPassword"] != true || sum["images"].(float64) != 1 || sum["unsubs"].(float64) != 1 ||
 		len(sum["sources"].([]any)) != 1 || len(sum["templates"].([]any)) != 1 || sum["from"] != pm.From {
 		t.Errorf("összesítő: %v", sum)
 	}
@@ -154,7 +157,7 @@ func TestTransferRoundTrip(t *testing.T) {
 	if localDir != filepath.Join(dst.configDir, "sajat-kepek") {
 		t.Errorf("saját képek mappája: %s", localDir)
 	}
-	for _, n := range []string{"gal.webp", "gal.png"} {
+	for _, n := range []string{"gal.png"} {
 		if _, err := os.Stat(filepath.Join(localDir, n)); err != nil {
 			t.Errorf("hiányzó kép: %s", n)
 		}

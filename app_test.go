@@ -1203,17 +1203,21 @@ func TestPreviewLocalAssets(t *testing.T) {
 func TestAPIRepPhoto(t *testing.T) {
 	app, srv := newTestServer(t)
 	flushOnCleanup(t, app)
-	photo, _ := os.ReadFile("internal/hirlevel/testdata/foto-minta.webp")
+	webpPhoto, _ := os.ReadFile("internal/hirlevel/testdata/foto-minta.webp")
+	photo, err := h.WebpToPNG(webpPhoto) // a felület PNG-t küld
+	if err != nil {
+		t.Fatal(err)
+	}
 	code, r := call(t, srv, app.token, "/api/b2b/repphoto", map[string]any{"mono": "GÁL", "data": base64.StdEncoding.EncodeToString(photo)})
-	if code != 200 || r["file"] != "gal.webp" || r["png"] != "gal.png" || r["dirCreated"] != true || r["uploaded"] != false || r["ftpNote"] == nil {
+	if code != 200 || r["file"] != "gal.png" || r["dirCreated"] != true || r["uploaded"] != false || r["ftpNote"] == nil {
 		t.Fatalf("%d %v", code, r)
 	}
 	dir := r["dir"].(string)
-	if b, err := os.ReadFile(filepath.Join(dir, "gal.webp")); err != nil || len(b) != len(photo) {
-		t.Error("webp")
+	if b, err := os.ReadFile(filepath.Join(dir, "gal.png")); err != nil || !bytes.Equal(b, photo) {
+		t.Error("png")
 	}
-	if b, err := os.ReadFile(filepath.Join(dir, "gal.png")); err != nil || !bytes.HasPrefix(b, []byte("\x89PNG")) {
-		t.Error("png pár")
+	if _, err := os.Stat(filepath.Join(dir, "gal.webp")); err == nil {
+		t.Error("WEBP nem készülhet")
 	}
 	if app.loadFTPSettings().LocalDir != dir {
 		t.Error("a saját képek mappája nincs beállítva")
@@ -1226,7 +1230,7 @@ func TestAPIRepPhoto(t *testing.T) {
 		res.Body.Close()
 	}
 	for _, bad := range []map[string]any{{"mono": "", "data": base64.StdEncoding.EncodeToString(photo)}, {"mono": "ZSO", "data": "nem base64!"},
-		{"mono": "ZSO", "data": base64.StdEncoding.EncodeToString([]byte("\x89PNG nem webp"))}} {
+		{"mono": "ZSO", "data": base64.StdEncoding.EncodeToString([]byte("\x89PNG hibás"))}, {"mono": "ZSO", "data": base64.StdEncoding.EncodeToString(webpPhoto)}} {
 		if code, r := call(t, srv, app.token, "/api/b2b/repphoto", bad); code != 400 || r["error"] == nil {
 			t.Errorf("hibás kérés: %v → %d", bad["mono"], code)
 		}

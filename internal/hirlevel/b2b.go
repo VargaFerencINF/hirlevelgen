@@ -917,7 +917,8 @@ var B2BTokens = []TokenInfo{
 }
 
 // RepPhotoFile a képviselő fotójának fájlneve a képtárban: a monogram kisbetűvel, ékezet
-// nélkül, .webp kiterjesztéssel (pl. ZSO → zso.webp, GÁL → gal.webp). A betűkön, számokon,
+// nélkül, .png kiterjesztéssel (pl. ZSO → zso.png, GÁL → gal.png; a PNG-t minden levelező, az asztali
+// Outlook is megjeleníti). A betűkön, számokon,
 // kötőjelen és aláhúzáson kívüli jelek kimaradnak; üres monogramnál üres.
 func RepPhotoFile(mono string) string {
 	var b strings.Builder
@@ -931,7 +932,7 @@ func RepPhotoFile(mono string) string {
 	if b.Len() == 0 {
 		return ""
 	}
-	return b.String() + ".webp"
+	return b.String() + ".png"
 }
 
 // B2BToPartner a hírlevél-partner (az Excel-oszlopokkal azonos mezőkkel). A Nev mező a
@@ -957,7 +958,7 @@ func B2BToPartner(p *B2BPartner, row int, group string, o B2BMapOptions) Partner
 	if ph := strings.TrimSpace(o.RepPhotos[p.RepMono]); ph != "" {
 		out.RepPhoto = ph // kézzel megadott fotó (Képviselő-fotók)
 	} else if f := RepPhotoFile(p.RepMono); f != "" {
-		out.RepPhoto = "{assets}/" + url.PathEscape(f) // alapból a képtárból: <monogram kisbetűvel>.webp
+		out.RepPhoto = "{assets}/" + url.PathEscape(f) // alapból a képtárból: <monogram kisbetűvel>.png
 	}
 	out.RepRegion = B2BRegion(group, p.County)
 	extra := map[string]string{

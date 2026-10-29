@@ -75,7 +75,9 @@ func TestWebpToPNGAndTwins(t *testing.T) {
 	if b, _ := twin.read(); int64(len(b)) != twin.Size || !strings.Contains(twin.Source, "PNG pár") {
 		t.Error("pár")
 	}
-	if CheckRepPhoto(photo) != nil || CheckRepPhoto(out) == nil || CheckRepPhoto(nil) == nil {
+	// a képviselő-fotó PNG (a WEBP nem fogadható el)
+	pngPhoto, _ := WebpToPNG(photo)
+	if CheckRepPhoto(pngPhoto) != nil || CheckRepPhoto(photo) == nil || CheckRepPhoto(nil) == nil {
 		t.Error("fotó-ellenőrzés")
 	}
 }
